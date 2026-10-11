@@ -1,0 +1,99 @@
+"""Verified 0.1.4.18 profile: three .NET BinaryWriter UTF-8 strings."""
+import copy
+from datetime import datetime
+import json
+import re
+
+SAVE_NAME = re.compile(r"^\d+PTK_PlayerData_v19tpp0_bt0$")
+MAX_SAVE = 32 * 1024 * 1024
+
+
+def encode_length(number):
+    if not 0 <= number <= MAX_SAVE:
+        raise ValueError("Invalid profile record size.")
+    result = bytearray()
+    while number >= 128:
+        result.append((number & 127) | 128)
+        number >>= 7
+    result.append(number)
+    return bytes(result)
+
+
+class Profile:
+    def __init__(self, data):
+        if not data or len(data) > MAX_SAVE:
+            raise ValueError("Unsupported or oversized profile.")
+        self.original = data
+        self.records = []
+        self.spans = []
+        pos = 0
+        for _ in range(3):
+            start = pos
+            size = 0
+            for shift in range(0, 35, 7):
+                if pos >= len(data):
+                    raise ValueError("Truncated profile record.")
+                number = data[pos]
+                pos += 1
+                size |= (number & 127) << shift
+                if number < 128:
+                    break
+            else:
+                raise ValueError("Invalid profile length prefix.")
+            if size > MAX_SAVE or pos + size > len(data):
+                raise ValueError("Truncated profile data.")
+            self.records.append(data[pos:pos + size].decode("utf-8"))
+            pos += size
+            self.spans.append(data[start:pos])
+        if pos != len(data):
+            raise ValueError("Unknown trailing profile data; importing is disabled.")
+        self.data = json.loads(self.records[2])
+        if not isinstance(self.data, dict) or not isinstance(self.data.get("ItemsGroupDefinedContainers"), list):
+            raise ValueError("Profile has no supported track group list.")
+        self.groups = self.data["ItemsGroupDefinedContainers"]
+
+    def custom_groups(self):
+        return [copy.deepcopy(g) for g in self.groups if
+                g.get("GroupDefinition", {}).get("Type") == 0 and
+                g["GroupDefinition"].get("SubType") == 0 and
+                not g["GroupDefinition"].get("IsDefault", True)]
+
+    def unchanged(self):
+        return self.original
+
+    def import_group(self, group, *, allow_update=False):
+        from .groups import validate, native_items
+        group = validate(group)
+        data = copy.deepcopy(self.data)
+        containers = data["ItemsGroupDefinedContainers"]
+        existing = next((g for g in containers if g["GroupDefinition"]["UniqueID"] == group["id"]), None)
+        if existing is not None:
+            d = existing["GroupDefinition"]
+            if d.get("IsDefault", True) or d.get("Type") != 0 or d.get("SubType") != 0:
+                raise ValueError("Built-in and non-track groups cannot be replaced.")
+            if existing["groupItems"] == native_items(group) and d["Name"] == group["name"]:
+                return self.original, "unchanged"
+            if not allow_update:
+                raise ValueError("Group exists. Review changes and confirm the update.")
+            existing["groupItems"] = native_items(group)
+            d["Name"] = group["name"]
+            outcome = "updated"
+        else:
+            name = group["name"]
+            used = {g["GroupDefinition"]["Name"] for g in containers}
+            number = 2
+            while name in used:
+                name = f"{group['name']} ({number})"
+                number += 1
+            indices = [g["GroupDefinition"].get("Index", -1) for g in containers if
+                       g["GroupDefinition"].get("Type") == 0 and g["GroupDefinition"].get("SubType") == 0]
+            containers.append({"$type": "ItemsGroupDefaultContainer", "groupItems": native_items(group),
+                "GroupDefinition": {"Index": max(indices, default=-1) + 1, "UniqueID": group["id"],
+                    "ManuallySetUniqueID": False, "CanBeModified": True, "CanBeRemoved": True,
+                    "Name": name, "Type": 0, "SubType": 0, "MaxElementsCount": 0,
+                    "IsForGP": False, "CreationDate": datetime.now().astimezone().isoformat(), "IsDefault": False}})
+            outcome = "added"
+        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        result = self.spans[0] + self.spans[1] + encode_length(len(raw)) + raw
+        Profile(result)  # Never return bytes that our decoder cannot read.
+        return result, outcome
