@@ -55,6 +55,7 @@ npm test
 npm run format:check
 npm run build
 python tools/build_portable.py
+./tools/smoke_portable.ps1 -PortableFolder ./artifacts/TK2-Track-Groups-0.1.0-dev-win-x64
 ```
 
 The build creates a portable folder and ZIP under ignored `artifacts/`. It bundles Python and compiled UI assets, excludes developer dependencies, and never bundles `steam_api64.dll`. A dedicated helper loads that DLL from the installed game and uses the existing Steam client; it does not launch a second game instance.
@@ -70,3 +71,5 @@ The build creates a portable folder and ZIP under ignored `artifacts/`. It bundl
 | `tests/`, `tools/`, `.github/workflows/` | Checks, builds, catalog validation |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [format/evidence notes](docs/FORMAT.md). Tool code is MIT licensed; tracks and game content retain their authors' rights.
+
+See the [verification record](docs/VERIFICATION.md) for completed real-account/game tests and remaining test limits. The portable smoke check requires Steam and the supported game, and must run with this app and the game closed.

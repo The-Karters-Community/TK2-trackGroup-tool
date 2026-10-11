@@ -1,0 +1,47 @@
+param([Parameter(Mandatory=$true)][string]$PortableFolder)
+$ErrorActionPreference = 'Stop'
+$tgRepo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$tgLocal = [IO.Path]::GetFullPath((Join-Path $tgRepo 'local'))
+$tgTest = Join-Path $tgLocal ('portable-smoke-' + [guid]::NewGuid().ToString())
+Copy-Item -LiteralPath $PortableFolder -Destination $tgTest -Recurse
+$tgOldPath = $env:PATH
+$tgApp = $null
+try {
+    # The built app and its helper must run without Python, Node or npm on PATH.
+    $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+    $tgApp = Start-Process -FilePath (Join-Path $tgTest 'TK2 Track Groups.exe') -WorkingDirectory $env:TEMP -WindowStyle Hidden -PassThru
+    $tgSessionFile = Join-Path $env:LOCALAPPDATA 'TK2 Track Groups\session.json'
+    $tgLimit = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        Start-Sleep -Milliseconds 200
+        if ($tgApp.HasExited) { throw 'Portable application exited during startup.' }
+        try { $tgSession = Get-Content -LiteralPath $tgSessionFile -Raw | ConvertFrom-Json } catch { $tgSession = $null }
+    } until (($tgSession -and $tgSession.pid -eq $tgApp.Id) -or [DateTime]::UtcNow -gt $tgLimit)
+    if (-not $tgSession -or $tgSession.pid -ne $tgApp.Id) { throw 'No portable session created.' }
+    $tgHeaders = @{'X-TK2-Token'=$tgSession.token}
+    $tgHealth = Invoke-RestMethod -Uri "$($tgSession.origin)/api/health"
+    if ($tgHealth.version -ne '0.1.0-dev') { throw 'Unexpected app version.' }
+    Invoke-RestMethod -Uri "$($tgSession.origin)/api/refresh" -Method Post -Headers $tgHeaders -ContentType application/json -Body '{}' | Out-Null
+    $tgLimit = [DateTime]::UtcNow.AddSeconds(60)
+    do {
+        Start-Sleep -Milliseconds 300
+        $tgState = Invoke-RestMethod -Uri "$($tgSession.origin)/api/state" -Headers $tgHeaders
+    } until ($tgState.job.state -ne 'running' -or [DateTime]::UtcNow -gt $tgLimit)
+    if ($tgState.job.state -ne 'completed' -or -not $tgState.steamConnected -or $tgState.syncError) { throw "Steam/profile validation failed: $($tgState.job.message) $($tgState.syncError)" }
+    if ($tgState.groups.Count -ne 3 -or $tgState.localGroups.Count -lt 3) { throw 'Expected library/profile groups were not found.' }
+    $tgChildren = @(Get-CimInstance Win32_Process | Where-Object {$_.ParentProcessId -eq $tgApp.Id} | Select-Object -ExpandProperty ProcessId)
+    Invoke-RestMethod -Uri "$($tgSession.origin)/api/shutdown" -Method Post -Headers $tgHeaders -ContentType application/json -Body '{}' | Out-Null
+    if (-not $tgApp.WaitForExit(15000)) { throw 'Native app did not exit cleanly.' }
+    Start-Sleep -Milliseconds 1000
+    foreach ($tgChild in $tgChildren) {
+        if (Get-Process -Id $tgChild -ErrorAction SilentlyContinue) { throw "Child process remains after closing: $tgChild" }
+    }
+    $tgResolved = [IO.Path]::GetFullPath($tgTest)
+    if (-not $tgResolved.StartsWith($tgLocal + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe test directory.' }
+    Remove-Item -LiteralPath $tgResolved -Recurse -Force
+    if (Test-Path -LiteralPath $tgResolved) { throw 'Portable folder remains after deletion.' }
+    Write-Output 'PASS: relocated app, no developer PATH, live Steam/profile access, native shutdown, child exit, folder deletion.'
+} finally {
+    $env:PATH = $tgOldPath
+    # Failed tests retain their folder and diagnostics; no game processes are killed.
+}

@@ -35,7 +35,7 @@ if __name__ == '__main__':
         if not output.resolve().is_relative_to((ROOT / 'artifacts').resolve()): raise SystemExit('Unsafe output.')
         shutil.rmtree(output)
     shutil.move(str(ROOT / 'artifacts/build/TK2 Track Groups'), output)
-    for name in ('README.md', 'LICENSE'): shutil.copy2(ROOT / name, output / name)
+    for name in ('README.md', 'CONTRIBUTING.md', 'LICENSE'): shutil.copy2(ROOT / name, output / name)
     shutil.copytree(ROOT / 'docs', output / 'docs')
     forbidden = list(output.rglob('steam_api*')) + list(output.rglob('GameAssembly.dll'))
     if forbidden: raise SystemExit('Build contains game files: ' + str(forbidden))

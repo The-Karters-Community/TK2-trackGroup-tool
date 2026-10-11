@@ -87,7 +87,8 @@ def make_server(service):
                     if service.job and service.job["state"] == "running":
                         raise ValueError("Cancel or finish the current operation before closing.")
                     result = {"message": "Closed."}
-                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+                    close = self.server.window.destroy if getattr(self.server, "window", None) else self.server.shutdown
+                    threading.Thread(target=close, daemon=True).start()
                 else: raise ValueError("Unknown action.")
                 self.reply(200, result)
             except Exception as exc:
@@ -124,6 +125,7 @@ def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     window = webview.create_window("TK2 Track Groups", server.origin, width=1180, height=820, min_size=(760, 560))
+    server.window = window
 
     def closing():
         if service.job and service.job["state"] == "running":

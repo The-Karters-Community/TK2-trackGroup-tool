@@ -36,6 +36,12 @@ export default function ImportDialog({ preview, onCancel, onConfirm, busy }) {
           <strong>{preview.pendingDownloads.length}</strong> pending downloads
         </span>
       </div>
+      {preview.previousName &&
+        preview.previousName !== preview.destinationName && (
+          <p className="notice">
+            Name: {preview.previousName} → {preview.destinationName}
+          </p>
+        )}
       {previous.length > 0 && preview.outcome === "updated" && (
         <div className="change-list">
           <h3>Track order changes</h3>

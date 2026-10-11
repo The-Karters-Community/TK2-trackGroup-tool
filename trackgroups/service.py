@@ -144,6 +144,7 @@ class Service:
                 preview = {"token": key, "outcome": outcome, "group": group,
                     "destinationName": next(g["GroupDefinition"]["Name"] for g in Profile(updated).custom_groups() if g["GroupDefinition"]["UniqueID"] == group["id"]),
                     "previousTracks": existing["groupItems"] if existing else [],
+                    "previousName": existing["GroupDefinition"]["Name"] if existing else None,
                     "missingSubscriptions": [item for item in ids if not r["status"][item]["subscribed"]],
                     "pendingDownloads": [item for item in ids if not r["status"][item]["ready"]]}
                 with self.lock:

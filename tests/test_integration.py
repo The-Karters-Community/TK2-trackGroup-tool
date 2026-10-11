@@ -33,6 +33,50 @@ class CatalogTests(unittest.TestCase):
 
 
 class InstallTests(unittest.TestCase):
+    def test_delayed_download_waits_before_commit_and_failed_download_never_commits(self):
+        for accepted in (True, False):
+            with self.subTest(downloadAccepted=accepted), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder); name = '1009PTK_PlayerData_v19tpp0_bt0'; before = profile()
+                (root / name).write_bytes(before)
+                g = group(); g['tracks'] = g['tracks'][1:]
+                write_json(root / 'request.json', {'game':'fixture', 'action':'install', 'group':g,
+                    'profile':name, 'account':'test', 'expectedHash':digest(before)})
+                calls = []
+                class Steam:
+                    account = 'test'
+                    ticks = 0
+                    subscribed = False
+                    def __init__(self, game): self.dll = self
+                    def close(self): pass
+                    def read_save(self, name): return before
+                    def storage_call(self, *_): return True
+                    def details(self, ids, *_): return {ids[0]: {'available':True, 'modId':'example'}}
+                    def item_status(self, item): return {'subscribed':self.subscribed, 'ready':self.ticks >= 2}
+                    def subscribe(self, *_): self.subscribed = True; calls.append('subscribe')
+                    def ugc_call(self, name, *_): calls.append(name); return accepted
+                    def installed(self, item): return self.ticks >= 2
+                    def SteamAPI_RunCallbacks(self): self.ticks += 1
+                def save(steam, *_):
+                    self.assertGreaterEqual(steam.ticks, 2)
+                    calls.append('commit')
+                    return {'outcome':'added'}
+                with patch.object(worker, 'Steam', Steam), patch('trackgroups.runtime.PROFILE_DIR', root), patch('trackgroups.runtime.game_running', return_value=False), patch('trackgroups.transaction.commit', side_effect=save), patch.object(worker.time, 'sleep'):
+                    worker.run(root)
+                result = json.loads((root / 'result.json').read_text(encoding='utf-8'))
+                self.assertEqual((root / name).read_bytes(), before)
+                if accepted:
+                    self.assertEqual(calls, ['subscribe', 'DownloadItem', 'commit'])
+                    self.assertEqual(result['newSubscriptions'], ['3263970719'])
+                else:
+                    self.assertNotIn('commit', calls)
+                    self.assertIn('remain', result['error'])
+
+    def test_steam_unavailable_returns_error_without_save_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); write_json(root / 'request.json', {'game':'fixture', 'action':'snapshot'})
+            with patch.object(worker, 'Steam', side_effect=ValueError('Steam unavailable')): worker.run(root)
+            self.assertEqual(json.loads((root / 'result.json').read_text(encoding='utf-8'))['error'], 'Steam unavailable')
+
     def test_worker_reads_unicode_requests_as_utf8(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
