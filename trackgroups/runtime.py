@@ -68,10 +68,13 @@ class Worker:
                     if time.monotonic() > deadline:
                         # Do not interrupt a save transaction halfway through recovery.
                         (folder / "cancel").touch()
-                        if action == "commit":
-                            raise ValueError("Save worker is taking too long. Do not launch the game; check worker diagnostics before retrying.")
-                        process.terminate()
-                        raise ValueError("Steam worker timed out.")
+                        if action == "install":
+                            progress({"message": "Waiting for the save worker to finish safely…"})
+                            deadline = float("inf")
+                        else:
+                            process.terminate()
+                            process.wait()
+                            raise ValueError("Steam worker timed out.")
                     try: progress(json.loads((folder / "progress.json").read_text()))
                     except (OSError, ValueError): pass
                     time.sleep(.15)

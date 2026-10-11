@@ -161,7 +161,8 @@ class Steam:
         if not self.ugc_call("GetItemInstallInfo", int(item), C.byref(size), directory, len(directory), C.byref(timestamp)):
             return False
         # Verify Steam's installation exists, without exposing arbitrary file paths to the UI.
-        return Path(directory.value.decode("utf-8")).is_dir()
+        from .content import verify_installation
+        return verify_installation(Path(directory.value.decode("utf-8")), item)
 
     def subscribe(self, item, cancelled=lambda: False):
         # RemoteStorageSubscribePublishedFileResult_t: EResult + padding + PublishedFileId.

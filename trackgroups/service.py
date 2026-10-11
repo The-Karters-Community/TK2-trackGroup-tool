@@ -27,6 +27,7 @@ class Service:
         self.profile = selected if selected in self.profiles else self.profiles[0] if len(self.profiles) == 1 else ""
         self.groups = catalog.load()
         self.items = {}
+        self.track_status = {}
         self.account = ""
         self.cloud_enabled = False
         self.sync_error = "Connect Steam to verify your profile before importing."
@@ -38,7 +39,10 @@ class Service:
 
     def load_local(self):
         if not self.profile: self.local_groups = []; return
-        self.local_groups = Profile((PROFILE_DIR / self.profile).read_bytes()).custom_groups()
+        try: self.local_groups = Profile((PROFILE_DIR / self.profile).read_bytes()).custom_groups()
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self.local_groups = []
+            self.sync_error = "Could not read this profile: " + str(exc)
 
     def supported_game(self):
         p = Path(self.game)
@@ -76,12 +80,11 @@ class Service:
                     local.append({**export_native(native, mapping), "exportReady": True})
                 except ValueError as exc:
                     local.append({"id": d["UniqueID"], "name": d["Name"], "tracks": [{"kind": "workshop" if x["modHashID"] else "official"} for x in native["groupItems"]], "exportReady": False, "reason": str(exc)})
-            import sys
-            return {"version": VERSION + ("" if getattr(sys, "frozen", False) else "-dev"),
+            return {"version": VERSION,
                 "groups": [self.summary(g) for g in self.groups], "localGroups": local,
                 "settings": {"game": self.game, "profile": self.profile, "profiles": self.profiles,
                     "profileDirectory": str(PROFILE_DIR), "dataDirectory": str(DATA)},
-                "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled,
+                "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled, "trackStatus": copy.deepcopy(self.track_status),
                 "syncError": self.sync_error, "job": copy.deepcopy(self.job)}
 
     def start_job(self, action, body):
@@ -100,7 +103,7 @@ class Service:
         try:
             if action == "catalog":
                 self.progress({"message": "Refreshing reviewed community groups…"})
-                values = catalog.refresh()
+                values = catalog.refresh(self.cancel.is_set)
                 with self.lock: self.groups = values
                 result = {"message": "Community library refreshed."}
             elif action == "refresh":
@@ -109,9 +112,12 @@ class Service:
                 r = Worker(self.game).request("snapshot", {"profile": self.profile}, self.progress, self.cancel.is_set)
                 with self.lock:
                     self.account = r["account"]; self.items = r["items"]; self.cloud_enabled = r["cloudEnabled"]
+                    self.track_status = r.get("status", {})
                     self.load_local()
                     self.sync_error = "" if self.profile and base64.b64decode(r["save"]) == (PROFILE_DIR / self.profile).read_bytes() else "Local and Steam saves disagree, or no profile is selected. Resolve the sync before importing."
                     if not self.cloud_enabled: self.sync_error = "Enable Steam Cloud for this game before importing."
+                    from .transaction import require_recovered
+                    require_recovered(DATA / "backups", PROFILE_DIR / self.profile)
                 result = {"message": "Steam connected. Track metadata refreshed."}
             elif action == "preview":
                 self.supported_game()
@@ -128,6 +134,7 @@ class Service:
                             raise ValueError("Unavailable or mismatched Workshop track: " + t.get("title", t["modId"]))
                 local = (PROFILE_DIR / self.profile).read_bytes()
                 p = Profile(local)
+                p.validate_official_tracks(group)
                 updated, outcome = p.import_group(group, allow_update=True)
                 existing = next((g for g in p.custom_groups() if g["GroupDefinition"]["UniqueID"] == group["id"]), None)
                 key = str(uuid.uuid4())
@@ -148,6 +155,8 @@ class Service:
                 result = Worker(self.game).request("install", {"group": preview["group"], "expectedHash": preview["hash"],
                     "account": preview["account"], "profile": preview["profile"], "allowUpdate": True}, self.progress, self.cancel.is_set)
                 with self.lock: self.load_local()
+                for track in preview["group"]["tracks"]:
+                    if track["kind"] == "workshop": self.track_status[track["workshopId"]] = {"subscribed": True, "ready": True}
                 result["message"] = "Group " + result["outcome"] + ". You can start the game."
             with self.lock: self.job.update(state="completed", result=result, message=result["message"])
         except Exception as exc:

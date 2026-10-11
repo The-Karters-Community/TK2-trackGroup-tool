@@ -14,6 +14,13 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def require_recovered(backups, path):
+    for file in Path(backups).glob("*/transaction.json"):
+        journal = json.loads(file.read_text(encoding="utf-8"))
+        if journal.get("profile") == str(path) and journal.get("state") in ("prepared", "recovery-required"):
+            raise ValueError("An earlier save transaction needs recovery. Keep the game closed. See docs/RECOVERY.md. Diagnostics: " + str(file.parent))
+
+
 def atomic_bytes(path, data):
     descriptor, temp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
     try:
@@ -31,6 +38,7 @@ def commit(steam, path, group, expected_hash, account, allow_update=False, *, ba
     if not SAVE_NAME.fullmatch(path.name):
         raise ValueError("Unsupported profile filename.")
     if running(): raise ValueError("Close The Karters 2 before importing.")
+    require_recovered(backups or DATA / "backups", path)
     if steam.account != account:
         raise ValueError("Steam account changed since preview. Refresh and preview again.")
     before = path.read_bytes()

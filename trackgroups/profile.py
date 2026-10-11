@@ -61,6 +61,16 @@ class Profile:
     def unchanged(self):
         return self.original
 
+    def validate_official_tracks(self, group):
+        known = {item["configID"] for container in self.groups
+                 if container["GroupDefinition"].get("IsDefault")
+                 and container["GroupDefinition"].get("Type") == 0
+                 and container["GroupDefinition"].get("SubType") == 0
+                 for item in container.get("groupItems", []) if not item.get("modHashID")}
+        for track in group["tracks"]:
+            if track["kind"] == "official" and track["configId"] not in known:
+                raise ValueError("Unknown official track configuration: " + str(track["configId"]))
+
     def import_group(self, group, *, allow_update=False):
         from .groups import validate, native_items
         group = validate(group)

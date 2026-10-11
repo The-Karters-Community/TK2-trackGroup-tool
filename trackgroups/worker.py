@@ -22,7 +22,8 @@ def run(folder):
             ids = steam.subscribed()
             details = steam.details(ids, lambda: (folder / "cancel").exists())
             result = {"account": steam.account, "items": details,
-                "cloudEnabled": bool(steam.storage_call("IsCloudEnabledForAccount") and steam.storage_call("IsCloudEnabledForApp"))}
+                "cloudEnabled": bool(steam.storage_call("IsCloudEnabledForAccount") and steam.storage_call("IsCloudEnabledForApp")),
+                "status": {item: steam.item_status(item) for item in ids}}
             if request.get("profile"):
                 data = steam.read_save(request["profile"])
                 result["save"] = base64.b64encode(data).decode()
@@ -45,13 +46,14 @@ def run(folder):
             from .groups import validate
             from .transaction import commit, digest
             from .runtime import PROFILE_DIR, game_running
-            from .profile import SAVE_NAME
+            from .profile import SAVE_NAME, Profile
             group = validate(request["group"])
             name = request["profile"]
             if not SAVE_NAME.fullmatch(name): raise ValueError("Invalid profile selection.")
             if game_running(): raise ValueError("Close the game before importing.")
             if steam.account != request["account"]: raise ValueError("Steam account changed. Preview again.")
             local = (PROFILE_DIR / name).read_bytes()
+            Profile(local).validate_official_tracks(group)
             if digest(local) != request["expectedHash"] or steam.read_save(name) != local:
                 raise ValueError("Profile changed or Steam save differs. Refresh before importing.")
             if not steam.storage_call("IsCloudEnabledForAccount") or not steam.storage_call("IsCloudEnabledForApp"):
@@ -94,6 +96,9 @@ def run(folder):
             raise ValueError("Unknown Steam worker action.")
         write_json(folder / "result.json", result)
     except Exception as exc:
-        write_json(folder / "result.json", {"error": str(exc)})
+        completed = locals().get("subscribed", [])
+        message = str(exc)
+        if completed: message += ". Completed subscriptions remain: " + ", ".join(completed)
+        write_json(folder / "result.json", {"error": message, "newSubscriptions": completed})
     finally:
         if steam is not None: steam.close()

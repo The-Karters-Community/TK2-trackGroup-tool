@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import time
 import urllib.request
 
 from .groups import validate
@@ -44,13 +45,16 @@ def fetch(name):
     return raw
 
 
-def refresh():
+def refresh(cancelled=lambda: False):
+    deadline = time.monotonic() + 120
     index_raw = fetch("index.json")
     index = json.loads(index_raw)
     if index.get("version") != 1 or not isinstance(index.get("groups"), list) or len(index["groups"]) > 1000:
         raise ValueError("Unsupported remote catalog.")
     entries = []
     for entry in index["groups"]:
+        if cancelled(): raise ValueError("Library refresh cancelled. Offline library retained.")
+        if time.monotonic() > deadline: raise ValueError("Library refresh timed out. Offline library retained.")
         name = entry["file"]
         if not NAME.fullmatch(name): raise ValueError("Unsafe catalog filename.")
         raw = fetch(name)
