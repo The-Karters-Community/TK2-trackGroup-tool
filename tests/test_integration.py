@@ -13,6 +13,7 @@ from trackgroups.app import make_server
 from trackgroups.content import verify_installation
 from trackgroups.profile import Profile, encode_length
 from trackgroups.transaction import digest
+from trackgroups.runtime import write_json
 from test_profile import group, profile
 
 
@@ -32,6 +33,20 @@ class CatalogTests(unittest.TestCase):
 
 
 class InstallTests(unittest.TestCase):
+    def test_worker_reads_unicode_requests_as_utf8(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            write_json(root / 'request.json', {'game': '雪 — Pelit', 'action': 'details', 'ids': []})
+            seen = []
+            class Steam:
+                account = 'test'
+                def __init__(self, game): seen.append(game)
+                def close(self): pass
+                def details(self, ids): return {}
+            with patch.object(worker, 'Steam', Steam): worker.run(root)
+            self.assertEqual(seen, ['雪 — Pelit'])
+            self.assertNotIn('error', json.loads((root / 'result.json').read_text(encoding='utf-8')))
+
     def test_catalog_checks_item_namespace_scene_and_bundles(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / '2269950' / '123'; root.mkdir(parents=True)

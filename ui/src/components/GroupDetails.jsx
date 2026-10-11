@@ -16,6 +16,18 @@ export default function GroupDetails({
   trackStatus = {},
 }) {
   const count = counts(group);
+  function preview() {
+    const { format, version, id, revision, name, description, tracks } = group;
+    onPreview({
+      format,
+      version,
+      id,
+      revision,
+      name,
+      tracks,
+      ...(description === undefined ? {} : { description }),
+    });
+  }
   return (
     <aside className="details" aria-label="Group details">
       <div className="flex items-center justify-between">
@@ -39,7 +51,7 @@ export default function GroupDetails({
       <button
         className="primary w-full"
         disabled={busy || (local ? !group.exportReady : !connected)}
-        onClick={() => (local ? onExport(group) : onPreview(group))}
+        onClick={() => (local ? onExport(group) : preview())}
       >
         <DownloadIcon />
         {local ? "Export group" : "Preview import"}

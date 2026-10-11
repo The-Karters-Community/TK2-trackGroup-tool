@@ -18,7 +18,7 @@ from .transaction import digest
 class Service:
     def __init__(self):
         self.lock = threading.RLock()
-        try: self.preferences = json.loads((DATA / "preferences.json").read_text())
+        try: self.preferences = json.loads((DATA / "preferences.json").read_text(encoding="utf-8"))
         except (OSError, ValueError): self.preferences = {}
         games = discover_games()
         self.game = self.preferences.get("game", games[0] if games else "")
@@ -47,7 +47,7 @@ class Service:
     def supported_game(self):
         p = Path(self.game)
         info = p / "build-info.txt"
-        if not info.is_file() or "Version: 0.1.4.18\n" not in info.read_text().replace("\r\n", "\n"):
+        if not info.is_file() or "Version: 0.1.4.18\n" not in info.read_text(encoding="utf-8").replace("\r\n", "\n"):
             raise ValueError("This tool currently supports game build 0.1.4.18. Select that installation in Settings.")
 
     def settings(self, body):
@@ -117,7 +117,10 @@ class Service:
                     self.sync_error = "" if self.profile and base64.b64decode(r["save"]) == (PROFILE_DIR / self.profile).read_bytes() else "Local and Steam saves disagree, or no profile is selected. Resolve the sync before importing."
                     if not self.cloud_enabled: self.sync_error = "Enable Steam Cloud for this game before importing."
                     from .transaction import require_recovered
-                    require_recovered(DATA / "backups", PROFILE_DIR / self.profile)
+                    try: require_recovered(DATA / "backups", PROFILE_DIR / self.profile)
+                    except ValueError as exc:
+                        self.sync_error = str(exc)
+                        raise
                 result = {"message": "Steam connected. Track metadata refreshed."}
             elif action == "preview":
                 self.supported_game()

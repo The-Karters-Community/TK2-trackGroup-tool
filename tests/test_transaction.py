@@ -1,5 +1,6 @@
 from pathlib import Path
 import tempfile
+import json
 import unittest
 from unittest.mock import patch
 
@@ -43,3 +44,35 @@ class TransactionTests(unittest.TestCase):
     def test_running_game_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Close'):
             commit(FakeSteam(profile()), Path('1009PTK_PlayerData_v19tpp0_bt0'), group(), '', 'account', running=lambda: True)
+
+    def test_unfinished_transaction_blocks_new_write(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); p = root / '1009PTK_PlayerData_v19tpp0_bt0'; p.write_bytes(profile())
+            prior = root / 'backups/prior'; prior.mkdir(parents=True)
+            (prior / 'transaction.json').write_text(json.dumps({'profile': str(p), 'state': 'prepared'}))
+            steam = FakeSteam(profile())
+            with self.assertRaisesRegex(ValueError, 'recovery'):
+                commit(steam, p, group(), digest(profile()), 'account', backups=root / 'backups', running=lambda: False)
+            self.assertFalse(steam.writes)
+
+    def test_cloud_write_failure_preserves_local(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); p = root / '1009PTK_PlayerData_v19tpp0_bt0'; p.write_bytes(profile())
+            steam = FakeSteam(profile())
+            with patch.object(steam, 'write_save', side_effect=OSError('Steam offline')):
+                with self.assertRaisesRegex(ValueError, 'original save'):
+                    commit(steam, p, group(), digest(profile()), 'account', backups=root / 'backups', running=lambda: False)
+            self.assertEqual(p.read_bytes(), profile())
+
+    def test_external_cloud_change_is_not_overwritten_by_recovery(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); p = root / '1009PTK_PlayerData_v19tpp0_bt0'; p.write_bytes(profile())
+            steam = FakeSteam(profile()); external = b'new external progress'
+            def locked(*_):
+                steam.data = external
+                raise OSError('Local file locked')
+            with patch('trackgroups.transaction.atomic_bytes', side_effect=locked):
+                with self.assertRaisesRegex(ValueError, 'recovery needs attention'):
+                    commit(steam, p, group(), digest(profile()), 'account', backups=root / 'backups', running=lambda: False)
+            self.assertEqual(steam.data, external)
+            self.assertEqual(p.read_bytes(), profile())

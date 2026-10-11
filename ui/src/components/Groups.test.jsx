@@ -5,6 +5,25 @@ import Library from "../pages/Library.jsx";
 import GroupDetails from "./GroupDetails.jsx";
 
 afterEach(cleanup);
+test("preview excludes UI-only group fields", () => {
+  const onPreview = vi.fn();
+  const portable = {
+    ...group,
+    format: "tk2-track-group",
+    version: 1,
+    revision: 1,
+  };
+  render(
+    <GroupDetails
+      group={{ ...portable, importState: "installed" }}
+      connected
+      onPreview={onPreview}
+      onClose={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Preview import" }));
+  expect(onPreview).toHaveBeenCalledWith(portable);
+});
 const group = {
   id: "test",
   name: "My ordered group",

@@ -133,10 +133,10 @@ def main():
         return True
 
     window.events.closing += closing
-    try: webview.start()
+    try: webview.start(gui="edgechromium")
     finally:
         server.shutdown(); server.server_close()
         session = DATA / "session.json"
         try:
-            if json.loads(session.read_text()).get("pid") == os.getpid(): session.unlink()
+            if json.loads(session.read_text(encoding="utf-8")).get("pid") == os.getpid(): session.unlink()
         except (OSError, ValueError): pass

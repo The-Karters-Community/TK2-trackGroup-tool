@@ -13,7 +13,7 @@ def run(folder):
     folder = Path(folder)
     steam = None
     try:
-        request = json.loads((folder / "request.json").read_text())
+        request = json.loads((folder / "request.json").read_text(encoding="utf-8"))
         steam = Steam(request["game"])
         action = request["action"]
         cancelled = lambda: (folder / "cancel").exists()
@@ -44,13 +44,15 @@ def run(folder):
             result = {"unchanged": steam.read_save(request["profile"]) == data}
         elif action == "install":
             from .groups import validate
-            from .transaction import commit, digest
+            from .transaction import commit, digest, require_recovered
             from .runtime import PROFILE_DIR, game_running
             from .profile import SAVE_NAME, Profile
             group = validate(request["group"])
             name = request["profile"]
             if not SAVE_NAME.fullmatch(name): raise ValueError("Invalid profile selection.")
             if game_running(): raise ValueError("Close the game before importing.")
+            from .runtime import DATA
+            require_recovered(DATA / "backups", PROFILE_DIR / name)
             if steam.account != request["account"]: raise ValueError("Steam account changed. Preview again.")
             local = (PROFILE_DIR / name).read_bytes()
             Profile(local).validate_official_tracks(group)

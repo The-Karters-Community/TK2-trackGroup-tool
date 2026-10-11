@@ -42,7 +42,7 @@ def discover_games():
     for root in roots:
         vdf = root / "steamapps/libraryfolders.vdf"
         if vdf.is_file():
-            libraries.extend(Path(x.replace("\\\\", "\\")) for x in re.findall(r'"path"\s*"([^"]+)"', vdf.read_text(errors="replace")))
+            libraries.extend(Path(x.replace("\\\\", "\\")) for x in re.findall(r'"path"\s*"([^"]+)"', vdf.read_text(encoding="utf-8", errors="replace")))
     return [str(p) for p in dict.fromkeys(library / "steamapps/common/The Karters 2 Turbo Charged" for library in libraries)
             if (p / "TheKarters2.exe").is_file()]
 
@@ -75,13 +75,13 @@ class Worker:
                             process.terminate()
                             process.wait()
                             raise ValueError("Steam worker timed out.")
-                    try: progress(json.loads((folder / "progress.json").read_text()))
+                    try: progress(json.loads((folder / "progress.json").read_text(encoding="utf-8")))
                     except (OSError, ValueError): pass
                     time.sleep(.15)
                 result_file = folder / "result.json"
                 if not result_file.is_file():
                     raise ValueError("Steam helper stopped unexpectedly. Your group was not confirmed as imported.")
-                result = json.loads(result_file.read_text())
+                result = json.loads(result_file.read_text(encoding="utf-8"))
                 if "error" in result: raise ValueError(result["error"])
                 return result
             finally:
