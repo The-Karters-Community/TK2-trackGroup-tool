@@ -7,7 +7,7 @@ Follow the root README for setup. This repository is independent of TK2-Mod-SDK.
 1. Create and order the custom group in the game. Close the game and connect Steam in this app.
 2. Export from **My groups**. Correct unresolved Workshop dependencies first.
 3. Copy the export into `catalog/<group-id>.tk2group.json`. Preserve its ID and order; optionally add a concise description.
-4. Add its filename and SHA-256 to `catalog/index.json`. For an existing group, keep its ID and increase `revision` when changing its name/order/dependencies. The index and format versions remain 1.
+4. Run `python tools/check_catalog.py --write-index` to normalize JSON line endings and regenerate filenames/checksums in `catalog/index.json`. For an existing group, keep its ID and increase `revision` when changing its name/order/dependencies. The index and format versions remain 1.
 5. Run `python tools/check_catalog.py` and tests, then submit a pull request. Include evidence that dependencies are public compatible tracks and match their internal mod IDs.
 
 CI validates allowed fields, ordered references, IDs, dependency types, uniqueness, and checksums. CI cannot authenticate to Steam: maintainers must review live availability before merging. Never include profiles, account identifiers, upload keys/passwords, or track bundles.
