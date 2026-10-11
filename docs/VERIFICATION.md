@@ -4,7 +4,7 @@ Development version: **0.1.0-dev**. Game: **0.1.4.18**, app ID **2269950**. Wind
 
 ## Automated
 
-- 26 Python tests: unchanged profile round trips; Unicode; ordered mixed imports; duplicate no-op imports; confirmed updates; numbered copies; unrelated field/record preservation; malformed/private-field exports; unresolved dependencies; catalog integrity/offline fallback; failed subscriptions/downloads; cancellation; delayed downloads; unavailable Steam; changed account/profile; Cloud conflict; failed writes; interrupted journals; external-save-safe recovery; helper UTF-8; HTTP session/host/origin guards.
+- 28 Python tests: unchanged profile round trips; Unicode; ordered mixed imports; duplicate no-op imports; confirmed updates; numbered copies; unrelated field/record preservation; malformed/private-field exports; unresolved dependencies; catalog integrity/offline fallback and pinned revisions; failed subscriptions/downloads; cancellation; delayed downloads; unavailable Steam; changed account/profile; Cloud conflict; failed writes; interrupted journals; external-save-safe recovery; helper UTF-8; HTTP session/host/origin guards.
 - 3 React tests: list/search/order, unresolved export controls, and removal of display-only fields from import requests.
 - Catalog validator: 3 groups, 58 ordered references, 42 Workshop references. IDs, names, and order came from the actual custom groups. Checksums and shared dependency mappings validate.
 - Vite production build and formatting checks pass. The portable ZIP is approximately 14.5 MiB.

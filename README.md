@@ -24,7 +24,7 @@ Portable builds contain the runtime and compiled interface. Extract the entire f
 | Seren 24-Track SR.com | 0 | 24 |
 | CTR99 SR.com | 0 | 18 |
 
-The saved official group name contains two spaces before `SR.com`; exports preserve it exactly. Official tracks currently display their configuration IDs. Workshop titles come from public Steam metadata. **Refresh library** checks this repository's public `main/catalog/`; the last validated library stays available offline.
+The saved official group name contains two spaces before `SR.com`; exports preserve it exactly. Official tracks currently display their configuration IDs. Workshop titles come from public Steam metadata. **Refresh library** resolves this repository's public `main` commit, then fetches its catalog and groups from that same revision. The last validated library stays available offline, including when GitHub is unavailable or rate-limited.
 
 ## Save safety
 

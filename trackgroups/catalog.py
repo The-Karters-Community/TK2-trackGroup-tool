@@ -9,7 +9,8 @@ import urllib.request
 from .groups import validate
 from .runtime import DATA, ROOT, write_json
 
-BASE = "https://raw.githubusercontent.com/The-Karters-Community/TK2-trackGroup-tool/main/catalog/"
+REPOSITORY = "The-Karters-Community/TK2-trackGroup-tool"
+BASE = "https://raw.githubusercontent.com/" + REPOSITORY + "/{revision}/catalog/"
 NAME = re.compile(r"^[0-9a-f-]{36}\.tk2group\.json$")
 
 
@@ -37,17 +38,30 @@ def read_catalog(folder):
     return result
 
 
-def fetch(name):
-    request = urllib.request.Request(BASE + name, headers={"User-Agent": "TK2-Track-Groups/0.1"})
+def download(url):
+    request = urllib.request.Request(url, headers={"User-Agent": "TK2-Track-Groups/0.1"})
     with urllib.request.urlopen(request, timeout=8) as response:
         raw = response.read(1024 * 1024 + 1)
     if len(raw) > 1024 * 1024: raise ValueError("Catalog download exceeds limit.")
     return raw
 
 
+def resolve_revision():
+    value = json.loads(download("https://api.github.com/repos/" + REPOSITORY + "/git/ref/heads/main"))
+    revision = value.get("object", {}).get("sha", "")
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError("Invalid catalog revision. Offline library retained.")
+    return revision
+
+
+def fetch(name, revision):
+    return download(BASE.format(revision=revision) + name)
+
+
 def refresh(cancelled=lambda: False):
     deadline = time.monotonic() + 120
-    index_raw = fetch("index.json")
+    revision = resolve_revision()
+    index_raw = fetch("index.json", revision)
     index = json.loads(index_raw)
     if index.get("version") != 1 or not isinstance(index.get("groups"), list) or len(index["groups"]) > 1000:
         raise ValueError("Unsupported remote catalog.")
@@ -57,7 +71,7 @@ def refresh(cancelled=lambda: False):
         if time.monotonic() > deadline: raise ValueError("Library refresh timed out. Offline library retained.")
         name = entry["file"]
         if not NAME.fullmatch(name): raise ValueError("Unsafe catalog filename.")
-        raw = fetch(name)
+        raw = fetch(name, revision)
         group = decode(raw)
         if group["id"] + ".tk2group.json" != name or hashlib.sha256(raw).hexdigest() != entry["sha256"]:
             raise ValueError("Remote group ID or checksum does not match.")

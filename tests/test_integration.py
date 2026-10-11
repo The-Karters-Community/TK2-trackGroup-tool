@@ -27,9 +27,22 @@ class CatalogTests(unittest.TestCase):
     def test_bad_refresh_retains_cache(self):
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder); cache = data / 'catalog-cache.json'; cache.write_text('original')
-            with patch.object(catalog, 'DATA', data), patch.object(catalog, 'fetch', return_value=b'{"version":2}'):
+            with patch.object(catalog, 'DATA', data), patch.object(catalog, 'resolve_revision', return_value='a' * 40), patch.object(catalog, 'fetch', return_value=b'{"version":2}'):
                 with self.assertRaises(ValueError): catalog.refresh()
             self.assertEqual(cache.read_text(), 'original')
+
+    def test_refresh_pins_all_files_to_one_commit(self):
+        bundled = Path(__file__).resolve().parents[1] / 'catalog'
+        revision = 'a' * 40
+        with tempfile.TemporaryDirectory() as folder, patch.object(catalog, 'DATA', Path(folder)), patch.object(catalog, 'resolve_revision', return_value=revision) as resolve, patch.object(catalog, 'fetch', side_effect=lambda name, commit: (bundled / name).read_bytes()) as fetch:
+            self.assertEqual(len(catalog.refresh()), 3)
+            resolve.assert_called_once_with()
+            self.assertEqual(len(fetch.call_args_list), 4)
+            self.assertTrue(all(call.args[1] == revision for call in fetch.call_args_list))
+
+    def test_invalid_remote_revision_is_rejected(self):
+        with patch.object(catalog, 'download', return_value=b'{"object":{"sha":"../main"}}'):
+            with self.assertRaises(ValueError): catalog.resolve_revision()
 
 
 class InstallTests(unittest.TestCase):
