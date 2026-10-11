@@ -1,0 +1,154 @@
+{
+  "format": "tk2-track-group",
+  "version": 1,
+  "id": "67eeba54-c1a1-4795-901e-aab8e80f0174",
+  "revision": 1,
+  "name": "Seren 24-Track SR.com",
+  "description": "",
+  "tracks": [
+    {
+      "kind": "workshop",
+      "modId": "Seren25finale",
+      "workshopId": "3605747613",
+      "title": "Faelight Gardens"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenSamboo11",
+      "workshopId": "3570357179",
+      "title": "Verdant Crossing"
+    },
+    {
+      "kind": "workshop",
+      "modId": "serenfarm11",
+      "workshopId": "3568818587",
+      "title": "Appleseed Ranch"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenMush1",
+      "workshopId": "3552090204",
+      "title": "Mushroom Town"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenDarkstoneCastle11",
+      "workshopId": "3546870559",
+      "title": "Darkstone Keep"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenPlaza11",
+      "workshopId": "3566374629",
+      "title": "High Tide Plaza"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenPrism11",
+      "workshopId": "3546868894",
+      "title": "Obsidian Ruins"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenGobbyMine11",
+      "workshopId": "3546873408",
+      "title": "The Goblin Cave"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenAstralGarden11",
+      "workshopId": "3440902646",
+      "title": "Nova Sector"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenCastleC2",
+      "workshopId": "3546871681",
+      "title": "Ancient Citadel"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenShipyardChaos11",
+      "workshopId": "3429430949",
+      "title": "Shipyard Circuit"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenGoldenGlacier11",
+      "workshopId": "3415200292",
+      "title": "Snowspire Heights"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenXMAS24track",
+      "workshopId": "3391898462",
+      "title": "Iceborn Fjord"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenSunnysidePort11",
+      "workshopId": "3427998524",
+      "title": "Starlight Storage"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenRainbowCarnival11",
+      "workshopId": "3357674480",
+      "title": "Rainbow Carnival"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenPolyTreetop",
+      "workshopId": "3353718861",
+      "title": "Treetop Temple"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenFrostbite11Fortress",
+      "workshopId": "3346002707",
+      "title": "Frostbite Fortress"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenNightmareFair11",
+      "workshopId": "3357672937",
+      "title": "Nightmare Fair"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenUtopia11",
+      "workshopId": "3305414243",
+      "title": "Utopia"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Seren_SunsetCanyonTK2",
+      "workshopId": "3308061357",
+      "title": "Sunset Canyon"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenLAB",
+      "workshopId": "3284958661",
+      "title": "Lost Labyrinth"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenDystopia11",
+      "workshopId": "3312805320",
+      "title": "Dystopia"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenTrack2",
+      "workshopId": "3272437935",
+      "title": "Graveyard Grove"
+    },
+    {
+      "kind": "workshop",
+      "modId": "SerenForest1",
+      "workshopId": "3295736527",
+      "title": "Elderwood Forest"
+    }
+  ]
+}

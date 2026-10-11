@@ -1,0 +1,118 @@
+{
+  "format": "tk2-track-group",
+  "version": 1,
+  "id": "b48feb66-16f1-4d23-94cf-e9b6a9303427",
+  "revision": 1,
+  "name": "CTR99 SR.com",
+  "description": "",
+  "tracks": [
+    {
+      "kind": "workshop",
+      "modId": "019a9e81-31aa-78f7-a664-d7fac6aedd9a",
+      "workshopId": "3608886311",
+      "title": "Mystery Caves (CTR99)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "arca-track-ctr99-coco-park",
+      "workshopId": "3279858860",
+      "title": "Coco Park (CTR99)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CTR99SlideColosiumNimorrax",
+      "workshopId": "3279611598",
+      "title": "CTR99 - Slide Coliseum"
+    },
+    {
+      "kind": "workshop",
+      "modId": "turbobackmodddgmod",
+      "workshopId": "3756242904",
+      "title": "CTR99 - Turbo Track"
+    },
+    {
+      "kind": "workshop",
+      "modId": "ngin labs 99 mod david mod",
+      "workshopId": "3598464148",
+      "title": "CTR99 - N. Gin Labs"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTR99DragonMines",
+      "workshopId": "3278335513",
+      "title": "CTR99 - Dragon Mines"
+    },
+    {
+      "kind": "workshop",
+      "modId": "99TinyArenaddgmod",
+      "workshopId": "3643400187",
+      "title": "CTR99 - Tiny Arena"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTR99HotAirSkyway",
+      "workshopId": "3268697251",
+      "title": "CTR99 - Hot Air Skyway"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTR99OxideStation",
+      "workshopId": "3265385508",
+      "title": "CTR99 - Oxide Station"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CTR99 - Roo's Tubes",
+      "workshopId": "3281860573",
+      "title": "CTR99 - Roo's Tubes"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CTR99 - Dingo Canyon",
+      "workshopId": "3274142628",
+      "title": "CTR99 - Dingo Canyon"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTRCortexCastle",
+      "workshopId": "3263970719",
+      "title": "CTR99 - Cortex Castle"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTRSewerSpeedway",
+      "workshopId": "3268524772",
+      "title": "CTR99 - Sewer Speedway"
+    },
+    {
+      "kind": "workshop",
+      "modId": "arca-track-ctr99-tiger-temple",
+      "workshopId": "3280623096",
+      "title": "Tiger Temple (CTR99)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CTR99 - Papu's Pyramid",
+      "workshopId": "3290304806",
+      "title": "CTR99 - Papu's Pyramid"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTR99PolarPass",
+      "workshopId": "3272625781",
+      "title": "CTR99 - Polar Pass"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTR99BlizzardBluff",
+      "workshopId": "3275488984",
+      "title": "CTR99 - Blizzard Bluff"
+    },
+    {
+      "kind": "workshop",
+      "modId": "CathretCTR99CrashCove",
+      "workshopId": "3278914395",
+      "title": "CTR99 - Crash Cove"
+    }
+  ]
+}

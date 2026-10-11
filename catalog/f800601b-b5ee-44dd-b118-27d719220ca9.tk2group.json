@@ -1,0 +1,90 @@
+{
+  "format": "tk2-track-group",
+  "version": 1,
+  "id": "f800601b-b5ee-44dd-b118-27d719220ca9",
+  "revision": 1,
+  "name": "Official 16-Track GP  SR.com",
+  "description": "",
+  "tracks": [
+    {
+      "kind": "official",
+      "configId": 267992,
+      "title": "Official track 267992"
+    },
+    {
+      "kind": "official",
+      "configId": 572943,
+      "title": "Official track 572943"
+    },
+    {
+      "kind": "official",
+      "configId": 931040,
+      "title": "Official track 931040"
+    },
+    {
+      "kind": "official",
+      "configId": 898342,
+      "title": "Official track 898342"
+    },
+    {
+      "kind": "official",
+      "configId": 279954,
+      "title": "Official track 279954"
+    },
+    {
+      "kind": "official",
+      "configId": 265600,
+      "title": "Official track 265600"
+    },
+    {
+      "kind": "official",
+      "configId": 41054,
+      "title": "Official track 41054"
+    },
+    {
+      "kind": "official",
+      "configId": 928226,
+      "title": "Official track 928226"
+    },
+    {
+      "kind": "official",
+      "configId": 482539,
+      "title": "Official track 482539"
+    },
+    {
+      "kind": "official",
+      "configId": 246232,
+      "title": "Official track 246232"
+    },
+    {
+      "kind": "official",
+      "configId": 93058,
+      "title": "Official track 93058"
+    },
+    {
+      "kind": "official",
+      "configId": 803810,
+      "title": "Official track 803810"
+    },
+    {
+      "kind": "official",
+      "configId": 932535,
+      "title": "Official track 932535"
+    },
+    {
+      "kind": "official",
+      "configId": 717943,
+      "title": "Official track 717943"
+    },
+    {
+      "kind": "official",
+      "configId": 216808,
+      "title": "Official track 216808"
+    },
+    {
+      "kind": "official",
+      "configId": 670121,
+      "title": "Official track 670121"
+    }
+  ]
+}

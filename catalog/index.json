@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "file": "f800601b-b5ee-44dd-b118-27d719220ca9.tk2group.json",
+      "sha256": "af2b9fac1a1fbd77844a3ccb8e5b8841aac3a5bf1e66aee74f19e2ead5378372"
+    },
+    {
+      "file": "67eeba54-c1a1-4795-901e-aab8e80f0174.tk2group.json",
+      "sha256": "9451740717dec548f5bd0c00e6ff69ed016dd4243e676e0a8c9699a0799672cb"
+    },
+    {
+      "file": "b48feb66-16f1-4d23-94cf-e9b6a9303427.tk2group.json",
+      "sha256": "4d72fd898030ac4fc2a4b8625e64578b4065bf5d006ff54c653f36c71a75d641"
+    }
+  ]
+}
