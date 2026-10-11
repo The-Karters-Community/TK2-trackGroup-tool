@@ -42,4 +42,4 @@ class TransactionTests(unittest.TestCase):
     def test_account_changed(self): self.execute(lambda p, s: setattr(s, 'account', 'other'))
     def test_running_game_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Close'):
-            commit(FakeSteam(profile()), Path('none'), group(), '', 'account', running=lambda: True)
+            commit(FakeSteam(profile()), Path('1009PTK_PlayerData_v19tpp0_bt0'), group(), '', 'account', running=lambda: True)
