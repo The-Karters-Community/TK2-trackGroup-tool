@@ -1,0 +1,94 @@
+{
+  "format": "tk2-track-group",
+  "version": 1,
+  "id": "4fb49e19-37fa-4768-9dd8-7e5fd9c9f485",
+  "revision": 1,
+  "name": "LEGO Racers '99 SR.com",
+  "description": "",
+  "tracks": [
+    {
+      "kind": "workshop",
+      "modId": "Imperial Grand Prix (LEGO Racers) Update",
+      "workshopId": "3652814735",
+      "title": "Imperial Grand Prix (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Dark Forest Dash (LEGO Racers) Update",
+      "workshopId": "3658992090",
+      "title": "Dark Forest Dash (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Magma Moon Marathon (LEGO Racers) Update",
+      "workshopId": "3663042417",
+      "title": "Magma Moon Marathon (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Royal Knight's Raceway (LEGO Racers) CPH Update",
+      "workshopId": "3678561461",
+      "title": "Royal Knight's Raceway (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Desert Adventure Dragway (LEGO Racers) CPH Update",
+      "workshopId": "3670233628",
+      "title": "Desert Adventure Dragway (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Tribal Island Trail (LEGO Racers) Update",
+      "workshopId": "3677298600",
+      "title": "Tribal Island Trail (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Ice Planet Pathway (LEGO Racers) Update",
+      "workshopId": "3680865754",
+      "title": "Ice Planet Pathway (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Pirate Skull Pass (LEGO Racers) Update",
+      "workshopId": "3701868993",
+      "title": "Pirate Skull Pass (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Amazon Adventure Alley (LEGO Racers) Update",
+      "workshopId": "3683402781",
+      "title": "Amazon Adventure Alley (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Knightmare-Athon (LEGO Racers) Update",
+      "workshopId": "3700460432",
+      "title": "Knightmare-Athon (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Adventure Temple Trail (LEGO Racers) Update",
+      "workshopId": "3707751266",
+      "title": "Adventure Temple Trail (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Test Track (LEGO Racers) Update",
+      "workshopId": "3716717636",
+      "title": "Test Track (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Alien Rally Asteroid (LEGO Racers) Update",
+      "workshopId": "3710271973",
+      "title": "Alien Rally Asteroid (LEGO Racers)"
+    },
+    {
+      "kind": "workshop",
+      "modId": "Rocket City Run (LEGO Racers) Update",
+      "workshopId": "3716717259",
+      "title": "Rocket City Run (LEGO Racers)"
+    }
+  ]
+}

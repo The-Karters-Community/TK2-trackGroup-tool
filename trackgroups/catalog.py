@@ -83,15 +83,26 @@ def refresh(cancelled=lambda: False):
         entries.append(categorized(group, entry.get('category', 'community')))
     if len({g["id"] for g in entries}) != len(entries): raise ValueError("Duplicate remote groups.")
     write_json(DATA / "catalog-cache.json", entries)
-    return entries
+    return merge_bundled(entries)
+
+
+def merge_bundled(values):
+    """A stale remote cache must not hide newly shipped reviewed collections."""
+    bundled = read_catalog(ROOT / 'catalog')
+    merged = {g['id']: g for g in bundled}
+    for group in values:
+        current = merged.get(group['id'])
+        if current is None or group['revision'] > current['revision']:
+            merged[group['id']] = group
+    return list(merged.values())
 
 
 def load():
     try:
         values = json.loads((DATA / "catalog-cache.json").read_text(encoding="utf-8"))
         if not isinstance(values, list) or len(values) > 1000: raise ValueError()
-        # Older caches had no category. Use reviewed bundled labels for those IDs.
         labels = {g['id']:g['category'] for g in read_catalog(ROOT / 'catalog')}
-        return [categorized(validate({k:v for k,v in x.items() if k != 'category'}), x.get('category', labels.get(x['id'], 'community'))) for x in values]
+        cached = [categorized(validate({k:v for k,v in x.items() if k != 'category'}), x.get('category', labels.get(x['id'], 'community'))) for x in values]
+        return merge_bundled(cached)
     except (OSError, ValueError, KeyError, TypeError):
         return read_catalog(ROOT / "catalog")

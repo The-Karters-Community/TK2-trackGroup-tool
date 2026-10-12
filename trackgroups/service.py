@@ -203,6 +203,8 @@ class Service:
             elif action == "refresh":
                 self.supported_game()
                 self.progress({"message": "Connecting to Steam and reading public track metadata…"})
+                self.dependencies.remember(Dependencies(DATA / "dependencies.json").items, save=False)
+                self.dependencies.catalog(catalog.load())
                 r = Worker(self.game).request("snapshot", {"profile": self.profile, "ids": list(self.dependencies.items)}, self.progress, self.cancel.is_set)
                 with self.lock:
                     self.account = r["account"]; self.items = r["items"]; self.cloud_enabled = r["cloudEnabled"]

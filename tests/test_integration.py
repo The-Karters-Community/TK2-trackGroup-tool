@@ -27,6 +27,22 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(initial[0]['name'], 'Official 16-Track GP  SR.com')
         self.assertEqual(sum(t['kind'] == 'workshop' for g in initial for t in g['tracks']), 42)
 
+    def test_old_cache_cannot_hide_new_bundled_lego_group_or_its_dependencies(self):
+        from trackgroups.dependencies import Dependencies
+        bundled = catalog.read_catalog(Path(__file__).resolve().parents[1] / 'catalog')
+        with tempfile.TemporaryDirectory() as folder, patch.object(catalog, 'DATA', Path(folder)):
+            write_json(Path(folder) / 'catalog-cache.json', bundled[:3])
+            groups = catalog.load()
+            lego = next(g for g in groups if g['id'] == '4fb49e19-37fa-4768-9dd8-7e5fd9c9f485')
+            self.assertEqual(lego['category'], 'speedrun')
+            self.assertEqual(len(lego['tracks']), 14)
+            dependencies = Dependencies(Path(folder) / 'dependencies.json')
+            dependencies.catalog(groups)
+            restored = Dependencies(dependencies.path)
+            self.assertTrue(all(restored.mapping()[t['modId']]['workshopId'] == t['workshopId'] for t in lego['tracks']))
+            self.assertEqual(lego['tracks'][0]['workshopId'], '3652814735')
+            self.assertEqual(lego['tracks'][-1]['workshopId'], '3716717259')
+
     def test_bad_refresh_retains_cache(self):
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder); cache = data / 'catalog-cache.json'; cache.write_text('original')
