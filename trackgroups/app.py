@@ -7,7 +7,7 @@ from pathlib import Path
 import secrets
 import sys
 import threading
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, unquote
 
 from .runtime import ROOT, DATA, write_json
 from .service import Service
@@ -44,7 +44,7 @@ def make_server(service):
                 if not self.authorized(): return self.reply(403, {"error": "Invalid session."})
                 return self.reply(200, service.state())
             root = (ROOT / "ui/dist").resolve()
-            file = (root / ("index.html" if path == "/" else path.lstrip("/"))).resolve()
+            file = (root / ("index.html" if path == "/" else unquote(path).lstrip("/"))).resolve()
             if not file.is_relative_to(root) or not file.is_file(): return self.reply(404, {"error": "Not found."})
             raw = file.read_bytes()
             if file.name == "index.html": raw = raw.replace(b"__SESSION_TOKEN__", token.encode())
@@ -114,6 +114,7 @@ def main():
             return
     service = Service()
     service.updates.start()
+    service.start_job("refresh", {})
     server = make_server(service)
     write_json(DATA / "session.json", {"origin": server.origin, "token": server.token, "pid": os.getpid()})
     if "--no-window" in sys.argv:

@@ -13,6 +13,19 @@ from test_profile import profile, group
 
 
 class ManagementTests(unittest.TestCase):
+    def test_official_metadata_matches_supplied_images_and_preserves_native_ids(self):
+        from trackgroups.groups import OFFICIAL_TRACKS, export_native
+        from trackgroups.runtime import ROOT
+        self.assertEqual(len(OFFICIAL_TRACKS), 16)
+        self.assertEqual(OFFICIAL_TRACKS['267992']['title'], 'Gauntlet Run')
+        self.assertEqual(OFFICIAL_TRACKS['898342']['title'], 'Scuba Diving')
+        for key, metadata in OFFICIAL_TRACKS.items():
+            self.assertTrue((ROOT / 'ui/public' / metadata['image'].lstrip('/')).is_file())
+            native = {'GroupDefinition': {'UniqueID': group()['id'], 'Name':'Official', 'IsDefault':False, 'Type':0, 'SubType':0}, 'groupItems':[{'configID':int(key), 'modHashID':'', 'iPresetID':77}]}
+            exported = export_native(native, {})
+            self.assertEqual(exported['tracks'][0]['title'], metadata['title'])
+            self.assertEqual(exported['tracks'][0]['configId'], int(key))
+
     def test_dependency_id_survives_unsubscribe_restart_and_unavailable_metadata(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'dependencies.json'

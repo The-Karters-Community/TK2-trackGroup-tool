@@ -66,13 +66,15 @@ class EditingTests(unittest.TestCase):
     def test_create_preview_is_read_only_and_enriches_names_and_status(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); name = '1009PTK_PlayerData_v19tpp0_bt0'; raw = profile(); (root/name).write_bytes(raw)
-            items = {'3263970719':{'available':True,'modId':'example','title':'Cortex Castle','workshopId':'3263970719'}}
+            items = {'3263970719':{'available':True,'modId':'example','title':'Cortex Castle','previewUrl':'https://images.steamusercontent.com/test','workshopId':'3263970719'}}
             response = {'account':'test', 'items':items, 'status':{'3263970719':{'subscribed':False,'ready':False}}}
             with patch('trackgroups.service.PROFILE_DIR', root), patch('trackgroups.service.DATA', root), patch('trackgroups.service.discover_games', return_value=[]), patch('trackgroups.service.game_running', return_value=False), patch.object(Service, 'supported_game'), patch('trackgroups.service.Worker') as worker:
                 service = Service(); service.account = 'test'; service.sync_error = ''; service.job = {}
                 worker.return_value.request.return_value = response
                 result = service.make_preview('create', {'name':'New group','items':'3263970719'})['preview']
                 self.assertEqual(result['group']['tracks'][0]['title'], 'Cortex Castle')
+                self.assertEqual(result['group']['previewImages'], ['https://images.steamusercontent.com/test'])
+                self.assertNotIn('previewImages', service.previews[result['token']]['group'])
                 self.assertEqual(result['missingSubscriptions'], ['3263970719'])
                 self.assertEqual(result['pendingDownloads'], ['3263970719'])
                 self.assertEqual((root/name).read_bytes(), raw)

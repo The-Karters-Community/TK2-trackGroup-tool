@@ -98,7 +98,7 @@ class Service:
                 for group in local: group['expectedHash'] = snapshot_hash
             reviewed = [self.summary(g) for g in self.groups]
             for group in local + reviewed:
-                group['previewImages'] = [self.dependencies.items.get(t.get('workshopId'), {}).get('previewUrl') for t in group['tracks'][:4]]
+                group['previewImages'] = [self.dependencies.items.get(t.get('workshopId'), {}).get('previewUrl') for t in group['tracks']]
             for group in local:
                 workshop = [t for t in group['tracks'] if t['kind'] == 'workshop']
                 group['missingTracks'] = sum(not self.track_status.get(t.get('workshopId'), {}).get('ready', False) or not self.track_status.get(t.get('workshopId'), {}).get('subscribed', False) for t in workshop) if self.account else None
@@ -173,7 +173,7 @@ class Service:
         destination = next(g['GroupDefinition']['Name'] for g in Profile(updated).custom_groups() if g['GroupDefinition']['UniqueID'] == group['id'])
         key = str(uuid.uuid4())
         mode = 'rename' if action == 'rename' else 'install'
-        preview = {'token':key, 'mode':mode, 'outcome':outcome, 'group':group, 'destinationName':destination,
+        preview = {'token':key, 'mode':mode, 'outcome':outcome, 'group':{**group, 'previewImages':[self.dependencies.items.get(t.get('workshopId'), {}).get('previewUrl') for t in group['tracks']]}, 'destinationName':destination,
             'previousTracks':self.native_display(existing) if existing else [],
             'previousName':existing['GroupDefinition']['Name'] if existing else None,
             'missingSubscriptions':[item for item in ids if not status[item]['subscribed']],

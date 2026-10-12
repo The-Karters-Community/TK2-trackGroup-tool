@@ -4,6 +4,9 @@ import hashlib
 import json
 import uuid
 
+from .runtime import ROOT
+
+OFFICIAL_TRACKS = json.loads((ROOT / "catalog/official-tracks.json").read_text(encoding="utf-8"))
 MAX_TRACKS = 1000
 
 
@@ -72,7 +75,7 @@ def export_native(native, mapping, revision=1):
                 raise ValueError(f"Workshop item unresolved: {item['modHashID']}. Refresh Steam metadata first.")
             tracks.append({"kind": "workshop", "modId": item["modHashID"], "workshopId": str(info["workshopId"]), "title": info["title"]})
         else:
-            tracks.append({"kind": "official", "configId": item["configID"], "title": f"Official track {item['configID']}"})
+            tracks.append({"kind": "official", "configId": item["configID"], "title": OFFICIAL_TRACKS.get(str(item["configID"]), {}).get("title", f"Official track {item['configID']}")})
     return validate({"format": "tk2-track-group", "version": 1, "id": definition["UniqueID"], "revision": revision, "name": definition["Name"], "description": "", "tracks": tracks})
 
 
