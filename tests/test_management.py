@@ -18,7 +18,7 @@ class ManagementTests(unittest.TestCase):
         from trackgroups.runtime import ROOT
         self.assertEqual(len(OFFICIAL_TRACKS), 16)
         self.assertEqual(OFFICIAL_TRACKS['267992']['title'], 'Gauntlet Run')
-        self.assertEqual(OFFICIAL_TRACKS['898342']['title'], 'Scuba Diving')
+        self.assertEqual(OFFICIAL_TRACKS['898342']['title'], 'Scuba Driving')
         for key, metadata in OFFICIAL_TRACKS.items():
             self.assertTrue((ROOT / 'ui/public' / metadata['image'].lstrip('/')).is_file())
             native = {'GroupDefinition': {'UniqueID': group()['id'], 'Name':'Official', 'IsDefault':False, 'Type':0, 'SubType':0}, 'groupItems':[{'configID':int(key), 'modHashID':'', 'iPresetID':77}]}

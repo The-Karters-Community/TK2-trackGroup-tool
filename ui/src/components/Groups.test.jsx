@@ -386,7 +386,7 @@ test("official names and images are shared across details and galleries", () => 
   );
   expect(screen.getByText("Gauntlet Run")).toBeTruthy();
   expect(container.querySelector("img").getAttribute("src")).toBe(
-    "/Tracks/Gaunlet%20Run.jpg",
+    "/Tracks/Gauntlet%20Run.jpg",
   );
 });
 test("save controls reserve space and become inert when pristine", () => {
