@@ -18,6 +18,11 @@ from test_profile import group, profile
 
 
 class CatalogTests(unittest.TestCase):
+    def test_catalog_group_bytes_are_lf_for_git_checksum_stability(self):
+        folder = Path(__file__).resolve().parents[1] / 'catalog'
+        for path in folder.glob('*.tk2group.json'):
+            self.assertNotIn(b'\r', path.read_bytes(), path.name)
+
     def test_bundled_catalog_has_exact_order_and_counts(self):
         values = catalog.read_catalog(Path(__file__).resolve().parents[1] / 'catalog')
         initial_ids = ['f800601b-b5ee-44dd-b118-27d719220ca9', '67eeba54-c1a1-4795-901e-aab8e80f0174', 'b48feb66-16f1-4d23-94cf-e9b6a9303427']
