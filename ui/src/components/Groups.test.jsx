@@ -317,3 +317,36 @@ test("Browse groups has independent gallery and list controls", () => {
   ).toBe("true");
   expect(localStorage.getItem("browse-groups-view")).toBe("list");
 });
+
+test("a pristine panel picks up refreshed track identities without changing the save", () => {
+  const initial = {
+    ...group,
+    expectedHash: "same",
+    tracks: [{ kind: "workshop", modId: "unknown" }],
+  };
+  const { rerender } = render(<GroupDetails group={initial} local connected />);
+  expect(
+    screen.queryByRole("link", { name: "View Resolved in Steam" }),
+  ).toBeNull();
+  rerender(
+    <GroupDetails
+      group={{
+        ...initial,
+        tracks: [
+          {
+            kind: "workshop",
+            modId: "unknown",
+            title: "Resolved",
+            workshopId: "123",
+          },
+        ],
+      }}
+      local
+      connected
+    />,
+  );
+  expect(
+    screen.getByRole("link", { name: "View Resolved in Steam" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+});

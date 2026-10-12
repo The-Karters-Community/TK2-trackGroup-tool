@@ -52,4 +52,4 @@ No release was published. Backups, complete profiles, account IDs, private diagn
 - Source application reported 14 missing LEGO subscriptions, zero unresolved identities, an enabled Repair button, and a named repair review. No subscriptions were changed during this check.
 - Both library views offer independently remembered Gallery/List controls. Local details expose name editing, drag grips, keyboard-accessible move arrows, per-track status and Steam links. Save/Discard appear only for dirty drafts. Automated tests exercise HTML5 drag/drop; visible browser verification exercised move arrows and the conditional controls.
 - Saved a temporary LEGO name and first-two-track reorder directly through the source UI, then restored both through the same UI. Local and Steam Remote Storage saves matched the fresh original byte-for-byte afterward. Polling preserves a dirty draft's original concurrency hash.
-- Validation: 47 Python tests, 12 UI tests, catalog validation and production frontend build passed.
+- Validation: 47 Python tests, 13 UI tests, catalog validation and production frontend build passed.

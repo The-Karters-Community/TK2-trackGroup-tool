@@ -51,7 +51,7 @@ export default function EditGroup({
     onDirty?.(dirty);
   }, [dirty, onDirty]);
   useEffect(() => {
-    if (!dirty && baseline.expectedHash !== group.expectedHash) reset(group);
+    if (!dirty && baseline !== group) reset(group);
     if (submitted && !busy) {
       if (editJob?.state === "completed") reset(group);
       setSubmitted(false);
