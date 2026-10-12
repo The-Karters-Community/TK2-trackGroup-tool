@@ -44,3 +44,12 @@ Created a temporary two-track Workshop group from pasted IDs in the compiled UI 
 All 42 dependencies were already subscribed and installed on the test account. A new missing-item network download was not exercised live; subscription callbacks were tested live, while missing subscriptions, failed/delayed downloads, unavailable Steam, wrong accounts, and failed writes were tested with controlled doubles. Steam's remote server upload completion is managed by the client, beyond the verified local Remote Storage readback. Private/deleted items fail closed when metadata cannot be resolved. CI validates dependency structure/mapping but cannot authenticate to Steam; maintainers review availability before catalog merges.
 
 No release was published. Backups, complete profiles, account IDs, private diagnostics, and game captures are excluded from Git.
+
+
+## Catalog and direct management, 2026-10-12
+
+- Verified all 14 ordered LEGO Workshop IDs against the real Steam metadata and added the exact user export to the Speedrun catalog. Bundled groups now total four, with 72 ordered references. A three-group offline cache cannot hide the new bundle; the dependency registry is reloaded and seeded before Steam refresh.
+- Source application reported 14 missing LEGO subscriptions, zero unresolved identities, an enabled Repair button, and a named repair review. No subscriptions were changed during this check.
+- Both library views offer independently remembered Gallery/List controls. Local details expose name editing, drag grips, keyboard-accessible move arrows, per-track status and Steam links. Save/Discard appear only for dirty drafts. Automated tests exercise HTML5 drag/drop; visible browser verification exercised move arrows and the conditional controls.
+- Saved a temporary LEGO name and first-two-track reorder directly through the source UI, then restored both through the same UI. Local and Steam Remote Storage saves matched the fresh original byte-for-byte afterward. Polling preserves a dirty draft's original concurrency hash.
+- Validation: 47 Python tests, 12 UI tests, catalog validation and production frontend build passed.

@@ -97,11 +97,7 @@ test("import review stays visible through completion and opens the saved local g
   fireEvent.click(
     await screen.findByRole("button", { name: "View in My groups" }),
   );
-  await waitFor(() =>
-    expect(
-      screen.getByRole("button", { name: "Edit name & track order" }),
-    ).toBeTruthy(),
-  );
+  await waitFor(() => expect(screen.getByLabelText("Group name")).toBeTruthy());
   expect(
     screen.getByRole("button", { name: "Import group file" }),
   ).toBeTruthy();

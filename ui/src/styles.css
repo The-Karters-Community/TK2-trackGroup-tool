@@ -759,3 +759,78 @@ progress {
     grid-row: 1;
   }
 }
+
+.label-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.label-with-icon svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.group-tools {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+.group-tools .notice {
+  margin: 0;
+}
+.edit-tracks li {
+  grid-template-columns: 26px 20px minmax(0, 1fr) 30px;
+  padding: 14px 0;
+}
+.edit-tracks .drag-handle {
+  width: 26px;
+  cursor: grab;
+}
+.edit-tracks .drag-handle:active {
+  cursor: grabbing;
+}
+.edit-tracks .track-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.edit-tracks .track-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.track-link {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 11px;
+  width: fit-content;
+}
+.track-link svg {
+  width: 12px;
+  height: 12px;
+}
+.track-move-buttons {
+  display: grid;
+  gap: 2px;
+}
+.edit-tracks li.dragging {
+  opacity: 0.45;
+}
+.edit-tracks li.drop-target {
+  box-shadow: inset 0 2px var(--accent);
+  background: var(--surface);
+}
+.edit-actions {
+  top: 0;
+  bottom: auto;
+  z-index: 2;
+  flex-wrap: wrap;
+  border-block: 1px solid var(--border);
+  margin-top: 12px;
+}
+.edit-actions > .hint {
+  flex: 1;
+  align-self: center;
+  margin: 0;
+}

@@ -18,17 +18,16 @@ test("local name and racing order are saved together without a review page", () 
       onClose={vi.fn()}
     />,
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Edit name & track order" }),
-  );
+  expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
   fireEvent.change(screen.getByLabelText("Group name"), {
     target: { value: "Renamed" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Move Second up" }));
-  expect(screen.getAllByRole("listitem").map((e) => e.textContent)).toEqual([
-    "1Second",
-    "2First",
-  ]);
+  expect(
+    screen
+      .getAllByRole("listitem")
+      .map((e) => e.querySelector("strong").textContent),
+  ).toEqual(["Second", "First"]);
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
   expect(onEdit).toHaveBeenCalledWith({
     id: group.id,
@@ -243,4 +242,78 @@ test("unresolved local dependencies disable export", () => {
     true,
   );
   expect(screen.getByText("Workshop dependency unresolved")).toBeTruthy();
+});
+
+test("dragging reorders directly and discard restores the saved order", () => {
+  render(
+    <GroupDetails
+      group={{ ...group, expectedHash: "original" }}
+      local
+      connected
+      onEdit={vi.fn()}
+    />,
+  );
+  const dataTransfer = { setData: vi.fn() };
+  fireEvent.dragStart(
+    screen.getByRole("button", { name: "Drag Second to reorder" }),
+    { dataTransfer },
+  );
+  fireEvent.dragOver(screen.getAllByRole("listitem")[0], { dataTransfer });
+  fireEvent.drop(screen.getAllByRole("listitem")[0], { dataTransfer });
+  expect(
+    screen.getAllByRole("listitem")[0].querySelector("strong").textContent,
+  ).toBe("Second");
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+  expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+  expect(
+    screen.getAllByRole("listitem")[0].querySelector("strong").textContent,
+  ).toBe("First");
+});
+
+test("polling keeps an unsaved draft bound to its original save hash", () => {
+  const onEdit = vi.fn();
+  const { rerender } = render(
+    <GroupDetails
+      group={{ ...group, expectedHash: "original" }}
+      local
+      connected
+      onEdit={onEdit}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Group name"), {
+    target: { value: "Draft" },
+  });
+  rerender(
+    <GroupDetails
+      group={{ ...group, expectedHash: "newer" }}
+      local
+      connected
+      onEdit={onEdit}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(onEdit).toHaveBeenCalledWith(
+    expect.objectContaining({ expectedHash: "original", name: "Draft" }),
+  );
+});
+
+test("Browse groups has independent gallery and list controls", () => {
+  localStorage.removeItem("browse-groups-view");
+  render(
+    <Library
+      state={{ groups: [{ ...group, category: "speedrun" }], localGroups: [] }}
+      run={vi.fn()}
+    />,
+  );
+  expect(
+    screen
+      .getByRole("button", { name: "Gallery" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "List" }));
+  expect(
+    screen.getByRole("button", { name: "List" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(localStorage.getItem("browse-groups-view")).toBe("list");
 });

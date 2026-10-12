@@ -21,13 +21,17 @@ Portable builds contain the runtime and compiled interface. Extract the ZIP into
 - **Import group file** opens a shared `.tk2group.json` for review. Saving adds it to your game and My groups; it does not publish it to the curated library.
 - **Create group** accepts a name and ordered Workshop item IDs or links, separated by lines, spaces or commas. Steam resolves compatible track names before review. Duplicates and unavailable/incompatible items are rejected.
 - Switch between **Gallery** (public Workshop preview images with track-name fallbacks) and **List**. Both show missing-track counts after a Steam refresh.
-- Select a group and choose **Edit name & track order**. Change its name or use the up/down buttons to reorder tracks, then **Save changes** once, in the same panel. The group keeps its position and every native track reference/preset. No subscriptions are changed.
+- Select a group to edit its name directly. Drag track grips into racing order (or use the up/down arrows), then **Save changes** in the same panel. Save and Discard appear only when something changes. The group keeps its position and every native track reference/preset. No subscriptions are changed.
 - **Refresh Steam** checks known dependencies even after unsubscribing. **Repair missing tracks** reviews named missing items, then **Download missing tracks** restores subscriptions/downloads without rewriting the group or profile.
 - **Export group** shares group data and public metadata, never player progress, account IDs, upload credentials, or track assets. Connect Steam to resolve Workshop dependencies first.
 
 ![My groups gallery with missing-track status](docs/images/my-groups.png)
 
-Only reviewed catalog submissions appear in Browse groups. The bundled three collections are under Speedrun; the Community category is ready for future reviewed submissions.
+![Direct editing with conditional Save and Discard controls](docs/images/inline-edit.png)
+
+Both Browse groups and My groups offer Gallery and List views, remembered independently.
+
+Only reviewed catalog submissions appear in Browse groups. The bundled four collections are under Speedrun; the Community category is ready for future reviewed submissions.
 
 Track identities and public titles/previews are cached in `%LOCALAPPDATA%\TK2 Track Groups\dependencies.json`; subscriptions are always checked against Steam. For an older group whose Workshop IDs were never recorded, import its original `.tk2group.json` to recover and verify the mapping. The game save alone does not contain Steam item IDs, so the app does not guess from a title.
 
@@ -38,6 +42,7 @@ Track identities and public titles/previews are cached in `%LOCALAPPDATA%\TK2 Tr
 | Official 16-Track GP SR.com | 16 | 0 |
 | Seren 24-Track SR.com | 0 | 24 |
 | CTR99 SR.com | 0 | 18 |
+| LEGO Racers '99 SR.com | 0 | 14 |
 
 The saved official group name contains two spaces before `SR.com`; exports preserve it exactly. Official tracks currently display their configuration IDs. Workshop titles come from public Steam metadata. **Refresh library** resolves this repository's public `main` commit, then fetches its catalog and groups from that same revision. The last validated library stays available offline, including when GitHub is unavailable or rate-limited.
 

@@ -19,7 +19,9 @@ export default function Library({
   const [selectedId, select] = useState(null);
   const [category, setCategory] = useState("speedrun");
   const [gallery, setGallery] = useState(
-    () => localStorage.getItem("my-groups-view") !== "list",
+    () =>
+      localStorage.getItem(local ? "my-groups-view" : "browse-groups-view") !==
+      "list",
   );
   useEffect(() => {
     if (focusId) select(focusId);
@@ -127,7 +129,7 @@ export default function Library({
           />
         </div>
         <div className="list-heading">
-          {local && (
+          {
             <div className="view-switch" aria-label="Group view">
               {["Gallery", "List"].map((view) => (
                 <button
@@ -135,14 +137,17 @@ export default function Library({
                   aria-pressed={gallery === (view === "Gallery")}
                   onClick={() => {
                     setGallery(view === "Gallery");
-                    localStorage.setItem("my-groups-view", view.toLowerCase());
+                    localStorage.setItem(
+                      local ? "my-groups-view" : "browse-groups-view",
+                      view.toLowerCase(),
+                    );
                   }}
                 >
                   {view}
                 </button>
               ))}
             </div>
-          )}
+          }
           <span>
             {groups.length} {groups.length === 1 ? "group" : "groups"}
           </span>
@@ -162,7 +167,7 @@ export default function Library({
               select(g.id);
             }}
             local={local}
-            gallery={local && gallery}
+            gallery={gallery}
           />
         ) : (
           <div className="empty">
