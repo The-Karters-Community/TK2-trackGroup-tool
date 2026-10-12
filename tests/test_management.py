@@ -39,10 +39,20 @@ class ManagementTests(unittest.TestCase):
                 def storage_call(self, *_): return True
                 def details(self, ids, *_): queried.extend(ids); return {item:{'available':True} for item in ids}
                 def item_status(self, item): return {'subscribed':item == '456', 'ready':item == '456'}
+                def installed(self, item): return True
             with patch.object(worker, 'Steam', Steam): worker.run(root)
             result = json.loads((root / 'result.json').read_text())
             self.assertEqual(queried, ['456', '123'])
             self.assertFalse(result['status']['123']['subscribed'])
+
+    def test_steam_installed_flag_does_not_hide_missing_content_files(self):
+        class Steam:
+            def item_status(self, _): return {'ready':True, 'subscribed':True}
+            def installed(self, _): raise ValueError('Content removed')
+        status = worker.installation_status(Steam(), '123')
+        self.assertFalse(status['ready'])
+        self.assertTrue(status['subscribed'])
+        self.assertIn('missing', status['problem'])
 
     def test_order_edit_preserves_full_native_items_presets_records_and_other_fields(self):
         raw, _ = Profile(profile()).import_group(group())

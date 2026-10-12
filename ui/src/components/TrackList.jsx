@@ -23,6 +23,7 @@ export function trackState(
   if (!status.subscribed)
     return "Missing subscription · subscribe and download";
   if (status.ready) return "Installed";
+  if (status.problem) return status.problem;
   if (status.total)
     return `Downloading · ${Math.round((status.downloaded / status.total) * 100)}%`;
   return "Subscribed · download required";

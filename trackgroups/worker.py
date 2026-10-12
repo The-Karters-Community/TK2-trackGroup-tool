@@ -9,6 +9,17 @@ from .runtime import write_json
 from .steam import Steam
 
 
+def installation_status(steam, item):
+    status = steam.item_status(item)
+    if status['ready']:
+        try:
+            if not steam.installed(item): status['ready'] = False
+        except (OSError, ValueError):
+            status['ready'] = False
+            status['problem'] = 'Downloaded track files are missing or incomplete.'
+    return status
+
+
 def run(folder):
     folder = Path(folder)
     steam = None
@@ -23,14 +34,14 @@ def run(folder):
             details = steam.details(ids, lambda: (folder / "cancel").exists())
             result = {"account": steam.account, "items": details,
                 "cloudEnabled": bool(steam.storage_call("IsCloudEnabledForAccount") and steam.storage_call("IsCloudEnabledForApp")),
-                "status": {item: steam.item_status(item) for item in ids}}
+                "status": {item: installation_status(steam, item) for item in ids}}
             if request.get("profile"):
                 data = steam.read_save(request["profile"])
                 result["save"] = base64.b64encode(data).decode()
                 result["saveHash"] = hashlib.sha256(data).hexdigest()
         elif action == "details":
             result = {"account": steam.account, "items": steam.details(request["ids"], cancelled),
-                "status": {item: steam.item_status(item) for item in request["ids"]}}
+                "status": {item: installation_status(steam, item) for item in request["ids"]}}
         elif action == "subscribe-proof":
             # Idempotent diagnostic for an ALREADY subscribed item only.
             if request["id"] not in steam.subscribed():
@@ -85,16 +96,16 @@ def run(folder):
                     progress({"phase": "subscribing", "message": "Subscribing to " + details[item].get('title', item), "completed": len(subscribed), "total": len(ids)})
                     steam.subscribe(item, cancelled)
                     subscribed.append(item)
-                if not steam.item_status(item)["ready"]:
+                if not installation_status(steam, item)["ready"]:
                     if not steam.ugc_call("DownloadItem", int(item), True):
                         raise ValueError("Steam could not start download for " + item)
             deadline = time.monotonic() + 600
             while True:
                 if cancelled(): raise ValueError("Import cancelled. Completed subscriptions remain subscribed.")
                 steam.dll.SteamAPI_RunCallbacks()
-                statuses = {item: steam.item_status(item) for item in ids}
+                statuses = {item: installation_status(steam, item) for item in ids}
                 for item, status in statuses.items(): status['title'] = details[item].get('title', 'Workshop track ' + item)
-                done = sum(s["ready"] and steam.installed(item) for item, s in statuses.items())
+                done = sum(s["ready"] for s in statuses.values())
                 progress({"phase": "downloading", "message": f"Workshop tracks ready: {done}/{len(ids)}", "completed": done,
                           "total": len(ids), "items": statuses, "newSubscriptions": subscribed})
                 if done == len(ids): break

@@ -733,3 +733,29 @@ progress {
   font-weight: 600;
   text-shadow: 0 1px 3px #000;
 }
+.group-list .group-status {
+  display: block;
+}
+.with-details .group-list:not(.group-gallery) .group-status {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  text-align: left;
+}
+.with-details .group-list:not(.group-gallery) .group-row > svg {
+  grid-column: 3;
+  grid-row: 1;
+}
+@media (max-width: 1000px) {
+  .group-list:not(.group-gallery) .group-row {
+    grid-template-columns: 45px minmax(0, 1fr) 18px;
+  }
+  .group-list:not(.group-gallery) .group-status {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    text-align: left;
+  }
+  .group-list:not(.group-gallery) .group-row > svg {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}

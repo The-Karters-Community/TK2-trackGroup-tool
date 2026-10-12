@@ -30,10 +30,10 @@ Created a temporary two-track Workshop group from pasted IDs in the compiled UI 
 
 ## Missing dependencies and inline editing, 2026-10-12
 
-- Reproduced the LEGO group's loss of identities after unsubscribe. Its original export resolved all 14 IDs; the real Steam API verified their expected internal identifiers and reported all 14 unsubscribed/not installed. Identities are retained independently of subscriptions. Refresh and the repair preview now list every named missing track and offer download. These subscriptions were left untouched for the user to exercise repair.
+- Reproduced the LEGO group's loss of identities after unsubscribe. Its original export resolved all 14 IDs; the real Steam API verified their expected internal identifiers and reported all 14 unsubscribed/not installed. Identities are retained independently of subscriptions. Ready flags are also checked against actual installed catalogs/content files, so deleted or incomplete files are reported as missing. Refresh and the repair preview now list every named missing track and offer download. These subscriptions were left untouched for the user to exercise repair.
 - Used the actual interface to rename the LEGO group and swap its first two tracks with one Save action. Both local and Remote Storage verified. Restored the original name/order through the same editor; the complete current profile was byte-for-byte identical to the fresh baseline afterward. No track subscriptions changed.
 - Public Workshop preview URLs feed the Gallery view; missing counts remain visible in both layouts. Text mosaics cover missing previews and official configuration IDs.
-- Regression suite: 43 Python checks and 9 UI checks. Includes persistent identities after unsubscribe/restart, missing-status refresh, native preset-preserving permutations, repair without any profile write, release/checksum/inventory/path validation and destination collisions.
+- Regression suite: 44 Python checks and 9 UI checks. Includes persistent identities after unsubscribe/restart, missing-status refresh, native preset-preserving permutations, repair without any profile write, release/checksum/inventory/path validation and destination collisions.
 
 ## App updater, 2026-10-12
 

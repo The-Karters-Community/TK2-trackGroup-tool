@@ -8,7 +8,7 @@ A standalone Windows app for sharing ordered track groups in **The Karters 2: Tu
 
 ## Use the app
 
-Portable builds contain the runtime and compiled interface. Extract the entire folder and run **TK2 Track Groups.exe**. Users do **not** install Python, Node.js, or npm. Requires Windows x64, Microsoft Edge WebView2 Runtime, the installed supported game, and the running Steam client. Steam Cloud must be enabled for imports.
+Portable builds contain the runtime and compiled interface. Extract the ZIP into one chosen folder and run **TK2 Track Groups.exe**. Users do **not** install Python, Node.js, or npm. Requires Windows x64, Microsoft Edge WebView2 Runtime, the installed supported game, and the running Steam client. Steam Cloud must be enabled for imports.
 
 1. Close the game and open the app. In **Settings**, check the detected game folder and profile. If multiple profiles exist, explicitly select the correct one.
 2. Choose **Connect Steam**. The app checks the active account, Workshop metadata, and local/Steam save agreement. Resolve any conflict before continuing.
@@ -24,6 +24,8 @@ Portable builds contain the runtime and compiled interface. Extract the entire f
 - Select a group and choose **Edit name & track order**. Change its name or use the up/down buttons to reorder tracks, then **Save changes** once, in the same panel. The group keeps its position and every native track reference/preset. No subscriptions are changed.
 - **Refresh Steam** checks known dependencies even after unsubscribing. **Repair missing tracks** reviews named missing items, then **Download missing tracks** restores subscriptions/downloads without rewriting the group or profile.
 - **Export group** shares group data and public metadata, never player progress, account IDs, upload credentials, or track assets. Connect Steam to resolve Workshop dependencies first.
+
+![My groups gallery with missing-track status](docs/images/my-groups.png)
 
 Only reviewed catalog submissions appear in Browse groups. The bundled three collections are under Speedrun; the Community category is ready for future reviewed submissions.
 
