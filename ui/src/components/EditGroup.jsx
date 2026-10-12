@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpIcon,
   ArrowDownIcon,
@@ -9,6 +9,8 @@ import {
   ExternalLinkIcon,
 } from "@radix-ui/react-icons";
 import { trackName, trackState } from "./TrackList.jsx";
+import TrackPreview from "./TrackPreview.jsx";
+import Sortable from "sortablejs";
 
 export function reorder(order, from, to) {
   if (
@@ -38,8 +40,11 @@ export default function EditGroup({
   const [baseline, setBaseline] = useState(group);
   const [name, setName] = useState(group.name);
   const [order, setOrder] = useState(group.tracks.map((_, i) => i));
-  const [dragging, setDragging] = useState(null);
-  const [dropTarget, setDropTarget] = useState(null);
+  const list = useRef();
+  const sortable = useRef();
+  const dragActive = useRef(false);
+  const latestOrder = useRef(order);
+  latestOrder.current = order;
   const [submitted, setSubmitted] = useState(false);
   const dirty = name !== baseline.name || order.some((n, i) => n !== i);
   function reset(value) {
@@ -51,12 +56,41 @@ export default function EditGroup({
     onDirty?.(dirty);
   }, [dirty, onDirty]);
   useEffect(() => {
-    if (!dirty && baseline !== group) reset(group);
+    if (!dirty && !dragActive.current && baseline !== group) reset(group);
     if (submitted && !busy) {
       if (editJob?.state === "completed") reset(group);
       setSubmitted(false);
     }
   }, [group, busy, dirty, submitted, editJob, baseline.expectedHash]);
+  useEffect(() => {
+    const reducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const instance = new Sortable(list.current, {
+      handle: ".drag-handle",
+      draggable: "li",
+      dataIdAttr: "data-track-index",
+      animation: reducedMotion ? 0 : 180,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+      ghostClass: "sort-placeholder",
+      chosenClass: "sort-chosen",
+      dragClass: "sort-drag",
+      onStart: () => {
+        dragActive.current = true;
+      },
+      onEnd: ({ oldIndex, newIndex }) => {
+        // Restore React's DOM order before committing the new state permutation.
+        instance.sort(latestOrder.current.map(String), false);
+        setOrder((previous) => reorder(previous, oldIndex, newIndex));
+        dragActive.current = false;
+      },
+    });
+    sortable.current = instance;
+    return () => instance.destroy();
+  }, []);
+  useEffect(() => {
+    sortable.current?.option("disabled", busy || !connected);
+  }, [busy, connected]);
   function move(from, to) {
     setOrder((previous) => reorder(previous, from, to));
   }
@@ -93,8 +127,14 @@ export default function EditGroup({
         Drag the grip to reorder tracks, or use the arrows. Keep the game closed
         when saving.
       </p>
-      {dirty && (
-        <div className="edit-actions" role="group" aria-label="Unsaved changes">
+      <div className="edit-actions-slot">
+        <div
+          className={`edit-actions ${dirty ? "visible" : ""}`}
+          role="group"
+          aria-label="Unsaved changes"
+          aria-hidden={!dirty}
+          inert={!dirty}
+        >
           <span className="hint">Unsaved changes</span>
           <button type="button" disabled={busy} onClick={() => reset(group)}>
             <ResetIcon /> Discard
@@ -107,51 +147,32 @@ export default function EditGroup({
             <CheckIcon /> Save changes
           </button>
         </div>
-      )}
-      <ol className="edit-tracks" aria-label="Tracks in racing order">
+      </div>
+      <ol
+        ref={list}
+        className="edit-tracks"
+        aria-label="Tracks in racing order"
+      >
         {order.map((original, position) => {
           const track = baseline.tracks[original];
           const title = trackName(track);
           return (
-            <li
-              key={original}
-              className={`${dragging === position ? "dragging" : ""} ${dropTarget === position ? "drop-target" : ""}`}
-              onDragOver={(e) => {
-                if (dragging !== null && !busy && connected) {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  setDropTarget(position);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (!busy && connected && dragging !== null)
-                  move(dragging, position);
-                setDragging(null);
-                setDropTarget(null);
-              }}
-            >
+            <li key={original} data-track-index={original}>
               <button
                 type="button"
                 className="icon-button drag-handle"
                 aria-label={`Drag ${title} to reorder`}
-                draggable={!busy && connected}
                 disabled={busy || !connected}
-                onDragStart={(e) => {
-                  setDragging(position);
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", String(position));
-                }}
-                onDragEnd={() => {
-                  setDragging(null);
-                  setDropTarget(null);
-                }}
               >
                 <DragHandleDots2Icon />
               </button>
               <span className="ordinal">
                 {String(position + 1).padStart(2, "0")}
               </span>
+              <TrackPreview
+                track={track}
+                image={baseline.previewImages?.[original]}
+              />
               <span className="track-copy">
                 <strong>{title}</strong>
                 <small>{trackState(track, statuses[track.workshopId])}</small>

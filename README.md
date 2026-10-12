@@ -11,8 +11,8 @@ A standalone Windows app for sharing ordered track groups in **The Karters 2: Tu
 Portable builds contain the runtime and compiled interface. Extract the ZIP into one chosen folder and run **TK2 Track Groups.exe**. Users do **not** install Python, Node.js, or npm. Requires Windows x64, Microsoft Edge WebView2 Runtime, the installed supported game, and the running Steam client. Steam Cloud must be enabled for imports.
 
 1. Close the game and open the app. In **Settings**, check the detected game folder and profile. If multiple profiles exist, explicitly select the correct one.
-2. Choose **Connect Steam**. The app checks the active account, Workshop metadata, and local/Steam save agreement. Resolve any conflict before continuing.
-3. In **Browse groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. The review moves to **My groups**, where it shows numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Keep the game closed until completion.
+2. Steam connects automatically at launch; use **Refresh Steam** to recheck. The app checks the active account, Workshop metadata, and local/Steam save agreement. Resolve any conflict before continuing.
+3. In **Browse groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. A focused review dialog opens over the library, showing numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Keep the game closed until completion.
 4. Missing Workshop items are subscribed and downloaded automatically. Per-track progress and cancellation stay in the review page; no files are downloaded before confirmation. Completed subscriptions remain if importing fails or is cancelled; the app never unsubscribes content. When saving finishes, **View in My groups** opens the saved collection.
 5. Start the game and open Track Groups. Importing the same group again is a no-op; an update preserves its position. A different group ID with the same name becomes a numbered copy.
 
@@ -21,7 +21,7 @@ Portable builds contain the runtime and compiled interface. Extract the ZIP into
 - **Import group file** opens a shared `.tk2group.json` for review. Saving adds it to your game and My groups; it does not publish it to the curated library.
 - **Create group** accepts a name and ordered Workshop item IDs or links, separated by lines, spaces or commas. Steam resolves compatible track names before review. Duplicates and unavailable/incompatible items are rejected.
 - Switch between **Gallery** (public Workshop preview images with track-name fallbacks) and **List**. Both show missing-track counts after a Steam refresh.
-- Select a group to edit its name directly. Drag track grips into racing order (or use the up/down arrows), then **Save changes** in the same panel. Save and Discard appear only when something changes. The group keeps its position and every native track reference/preset. No subscriptions are changed.
+- Select a group to edit its name directly. Drag track grips into racing order (or use the up/down arrows), then **Save changes** in the same panel. Save and Discard fade into a reserved area when something changes, keeping the track list steady. Reordering animates around the dragged track; reduced-motion preferences are respected. The group keeps its position and every native track reference/preset. No subscriptions are changed.
 - **Refresh Steam** checks known dependencies even after unsubscribing. **Repair missing tracks** reviews named missing items, then **Download missing tracks** restores subscriptions/downloads without rewriting the group or profile.
 - **Export group** shares group data and public metadata, never player progress, account IDs, upload credentials, or track assets. Connect Steam to resolve Workshop dependencies first.
 
@@ -29,7 +29,7 @@ Portable builds contain the runtime and compiled interface. Extract the ZIP into
 
 ![Direct editing with conditional Save and Discard controls](docs/images/inline-edit.png)
 
-Both Browse groups and My groups offer Gallery and List views, remembered independently.
+Both Browse groups and My groups offer Gallery and List views, remembered independently. Track previews appear in galleries, group details and import reviews. Steam success messages dismiss after five seconds.
 
 Only reviewed catalog submissions appear in Browse groups. The bundled four collections are under Speedrun; the Community category is ready for future reviewed submissions.
 
@@ -44,7 +44,7 @@ Track identities and public titles/previews are cached in `%LOCALAPPDATA%\TK2 Tr
 | CTR99 SR.com | 0 | 18 |
 | LEGO Racers '99 SR.com | 0 | 14 |
 
-The saved official group name contains two spaces before `SR.com`; exports preserve it exactly. Official tracks currently display their configuration IDs. Workshop titles come from public Steam metadata. **Refresh library** resolves this repository's public `main` commit, then fetches its catalog and groups from that same revision. The last validated library stays available offline, including when GitHub is unavailable or rate-limited.
+The saved official group name contains two spaces before `SR.com`; exports preserve it exactly. Official tracks display verified names and bundled previews. Workshop titles come from public Steam metadata. **Refresh library** resolves this repository's public `main` commit, then fetches its catalog and groups from that same revision. The last validated library stays available offline, including when GitHub is unavailable or rate-limited.
 
 ## Save safety
 

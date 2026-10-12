@@ -124,6 +124,7 @@ export default function ImportReview({
       <TrackList
         tracks={tracks}
         statuses={statuses}
+        images={preview.group.previewImages}
         rename={rename}
         checking={running && job?.phase === "checking"}
       />

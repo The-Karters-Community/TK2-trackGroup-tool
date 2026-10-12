@@ -9,7 +9,7 @@ import {
 import { api, download } from "./api.js";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
-import ImportReview from "./components/ImportReview.jsx";
+import ImportDialog from "./components/ImportDialog.jsx";
 import GroupEditor from "./components/GroupEditor.jsx";
 
 export default function App() {
@@ -45,12 +45,16 @@ export default function App() {
         setMessage(job.message);
       if (job.result?.preview) {
         setPreview(job.result.preview);
-        setPage("local");
         setEditor(null);
         setConfirmed(false);
       }
     }
   }, [state?.job, seenJob]);
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(""), 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
   async function run(action, body) {
     if (action === "error") {
       setError(body.message);
@@ -88,7 +92,6 @@ export default function App() {
   const reviewJob =
     confirmed && state.job?.action === "import" ? state.job : null;
   async function prepare(action, body) {
-    setPage("local");
     setPreview(null);
     setConfirmed(false);
     return run(action, body);
@@ -137,13 +140,7 @@ export default function App() {
         <div className="sidebar-bottom">
           <span>Community edition</span>
           <span>{state.version}</span>
-          <a
-            href="https://github.com/The-Karters-Community/TK2-trackGroup-tool"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Project & help
-          </a>
+          <span>Made by DarkSlayer</span>
         </div>
       </nav>
       <main>
@@ -197,7 +194,7 @@ export default function App() {
           </div>
         )}
         {message && !busy && (
-          <div className="feedback" role="status">
+          <div className="feedback toast" role="status">
             {message}
             <button
               className="icon-button"
@@ -230,20 +227,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {preview ? (
-          <ImportReview
-            preview={preview}
-            confirmed={confirmed}
-            job={reviewJob}
-            onBack={backToGroups}
-            onDone={backToGroups}
-            onCancel={() => run("cancel", {})}
-            onConfirm={async () => {
-              if (await run("import", { token: preview.token }))
-                setConfirmed(true);
-            }}
-          />
-        ) : editor ? (
+        {editor ? (
           <GroupEditor
             key={editor.group?.id || "create"}
             group={editor.group}
@@ -266,6 +250,23 @@ export default function App() {
             onEdit={(body) => run("edit", body)}
             onRepair={(group) => prepare("repair", { id: group.id })}
             focusId={focusId}
+          />
+        )}
+        {preview && (
+          <ImportDialog
+            preview={preview}
+            confirmed={confirmed}
+            job={reviewJob}
+            onBack={() => {
+              setPreview(null);
+              setConfirmed(false);
+            }}
+            onDone={backToGroups}
+            onCancel={() => run("cancel", {})}
+            onConfirm={async () => {
+              if (await run("import", { token: preview.token }))
+                setConfirmed(true);
+            }}
           />
         )}
       </main>

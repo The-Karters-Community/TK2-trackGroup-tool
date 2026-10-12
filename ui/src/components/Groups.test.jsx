@@ -1,12 +1,34 @@
 import React from "react";
 import { afterEach, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import Library from "../pages/Library.jsx";
 import GroupDetails from "./GroupDetails.jsx";
 import ImportReview from "./ImportReview.jsx";
 import GroupEditor from "./GroupEditor.jsx";
 
-afterEach(cleanup);
+const sortableInstances = vi.hoisted(() => []);
+vi.mock("sortablejs", () => ({
+  default: class {
+    constructor(element, options) {
+      this.element = element;
+      this.options = options;
+      this.sort = vi.fn();
+      this.option = vi.fn();
+      this.destroy = vi.fn();
+      sortableInstances.push(this);
+    }
+  },
+}));
+afterEach(() => {
+  cleanup();
+  sortableInstances.length = 0;
+});
 test("local name and racing order are saved together without a review page", () => {
   const onEdit = vi.fn();
   render(
@@ -253,13 +275,14 @@ test("dragging reorders directly and discard restores the saved order", () => {
       onEdit={vi.fn()}
     />,
   );
-  const dataTransfer = { setData: vi.fn() };
-  fireEvent.dragStart(
-    screen.getByRole("button", { name: "Drag Second to reorder" }),
-    { dataTransfer },
-  );
-  fireEvent.dragOver(screen.getAllByRole("listitem")[0], { dataTransfer });
-  fireEvent.drop(screen.getAllByRole("listitem")[0], { dataTransfer });
+  const sortable = sortableInstances.at(-1);
+  expect(sortable.options.animation).toBe(180);
+  expect(sortable.options.handle).toBe(".drag-handle");
+  act(() => {
+    sortable.options.onStart();
+    sortable.options.onEnd({ oldIndex: 1, newIndex: 0 });
+  });
+  expect(sortable.sort).toHaveBeenCalledWith(["0", "1"], false);
   expect(
     screen.getAllByRole("listitem")[0].querySelector("strong").textContent,
   ).toBe("Second");
@@ -349,4 +372,31 @@ test("a pristine panel picks up refreshed track identities without changing the 
     screen.getByRole("link", { name: "View Resolved in Steam" }),
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+});
+
+test("official names and images are shared across details and galleries", () => {
+  const official = {
+    ...group,
+    tracks: [
+      { kind: "official", configId: 267992, title: "Official track 267992" },
+    ],
+  };
+  const { container } = render(
+    <GroupDetails group={official} connected onPreview={vi.fn()} />,
+  );
+  expect(screen.getByText("Gauntlet Run")).toBeTruthy();
+  expect(container.querySelector("img").getAttribute("src")).toBe(
+    "/Tracks/Gaunlet%20Run.jpg",
+  );
+});
+test("save controls reserve space and become inert when pristine", () => {
+  const { container } = render(<GroupDetails group={group} local connected />);
+  const slot = container.querySelector(".edit-actions-slot");
+  expect(slot).toBeTruthy();
+  expect(slot.firstElementChild.hasAttribute("inert")).toBe(true);
+  fireEvent.change(screen.getByLabelText("Group name"), {
+    target: { value: "Changed" },
+  });
+  expect(container.querySelector(".edit-actions-slot")).toBe(slot);
+  expect(slot.firstElementChild.hasAttribute("inert")).toBe(false);
 });

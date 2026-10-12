@@ -1,3 +1,4 @@
+import TrackPreview, { trackName } from "./TrackPreview.jsx";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 export function counts(group) {
@@ -28,15 +29,12 @@ export default function GroupList({
               <span className="gallery-preview" aria-hidden="true">
                 {group.tracks.slice(0, 4).map((t, i) => (
                   <span key={i}>
-                    {group.previewImages?.[i] && (
-                      <img src={group.previewImages[i]} alt="" loading="lazy" />
-                    )}
-                    <small className="preview-label">
-                      {t.title ||
-                        (t.kind === "official"
-                          ? `Official ${t.configId}`
-                          : t.modId)}
-                    </small>
+                    <TrackPreview
+                      track={t}
+                      image={group.previewImages?.[i]}
+                      className="tile-preview"
+                    />
+                    <small className="preview-label">{trackName(t)}</small>
                   </span>
                 ))}
               </span>

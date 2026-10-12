@@ -6,11 +6,18 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import App from "./App.jsx";
 import { api } from "./api.js";
 
 vi.mock("./api.js", () => ({ api: vi.fn(), download: vi.fn() }));
+HTMLDialogElement.prototype.showModal = function () {
+  this.setAttribute("open", "");
+};
+HTMLDialogElement.prototype.close = function () {
+  this.removeAttribute("open");
+};
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
@@ -83,7 +90,9 @@ test("import review stays visible through completion and opens the saved local g
   await screen.findByText("Review before adding to My groups");
   fireEvent.click(screen.getByRole("button", { name: "Add to My groups" }));
   await screen.findByText("Downloading · 30%");
-  expect(screen.getByText("Track One")).toBeTruthy();
+  expect(
+    within(screen.getByRole("dialog")).getByText("Track One"),
+  ).toBeTruthy();
   state = {
     ...state,
     localGroups: [{ ...group, exportReady: true }],
@@ -102,3 +111,43 @@ test("import review stays visible through completion and opens the saved local g
     screen.getByRole("button", { name: "Import group file" }),
   ).toBeTruthy();
 });
+
+test("success messages expire after five seconds and credits have no repository link", async () => {
+  let state = {
+    version: "0.1.0-dev",
+    groups: [],
+    localGroups: [],
+    steamConnected: true,
+    syncError: "",
+    trackStatus: {},
+  };
+  api.mockImplementation(async (action) => {
+    if (action === "refresh")
+      state = {
+        ...state,
+        job: {
+          id: "refresh",
+          action,
+          state: "completed",
+          message: "Steam refreshed. Known Workshop tracks are installed.",
+        },
+      };
+    return action === "state" ? state : { message: "Started" };
+  });
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "Refresh Steam" }));
+  await screen.findByText(
+    "Steam refreshed. Known Workshop tracks are installed.",
+  );
+  expect(screen.getByText("Made by DarkSlayer")).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Project & help" })).toBeNull();
+  await waitFor(
+    () =>
+      expect(
+        screen.queryByText(
+          "Steam refreshed. Known Workshop tracks are installed.",
+        ),
+      ).toBeNull(),
+    { timeout: 6500 },
+  );
+}, 8000);

@@ -138,7 +138,11 @@ export default function GroupDetails({
           onDirty={setDirty}
         />
       ) : (
-        <TrackList tracks={group.tracks} statuses={trackStatus} />
+        <TrackList
+          tracks={group.tracks}
+          statuses={trackStatus}
+          images={group.previewImages}
+        />
       )}
     </aside>
   );

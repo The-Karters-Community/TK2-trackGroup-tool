@@ -617,7 +617,7 @@ progress {
   grid-column: 1 / -1;
   width: 100%;
 }
-.gallery-preview span {
+.gallery-preview > span {
   display: flex;
   align-items: center;
   padding: 12px;
@@ -628,8 +628,8 @@ progress {
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.gallery-preview span:nth-child(2),
-.gallery-preview span:nth-child(3) {
+.gallery-preview > span:nth-child(2),
+.gallery-preview > span:nth-child(3) {
   background: #1d291e;
   color: #b8d2bf;
 }
@@ -671,8 +671,6 @@ progress {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  position: sticky;
-  bottom: 0;
   background: #1c2119;
   padding: 12px 0;
 }
@@ -690,11 +688,11 @@ progress {
 .with-details .group-gallery .group-status {
   display: block;
 }
-.gallery-preview span {
+.gallery-preview > span {
   position: relative;
   overflow: hidden;
 }
-.gallery-preview span:has(img) {
+.gallery-preview > span:has(img) {
   color: white;
   text-shadow: 0 1px 3px black;
   background: #121712;
@@ -728,7 +726,7 @@ progress {
   z-index: 1;
   font: inherit;
 }
-.gallery-preview span:has(img) .preview-label {
+.gallery-preview > span:has(img) .preview-label {
   color: #fff;
   font-weight: 600;
   text-shadow: 0 1px 3px #000;
@@ -822,8 +820,6 @@ progress {
   background: var(--surface);
 }
 .edit-actions {
-  top: 0;
-  bottom: auto;
   z-index: 2;
   flex-wrap: wrap;
   border-block: 1px solid var(--border);
@@ -833,4 +829,220 @@ progress {
   flex: 1;
   align-self: center;
   margin: 0;
+}
+
+/* Compact library and shared track artwork. */
+.library-main {
+  padding: 20px 24px;
+}
+.library-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.library-heading h1 {
+  font-size: 27px;
+  margin: 0;
+}
+.library-heading .category-tabs {
+  margin: 0;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+}
+.speedrun-brand {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 16px;
+}
+.speedrun-brand img {
+  width: min(360px, 80%);
+  height: 60px;
+  object-fit: contain;
+}
+.library-toolbar {
+  margin-bottom: 10px;
+}
+.list-heading {
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.library.with-details {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 390px);
+}
+.details {
+  padding: 20px;
+}
+.details h2 {
+  margin-top: 14px;
+  font-size: 20px;
+}
+.track-preview {
+  width: 76px;
+  aspect-ratio: 16 / 10;
+  border-radius: 6px;
+  background: #2b3326;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.track-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.track-preview > svg {
+  color: var(--muted);
+  width: 20px;
+  height: 20px;
+}
+.tile-preview {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.tile-preview > svg {
+  display: none;
+}
+.track-list li {
+  grid-template-columns: 22px 76px minmax(0, 1fr) 18px;
+  gap: 10px;
+  padding-block: 12px;
+}
+.edit-tracks li {
+  grid-template-columns: 22px 18px 64px minmax(0, 1fr) 26px;
+  gap: 7px;
+  padding-block: 12px;
+  background: #1b2117;
+}
+.edit-tracks .track-preview {
+  width: 64px;
+}
+.edit-tracks .icon-button {
+  width: 26px;
+}
+.edit-tracks .drag-handle {
+  cursor: grab;
+}
+.edit-actions-slot {
+  height: 66px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #1b2117;
+}
+.edit-actions {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(3px);
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out,
+    visibility 150ms;
+}
+.edit-actions.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.sort-placeholder {
+  opacity: 0.28;
+  background: #465437 !important;
+}
+.sort-chosen {
+  background: #293520 !important;
+  border-radius: 7px;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.sort-drag {
+  opacity: 1;
+  box-shadow: 0 10px 25px #0005;
+}
+.feedback.toast {
+  position: fixed;
+  z-index: 10;
+  bottom: 18px;
+  left: 212px;
+  max-width: min(540px, calc(100vw - 238px));
+  margin: 0;
+  box-shadow: 0 6px 24px #0003;
+}
+.import-dialog {
+  width: min(740px, calc(100vw - 40px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #1b2117;
+  color: inherit;
+  overflow: auto;
+  margin: auto;
+}
+.import-dialog::backdrop {
+  background: #070a0799;
+  backdrop-filter: blur(3px);
+}
+.dialog-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+.import-dialog .workflow-page {
+  max-width: none;
+  padding: 26px;
+}
+.import-dialog .page-heading {
+  margin-bottom: 16px;
+  padding-right: 20px;
+}
+.import-dialog h1 {
+  font-size: 25px;
+}
+.import-dialog .workflow-actions {
+  position: sticky;
+  bottom: 0;
+  padding: 16px 0;
+  background: #1b2117;
+}
+.import-dialog .track-list {
+  margin-top: 14px;
+}
+@media (max-width: 1050px) {
+  .library.with-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .details {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .edit-tracks li {
+    grid-template-columns: 24px 22px 76px minmax(0, 1fr) 28px;
+  }
+  .edit-tracks .track-preview {
+    width: 76px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edit-actions {
+    transition: none;
+    transform: none;
+  }
+}
+
+.library-toolbar .view-switch {
+  flex-shrink: 0;
+}
+.library-main .list-heading {
+  margin-block: 4px 10px;
+  font-size: 11px;
 }

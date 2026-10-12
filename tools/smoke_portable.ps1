@@ -21,7 +21,7 @@ try {
     $tgHeaders = @{'X-TK2-Token'=$tgSession.token}
     $tgHealth = Invoke-RestMethod -Uri "$($tgSession.origin)/api/health"
     if ($tgHealth.version -ne '0.1.0-dev') { throw 'Unexpected app version.' }
-    Invoke-RestMethod -Uri "$($tgSession.origin)/api/refresh" -Method Post -Headers $tgHeaders -ContentType application/json -Body '{}' | Out-Null
+    # Startup connects once; wait instead of starting a competing refresh.
     $tgLimit = [DateTime]::UtcNow.AddSeconds(60)
     do {
         Start-Sleep -Milliseconds 300

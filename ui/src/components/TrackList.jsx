@@ -1,13 +1,7 @@
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
-export function trackName(track) {
-  return (
-    track.title ||
-    (track.kind === "official"
-      ? `Official track ${track.configId ?? ""}`
-      : track.modId || `Workshop track ${track.workshopId || ""}`)
-  );
-}
+import TrackPreview, { trackName } from "./TrackPreview.jsx";
+export { trackName } from "./TrackPreview.jsx";
 
 export function trackState(
   track,
@@ -32,6 +26,7 @@ export function trackState(
 export default function TrackList({
   tracks,
   statuses = {},
+  images = [],
   rename = false,
   checking = false,
 }) {
@@ -40,6 +35,7 @@ export default function TrackList({
       {tracks.map((track, i) => (
         <li key={`${track.kind}-${track.modId || track.configId || i}`}>
           <span className="ordinal">{String(i + 1).padStart(2, "0")}</span>
+          <TrackPreview track={track} image={images[i]} />
           <span>
             <strong>{trackName(track)}</strong>
             <small>

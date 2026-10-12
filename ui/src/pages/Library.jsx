@@ -54,49 +54,44 @@ export default function Library({
   return (
     <div className={`library ${selected ? "with-details" : ""}`}>
       <section className="library-main">
-        <header className="page-heading">
-          <span className="eyebrow">
-            {local ? "Your game collection" : "The Karters 2 · Curated library"}
-          </span>
+        <header className="library-heading">
           <h1>{local ? "My groups" : "Browse groups"}</h1>
-          <p>
-            {local
-              ? "Your game's custom groups. Create, import, edit racing order, or repair missing Workshop tracks."
-              : "Choose a curated collection, review its tracks, then add it to My groups and your game."}
-          </p>
+          {!local && (
+            <div className="category-tabs" aria-label="Group categories">
+              {[
+                ["speedrun", "Speedrun"],
+                ["community", "Community"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  aria-pressed={category === id}
+                  className={category === id ? "active" : ""}
+                  onClick={() => {
+                    setCategory(id);
+                    select(null);
+                  }}
+                >
+                  {label}
+                  <span>
+                    {
+                      source.filter((g) => (g.category || "community") === id)
+                        .length
+                    }
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </header>
-        {!local && (
-          <div className="category-tabs" aria-label="Group categories">
-            {[
-              ["speedrun", "Speedrun"],
-              ["community", "Community"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                aria-pressed={category === id}
-                className={category === id ? "active" : ""}
-                onClick={() => {
-                  setCategory(id);
-                  select(null);
-                }}
-              >
-                {label}
-                <span>
-                  {
-                    source.filter((g) => (g.category || "community") === id)
-                      .length
-                  }
-                </span>
-              </button>
-            ))}
-            <p>
-              {category === "speedrun"
-                ? "Collections for Speedrun.com categories, maintained in the reviewed catalog."
-                : "Community-curated collections for exploring and racing together."}
-            </p>
+        {!local && category === "speedrun" && (
+          <div className="speedrun-brand">
+            <img
+              src="/TK2%20Logo%20SpeedrunCOM.png"
+              alt="The Karters 2 Speedrun.com"
+            />
           </div>
         )}
-        <div className="toolbar">
+        <div className="toolbar library-toolbar">
           <input
             aria-label="Search groups"
             placeholder="Search track groups…"
@@ -120,6 +115,23 @@ export default function Library({
               Create group
             </button>
           )}
+          <div className="view-switch" aria-label="Group view">
+            {["Gallery", "List"].map((view) => (
+              <button
+                key={view}
+                aria-pressed={gallery === (view === "Gallery")}
+                onClick={() => {
+                  setGallery(view === "Gallery");
+                  localStorage.setItem(
+                    local ? "my-groups-view" : "browse-groups-view",
+                    view.toLowerCase(),
+                  );
+                }}
+              >
+                {view}
+              </button>
+            ))}
+          </div>
           <input
             ref={input}
             hidden
@@ -129,34 +141,15 @@ export default function Library({
           />
         </div>
         <div className="list-heading">
-          {
-            <div className="view-switch" aria-label="Group view">
-              {["Gallery", "List"].map((view) => (
-                <button
-                  key={view}
-                  aria-pressed={gallery === (view === "Gallery")}
-                  onClick={() => {
-                    setGallery(view === "Gallery");
-                    localStorage.setItem(
-                      local ? "my-groups-view" : "browse-groups-view",
-                      view.toLowerCase(),
-                    );
-                  }}
-                >
-                  {view}
-                </button>
-              ))}
-            </div>
-          }
           <span>
             {groups.length} {groups.length === 1 ? "group" : "groups"}
           </span>
           <span>
             {local
-              ? "Custom groups only"
+              ? "Your racing collections"
               : category === "speedrun"
-                ? "Reviewed Speedrun collections"
-                : "Curated community groups"}
+                ? "Speedrun collections"
+                : "Community collections"}
           </span>
         </div>
         {groups.length ? (
@@ -186,19 +179,6 @@ export default function Library({
                   : "Reviewed submissions will appear here after a library refresh."}
             </p>
           </div>
-        )}
-        {!local && (
-          <p className="footer-note">
-            Have a group to share? Export it from My groups and{" "}
-            <a
-              href="https://github.com/The-Karters-Community/TK2-trackGroup-tool/blob/main/CONTRIBUTING.md"
-              target="_blank"
-              rel="noreferrer"
-            >
-              submit it for review
-            </a>
-            .
-          </p>
         )}
       </section>
       {selected && (
