@@ -34,7 +34,9 @@ export default function ImportReview({
           {done
             ? "Saved to My groups"
             : running
-              ? "Adding to My groups"
+              ? rename
+                ? "Saving group name"
+                : "Adding to My groups"
               : rename
                 ? "Review name change"
                 : "Review before adding to My groups"}

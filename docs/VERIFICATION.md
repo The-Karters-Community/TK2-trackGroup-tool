@@ -4,8 +4,8 @@ Development version: **0.1.0-dev**. Game: **0.1.4.18**, app ID **2269950**. Wind
 
 ## Automated
 
-- 28 Python tests: unchanged profile round trips; Unicode; ordered mixed imports; duplicate no-op imports; confirmed updates; numbered copies; unrelated field/record preservation; malformed/private-field exports; unresolved dependencies; catalog integrity/offline fallback and pinned revisions; failed subscriptions/downloads; cancellation; delayed downloads; unavailable Steam; changed account/profile; Cloud conflict; failed writes; interrupted journals; external-save-safe recovery; helper UTF-8; HTTP session/host/origin guards.
-- 3 React tests: list/search/order, unresolved export controls, and removal of display-only fields from import requests.
+- 35 Python tests: unchanged profile round trips; Unicode; ordered mixed imports; duplicate no-op imports; confirmed updates; numbered copies; unrelated field/record preservation; malformed/private-field exports; unresolved dependencies; catalog integrity/offline fallback and pinned revisions; failed subscriptions/downloads; cancellation; delayed downloads; unavailable Steam; changed account/profile; Cloud conflict; failed writes; interrupted journals; external-save-safe recovery; helper UTF-8; HTTP session/host/origin guards; pasted Workshop IDs/links; resolved creation previews; name-only updates with unresolved/preset references; rename transactions and reviewed categories.
+- 7 React tests: list/search/order, unresolved export controls, removal of display-only fields from import requests, category filtering, file-import placement, creation/rename forms, numbered review tracks, per-track progress, and completion opening the saved group in My groups.
 - Catalog validator: 3 groups, 58 ordered references, 42 Workshop references. IDs, names, and order came from the actual custom groups. Checksums and shared dependency mappings validate.
 - Vite production build and formatting checks pass. The portable ZIP is approximately 14.5 MiB.
 
@@ -19,6 +19,10 @@ Development version: **0.1.0-dev**. Game: **0.1.4.18**, app ID **2269950**. Wind
 - Restarted the game: the group appeared with two tracks in that order. Cortex Castle loaded into a playable time trial.
 - Updated the test group's name, preserving its position. Fixed and regression-tested Windows-default decoding in the helper. Restarted again and verified the Unicode name displayed correctly.
 - Closed the game and removed only the temporary group from both current copies. The three original custom groups exactly matched the initial baseline; unrelated current profile data was retained. Backups remain local.
+
+## Group management flow, 2026-10-12
+
+Created a temporary two-track Workshop group from pasted IDs in the compiled UI using the real Steam account. The review showed numbered Cortex Castle and Slide Coliseum titles in the pasted order, with installed status. Confirmed saving, opened it directly in My groups, then renamed it through the UI. Both save copies verified. All original groups, unrelated fields, and first two records remained unchanged. Removed only the temporary test group afterward; both copies matched the verified baseline byte-for-byte. No additional subscriptions were needed. Category navigation and responsive review checked in the browser; progress/failure paths also have UI tests.
 
 ## Portable
 

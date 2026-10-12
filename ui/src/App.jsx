@@ -160,7 +160,10 @@ export default function App() {
                 : "Steam connected · profile verified"
               : "Connect Steam to import"}
           </span>
-          <button disabled={busy} onClick={() => run("refresh", {})}>
+          <button
+            disabled={busy || Boolean(preview)}
+            onClick={() => run("refresh", {})}
+          >
             <ReloadIcon />
             {state.steamConnected ? "Refresh Steam" : "Connect Steam"}
           </button>

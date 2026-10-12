@@ -8,6 +8,7 @@ Follow the root README for setup. This repository is independent of TK2-Mod-SDK.
 2. Export from **My groups**. Correct unresolved Workshop dependencies first.
 3. Copy the export into `catalog/<group-id>.tk2group.json`. Preserve its ID and order; optionally add a concise description.
 4. Run `python tools/check_catalog.py --write-index` to normalize JSON line endings and regenerate filenames/checksums in `catalog/index.json`. For an existing group, keep its ID and increase `revision` when changing its name/order/dependencies. The index and format versions remain 1.
+   Each index entry has a reviewed `category`: `speedrun` or `community`. New entries default to `community`; maintainers review Speedrun.com category membership before labeling them `speedrun`. Category labels belong to the catalog index, not the portable group file, so local imports cannot claim official category status. Regenerating the index preserves existing labels.
 5. Run `python tools/check_catalog.py` and tests, then submit a pull request. Include evidence that dependencies are public compatible tracks and match their internal mod IDs.
 
 CI validates allowed fields, ordered references, IDs, dependency types, uniqueness, and checksums. CI cannot authenticate to Steam: maintainers must review live availability before merging. Never include profiles, account identifiers, upload keys/passwords, or track bundles.

@@ -12,11 +12,18 @@ Portable builds contain the runtime and compiled interface. Extract the entire f
 
 1. Close the game and open the app. In **Settings**, check the detected game folder and profile. If multiple profiles exist, explicitly select the correct one.
 2. Choose **Connect Steam**. The app checks the active account, Workshop metadata, and local/Steam save agreement. Resolve any conflict before continuing.
-3. In **Browse groups**, select a group to inspect its ordered tracks. Choose **Preview import**, review additions or changes, then confirm. Keep the game closed until completion.
-4. Missing Workshop items are subscribed and downloaded automatically. Progress and cancellation appear above the library. Completed subscriptions remain if importing fails or is cancelled; the app never unsubscribes content.
+3. In **Browse groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. The review moves to **My groups**, where it shows numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Keep the game closed until completion.
+4. Missing Workshop items are subscribed and downloaded automatically. Per-track progress and cancellation stay in the review page; no files are downloaded before confirmation. Completed subscriptions remain if importing fails or is cancelled; the app never unsubscribes content. When saving finishes, **View in My groups** opens the saved collection.
 5. Start the game and open Track Groups. Importing the same group again is a no-op; an update preserves its position. A different group ID with the same name becomes a numbered copy.
 
-**My groups** lists your custom groups. Connect Steam to resolve Workshop references, then **Export group**. Share the `.tk2group.json` file; recipients use **Open group file**. Exports contain group data and public metadata, never player progress, account IDs, upload credentials, or track assets.
+**My groups** manages your custom groups in the game:
+
+- **Import group file** opens a shared `.tk2group.json` for review. Saving adds it to your game and My groups; it does not publish it to the curated library.
+- **Create group** accepts a name and ordered Workshop item IDs or links, separated by lines, spaces or commas. Steam resolves compatible track names before review. Duplicates and unavailable/incompatible items are rejected.
+- Select a group and choose **Rename group**, edit the name, review and **Save name**. This changes only the name, preserving position and every track reference, including unresolved tracks. It does not subscribe or download anything.
+- **Export group** shares group data and public metadata, never player progress, account IDs, upload credentials, or track assets. Connect Steam to resolve Workshop dependencies first.
+
+Only reviewed catalog submissions appear in Browse groups. The bundled three collections are under Speedrun; the Community category is ready for future reviewed submissions.
 
 | Bundled group | Official | Workshop |
 | --- | ---: | ---: |

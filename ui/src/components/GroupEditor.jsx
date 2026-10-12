@@ -39,6 +39,8 @@ export default function GroupEditor({ group, busy, onCancel, onSubmit }) {
           <label>
             Workshop item IDs or links
             <textarea
+              aria-label="Workshop item IDs or links"
+              aria-describedby="workshop-items-help"
               required
               rows={8}
               value={items}
@@ -48,7 +50,7 @@ export default function GroupEditor({ group, busy, onCancel, onSubmit }) {
                 "3263970719\n3279611598\nOr paste Steam Workshop links"
               }
             />
-            <span className="hint">
+            <span className="hint" id="workshop-items-help">
               One per line, or separate IDs with spaces or commas. Duplicate
               tracks are rejected.
             </span>
@@ -62,7 +64,11 @@ export default function GroupEditor({ group, busy, onCancel, onSubmit }) {
             className="primary"
             disabled={busy || !name.trim() || (!rename && !items.trim())}
           >
-            {busy ? "Checking tracks…" : "Review changes"}
+            {busy
+              ? rename
+                ? "Preparing review…"
+                : "Checking tracks…"
+              : "Review changes"}
           </button>
         </div>
       </form>
