@@ -708,3 +708,28 @@ progress {
   opacity: 0.45;
   pointer-events: none;
 }
+.group-gallery .track-count {
+  grid-column: 1;
+  grid-row: 2;
+}
+.group-gallery .group-copy {
+  grid-column: 2;
+  grid-row: 2;
+}
+.group-gallery .group-row > svg {
+  grid-column: 3;
+  grid-row: 2;
+}
+.group-gallery .group-status {
+  grid-row: 3;
+}
+.preview-label {
+  position: relative;
+  z-index: 1;
+  font: inherit;
+}
+.gallery-preview span:has(img) .preview-label {
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 3px #000;
+}

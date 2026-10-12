@@ -31,10 +31,12 @@ export default function GroupList({
                     {group.previewImages?.[i] && (
                       <img src={group.previewImages[i]} alt="" loading="lazy" />
                     )}
-                    {t.title ||
-                      (t.kind === "official"
-                        ? `Official ${t.configId}`
-                        : t.modId)}
+                    <small className="preview-label">
+                      {t.title ||
+                        (t.kind === "official"
+                          ? `Official ${t.configId}`
+                          : t.modId)}
+                    </small>
                   </span>
                 ))}
               </span>

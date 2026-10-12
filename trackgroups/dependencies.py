@@ -29,7 +29,7 @@ class Dependencies:
             write_json(self.path, self.items)
 
     def catalog(self, groups):
-        self.remember({t['workshopId']: t for g in groups for t in g['tracks'] if t['kind'] == 'workshop'})
+        self.remember({t['workshopId']: t for g in groups for t in g['tracks'] if t['kind'] == 'workshop' and t['workshopId'] not in self.items})
 
     def mapping(self):
         return {v['modId']: v for v in self.items.values()}

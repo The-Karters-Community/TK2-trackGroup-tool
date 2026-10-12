@@ -23,6 +23,8 @@ class ManagementTests(unittest.TestCase):
             self.assertEqual(restored.mapping()['lego']['workshopId'], '123')
             self.assertNotIn('private', path.read_text())
             self.assertEqual(set(restored.items['123']), {'workshopId', 'modId', 'title', 'available'})
+            restored.catalog([{'tracks':[{'kind':'workshop', 'workshopId':'123', 'modId':'lego', 'title':'Old title'}]}])
+            self.assertEqual(restored.items['123']['title'], 'LEGO track')
 
     def test_refresh_queries_known_unsubscribed_tracks_and_reports_missing_status(self):
         with tempfile.TemporaryDirectory() as folder:

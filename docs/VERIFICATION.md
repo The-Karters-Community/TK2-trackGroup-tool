@@ -28,6 +28,17 @@ Created a temporary two-track Workshop group from pasted IDs in the compiled UI 
 
 `tools/smoke_portable.ps1` copies the build to a relocated path containing spaces, removes Python/Node/npm from PATH, launches the bundled app/helper, checks real Steam/profile access, shuts down the native window, checks child exit, and deletes the copied folder. Passed. Compiled UI also checked at 1180×820 and the 760×560 minimum window size without horizontal overflow.
 
+## Missing dependencies and inline editing, 2026-10-12
+
+- Reproduced the LEGO group's loss of identities after unsubscribe. Its original export resolved all 14 IDs; the real Steam API verified their expected internal identifiers and reported all 14 unsubscribed/not installed. Identities are retained independently of subscriptions. Refresh and the repair preview now list every named missing track and offer download. These subscriptions were left untouched for the user to exercise repair.
+- Used the actual interface to rename the LEGO group and swap its first two tracks with one Save action. Both local and Remote Storage verified. Restored the original name/order through the same editor; the complete current profile was byte-for-byte identical to the fresh baseline afterward. No track subscriptions changed.
+- Public Workshop preview URLs feed the Gallery view; missing counts remain visible in both layouts. Text mosaics cover missing previews and official configuration IDs.
+- Regression suite: 43 Python checks and 9 UI checks. Includes persistent identities after unsubscribe/restart, missing-status refresh, native preset-preserving permutations, repair without any profile write, release/checksum/inventory/path validation and destination collisions.
+
+## App updater, 2026-10-12
+
+`tools/check_update_lifecycle.py` compiled an isolated version fixture and exercised real Windows portable replacement, healthy restart, standard version-folder rename, preservation of an added user file, and removal of the temporary previous-installation copy. A second fixture with an invalid executable restored and reopened the previous application. All test applications closed and their folders were deletable. The source development version was unchanged; no release was published. Public GitHub release installation cannot be tested until a compatible release exists; its download/checksum/archive rules have local automated coverage.
+
 ## Limits of this verification
 
 All 42 dependencies were already subscribed and installed on the test account. A new missing-item network download was not exercised live; subscription callbacks were tested live, while missing subscriptions, failed/delayed downloads, unavailable Steam, wrong accounts, and failed writes were tested with controlled doubles. Steam's remote server upload completion is managed by the client, beyond the verified local Remote Storage readback. Private/deleted items fail closed when metadata cannot be resolved. CI validates dependency structure/mapping but cannot authenticate to Steam; maintainers review availability before catalog merges.
