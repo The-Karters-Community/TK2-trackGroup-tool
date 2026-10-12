@@ -163,4 +163,3 @@ class HttpTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError): urllib.request.urlopen(req)
         finally:
             server.shutdown(); server.server_close(); thread.join()
-

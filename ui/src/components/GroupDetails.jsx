@@ -1,9 +1,6 @@
-import {
-  Cross2Icon,
-  DownloadIcon,
-  ExternalLinkIcon,
-} from "@radix-ui/react-icons";
+import { Cross2Icon, DownloadIcon } from "@radix-ui/react-icons";
 import { counts } from "./GroupList.jsx";
+import TrackList from "./TrackList.jsx";
 
 export default function GroupDetails({
   group,
@@ -13,6 +10,7 @@ export default function GroupDetails({
   onClose,
   onPreview,
   onExport,
+  onRename,
   trackStatus = {},
 }) {
   const count = counts(group);
@@ -32,7 +30,11 @@ export default function GroupDetails({
     <aside className="details" aria-label="Group details">
       <div className="flex items-center justify-between">
         <span className="eyebrow">
-          {local ? "Your custom group" : "Community group"}
+          {local
+            ? "Your custom group"
+            : group.category === "speedrun"
+              ? "Speedrun category"
+              : "Community group"}
         </span>
         <button
           className="icon-button"
@@ -48,6 +50,15 @@ export default function GroupDetails({
         · {count.workshop} Workshop
       </p>
       {group.description && <p>{group.description}</p>}
+      {local && (
+        <button
+          className="w-full"
+          disabled={busy || !connected}
+          onClick={() => onRename(group)}
+        >
+          Rename group
+        </button>
+      )}
       <button
         className="primary w-full"
         disabled={busy || (local ? !group.exportReady : !connected)}
@@ -62,40 +73,7 @@ export default function GroupDetails({
         </p>
       )}
       {group.reason && <p className="notice">{group.reason}</p>}
-      <ol className="track-list">
-        {group.tracks.map((track, i) => (
-          <li key={`${track.kind}-${track.modId || track.configId || i}`}>
-            <span className="ordinal">{String(i + 1).padStart(2, "0")}</span>
-            <span>
-              <strong>
-                {track.title ||
-                  (track.kind === "official"
-                    ? `Official track ${track.configId ?? ""}`
-                    : "Workshop track")}
-              </strong>
-              <small>
-                {track.kind === "official"
-                  ? "Built into the game"
-                  : trackStatus[track.workshopId]?.ready
-                    ? "Workshop · installed"
-                    : trackStatus[track.workshopId]?.subscribed
-                      ? "Workshop · download pending"
-                      : "Steam Workshop · subscription required"}
-              </small>
-            </span>
-            {track.workshopId && (
-              <a
-                aria-label={`View ${track.title} in Steam`}
-                href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${track.workshopId}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <ExternalLinkIcon />
-              </a>
-            )}
-          </li>
-        ))}
-      </ol>
+      <TrackList tracks={group.tracks} statuses={trackStatus} />
     </aside>
   );
 }

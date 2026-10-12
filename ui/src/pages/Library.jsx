@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ReloadIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import GroupList from "../components/GroupList.jsx";
 import GroupDetails from "../components/GroupDetails.jsx";
@@ -10,13 +10,23 @@ export default function Library({
   run,
   onPreview,
   onExport,
+  onCreate,
+  onRename,
+  focusId,
 }) {
   const [search, setSearch] = useState("");
   const [selectedId, select] = useState(null);
+  const [category, setCategory] = useState("speedrun");
+  useEffect(() => {
+    if (focusId) select(focusId);
+  }, [focusId]);
   const input = useRef();
   const source = local ? state.localGroups : state.groups;
-  const selected = source.find((g) => g.id === selectedId);
-  const groups = source.filter((g) =>
+  const categorySource = local
+    ? source
+    : source.filter((g) => (g.category || "community") === category);
+  const selected = categorySource.find((g) => g.id === selectedId);
+  const groups = categorySource.filter((g) =>
     g.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
   async function openFile(event) {
@@ -40,15 +50,46 @@ export default function Library({
       <section className="library-main">
         <header className="page-heading">
           <span className="eyebrow">
-            {local ? "Export & share" : "The Karters 2 · Community library"}
+            {local ? "Your game collection" : "The Karters 2 · Curated library"}
           </span>
-          <h1>{local ? "My groups" : "Find your next race."}</h1>
+          <h1>{local ? "My groups" : "Browse groups"}</h1>
           <p>
             {local
-              ? "Your custom groups, exactly as ordered in the game. Export a group to share it or submit it to the community."
-              : "Bring a complete track group into your game. Official tracks and Workshop subscriptions, in one place."}
+              ? "These are your custom groups in the game. Import a file, create a group from Workshop IDs, rename or export one."
+              : "Choose a curated collection, review its tracks, then add it to My groups and your game."}
           </p>
         </header>
+        {!local && (
+          <div className="category-tabs" aria-label="Group categories">
+            {[
+              ["speedrun", "Speedrun"],
+              ["community", "Community"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                aria-pressed={category === id}
+                className={category === id ? "active" : ""}
+                onClick={() => {
+                  setCategory(id);
+                  select(null);
+                }}
+              >
+                {label}
+                <span>
+                  {
+                    source.filter((g) => (g.category || "community") === id)
+                      .length
+                  }
+                </span>
+              </button>
+            ))}
+            <p>
+              {category === "speedrun"
+                ? "Collections for Speedrun.com categories, maintained in the reviewed catalog."
+                : "Community-curated collections for exploring and racing together."}
+            </p>
+          </div>
+        )}
         <div className="toolbar">
           <input
             aria-label="Search groups"
@@ -63,10 +104,15 @@ export default function Library({
             <ReloadIcon />
             Refresh {local ? "Steam" : "library"}
           </button>
-          {!local && (
+          {local && (
             <button disabled={busy} onClick={() => input.current.click()}>
               <FilePlusIcon />
-              Open group file
+              Import group file
+            </button>
+          )}
+          {local && (
+            <button className="primary" disabled={busy} onClick={onCreate}>
+              Create group
             </button>
           )}
           <input
@@ -96,11 +142,19 @@ export default function Library({
           />
         ) : (
           <div className="empty">
-            <h2>{search ? "No matching groups" : "No custom groups found"}</h2>
+            <h2>
+              {search
+                ? "No matching groups"
+                : local
+                  ? "No custom groups yet"
+                  : `No ${category === "speedrun" ? "Speedrun" : "Community"} groups yet`}
+            </h2>
             <p>
               {search
                 ? "Try another search."
-                : "Create a group in the game, close the game, then refresh Steam."}
+                : local
+                  ? "Create one from Workshop IDs or import a shared group file."
+                  : "Reviewed submissions will appear here after a library refresh."}
             </p>
           </div>
         )}
@@ -129,6 +183,7 @@ export default function Library({
           }}
           onPreview={onPreview}
           onExport={onExport}
+          onRename={onRename}
           trackStatus={state.trackStatus}
         />
       )}

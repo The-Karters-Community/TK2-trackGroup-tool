@@ -9,7 +9,8 @@ import {
 import { api, download } from "./api.js";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
-import ImportDialog from "./components/ImportDialog.jsx";
+import ImportReview from "./components/ImportReview.jsx";
+import GroupEditor from "./components/GroupEditor.jsx";
 
 export default function App() {
   const [state, setState] = useState(null);
@@ -17,6 +18,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState(null);
+  const [editor, setEditor] = useState(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [focusId, setFocusId] = useState(null);
   const [seenJob, setSeenJob] = useState("");
   const refresh = useCallback(async () => {
     try {
@@ -34,10 +38,17 @@ export default function App() {
     const job = state?.job;
     if (!job || job.state === "running" || seenJob === job.id) return;
     setSeenJob(job.id);
-    if (job.state === "failed") setError(job.message);
+    if (job.state === "failed" && job.action !== "import")
+      setError(job.message);
     else {
-      setMessage(job.message);
-      if (job.result?.preview) setPreview(job.result.preview);
+      if (job.action !== "import" && !job.result?.preview)
+        setMessage(job.message);
+      if (job.result?.preview) {
+        setPreview(job.result.preview);
+        setPage("local");
+        setEditor(null);
+        setConfirmed(false);
+      }
     }
   }, [state?.job, seenJob]);
   async function run(action, body) {
@@ -51,6 +62,7 @@ export default function App() {
       const value = await api(action, body);
       if (action === "settings") setMessage(value.message);
       await refresh();
+      return value;
     } catch (err) {
       setError(err.message);
       return null;
@@ -73,6 +85,21 @@ export default function App() {
       </div>
     );
   const busy = state.job?.state === "running";
+  const reviewJob =
+    confirmed && state.job?.action === "import" ? state.job : null;
+  async function prepare(action, body) {
+    setPage("local");
+    setPreview(null);
+    setConfirmed(false);
+    return run(action, body);
+  }
+  function backToGroups() {
+    setPage("local");
+    setFocusId(preview?.group.id || null);
+    setPreview(null);
+    setConfirmed(false);
+    setEditor(null);
+  }
   const nav = [
     ["browse", StackIcon, "Browse groups"],
     ["local", PersonIcon, "My groups"],
@@ -93,9 +120,13 @@ export default function App() {
               key={id}
               className={page === id ? "active" : ""}
               aria-current={page === id ? "page" : undefined}
+              disabled={busy}
               onClick={() => {
                 setPage(id);
                 setPreview(null);
+                setEditor(null);
+                setConfirmed(false);
+                setFocusId(null);
               }}
             >
               <Icon />
@@ -161,21 +192,10 @@ export default function App() {
         {state.syncError && state.steamConnected && (
           <div className="feedback error">{state.syncError}</div>
         )}
-        {busy && (
+        {busy && !reviewJob && (
           <div className="operation" role="status">
             <div>
               <strong>{state.job.message}</strong>
-              {state.job.items &&
-                Object.entries(state.job.items).map(([id, item]) => (
-                  <small key={id}>
-                    {id}:{" "}
-                    {item.ready
-                      ? "Installed"
-                      : item.total
-                        ? `${Math.round((item.downloaded / item.total) * 100)}% downloaded`
-                        : "Waiting for Steam"}
-                  </small>
-                ))}
               {state.job.total > 0 && (
                 <progress
                   value={state.job.completed || 0}
@@ -191,7 +211,28 @@ export default function App() {
             </button>
           </div>
         )}
-        {page === "settings" ? (
+        {preview ? (
+          <ImportReview
+            preview={preview}
+            confirmed={confirmed}
+            job={reviewJob}
+            onBack={backToGroups}
+            onDone={backToGroups}
+            onCancel={() => run("cancel", {})}
+            onConfirm={async () => {
+              if (await run("import", { token: preview.token }))
+                setConfirmed(true);
+            }}
+          />
+        ) : editor ? (
+          <GroupEditor
+            key={editor.group?.id || "create"}
+            group={editor.group}
+            busy={busy}
+            onCancel={() => setEditor(null)}
+            onSubmit={prepare}
+          />
+        ) : page === "settings" ? (
           <Settings state={state} busy={busy} run={run} />
         ) : (
           <Library
@@ -200,23 +241,14 @@ export default function App() {
             local={page === "local"}
             busy={busy}
             run={run}
-            onPreview={(group) => run("preview", { group })}
+            onPreview={(group) => prepare("preview", { group })}
             onExport={exportGroup}
+            onCreate={() => setEditor({})}
+            onRename={(group) => setEditor({ group })}
+            focusId={focusId}
           />
         )}
       </main>
-      {preview && (
-        <ImportDialog
-          preview={preview}
-          busy={busy}
-          onCancel={() => setPreview(null)}
-          onConfirm={async () => {
-            const token = preview.token;
-            setPreview(null);
-            await run("import", { token });
-          }}
-        />
-      )}
     </div>
   );
 }
