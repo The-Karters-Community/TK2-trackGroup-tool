@@ -18,13 +18,14 @@ if args.write_index:
     order = [e['file'] for e in index['groups'] if e['file'] in files]
     order += sorted(set(files) - set(order))
     entries = []
+    categories = {e['file']:e.get('category', 'community') for e in index['groups']}
     normalized = []
     for name in order:
         raw = files[name].read_bytes().replace(b'\r\n', b'\n')
         group = decode(raw)
         if name != group['id'] + '.tk2group.json': raise SystemExit('Filename and group ID must match.')
         normalized.append((files[name], raw))
-        entries.append({'file':name, 'sha256':hashlib.sha256(raw).hexdigest()})
+        entries.append({'file':name, 'sha256':hashlib.sha256(raw).hexdigest(), 'category':categories.get(name, 'community')})
     for file, raw in normalized: file.write_bytes(raw)
     write_json(folder / 'index.json', {'version':1, 'groups':entries})
 

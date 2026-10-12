@@ -66,7 +66,7 @@ def make_server(service):
                 if not 0 < length <= 1024 * 1024: raise ValueError("Request size is invalid.")
                 body = json.loads(self.rfile.read(length))
                 action = urlsplit(self.path).path.removeprefix("/api/")
-                if action in ("refresh", "catalog", "preview", "import"):
+                if action in ("refresh", "catalog", "preview", "create", "rename", "import"):
                     result = service.start_job(action, body)
                 elif action == "cancel":
                     service.cancel.set(); result = {"message": "Cancellation requested. Already completed subscriptions remain."}

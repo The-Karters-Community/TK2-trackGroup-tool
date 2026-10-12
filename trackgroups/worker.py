@@ -29,7 +29,7 @@ def run(folder):
                 result["save"] = base64.b64encode(data).decode()
                 result["saveHash"] = hashlib.sha256(data).hexdigest()
         elif action == "details":
-            result = {"account": steam.account, "items": steam.details(request["ids"]),
+            result = {"account": steam.account, "items": steam.details(request["ids"], cancelled),
                 "status": {item: steam.item_status(item) for item in request["ids"]}}
         elif action == "subscribe-proof":
             # Idempotent diagnostic for an ALREADY subscribed item only.
@@ -42,6 +42,16 @@ def run(folder):
             # Explicit diagnostic: rewrite identical bytes, then verify no content changed.
             steam.write_save(request["profile"], data)
             result = {"unchanged": steam.read_save(request["profile"]) == data}
+        elif action == "rename":
+            from .transaction import commit
+            from .runtime import PROFILE_DIR
+            from .profile import SAVE_NAME
+            if not SAVE_NAME.fullmatch(request['profile']): raise ValueError("Invalid profile selection.")
+            if not steam.storage_call("IsCloudEnabledForAccount") or not steam.storage_call("IsCloudEnabledForApp"):
+                raise ValueError("Enable Steam Cloud before renaming, so both save copies stay synchronized.")
+            if cancelled(): raise ValueError("Rename cancelled before writing the profile.")
+            progress({'phase':'saving', 'message':'Saving the new group name. Keep the game closed.'})
+            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=True)
         elif action == "install":
             from .groups import validate
             from .transaction import commit, digest, require_recovered
@@ -72,7 +82,7 @@ def run(folder):
             for item in ids:
                 if cancelled(): raise ValueError("Import cancelled. Completed subscriptions remain subscribed.")
                 if not steam.item_status(item)["subscribed"]:
-                    progress({"phase": "subscribing", "message": "Subscribing Workshop item " + item, "completed": len(subscribed), "total": len(ids)})
+                    progress({"phase": "subscribing", "message": "Subscribing to " + details[item].get('title', item), "completed": len(subscribed), "total": len(ids)})
                     steam.subscribe(item, cancelled)
                     subscribed.append(item)
                 if not steam.item_status(item)["ready"]:
@@ -83,6 +93,7 @@ def run(folder):
                 if cancelled(): raise ValueError("Import cancelled. Completed subscriptions remain subscribed.")
                 steam.dll.SteamAPI_RunCallbacks()
                 statuses = {item: steam.item_status(item) for item in ids}
+                for item, status in statuses.items(): status['title'] = details[item].get('title', 'Workshop track ' + item)
                 done = sum(s["ready"] and steam.installed(item) for item, s in statuses.items())
                 progress({"phase": "downloading", "message": f"Workshop tracks ready: {done}/{len(ids)}", "completed": done,
                           "total": len(ids), "items": statuses, "newSubscriptions": subscribed})

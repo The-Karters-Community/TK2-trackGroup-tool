@@ -99,7 +99,7 @@ class InstallTests(unittest.TestCase):
                 account = 'test'
                 def __init__(self, game): seen.append(game)
                 def close(self): pass
-                def details(self, ids): return {}
+                def details(self, ids, cancelled=lambda:False): return {}
             with patch.object(worker, 'Steam', Steam): worker.run(root)
             self.assertEqual(seen, ['雪 — Pelit'])
             self.assertNotIn('error', json.loads((root / 'result.json').read_text(encoding='utf-8')))
@@ -163,3 +163,4 @@ class HttpTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError): urllib.request.urlopen(req)
         finally:
             server.shutdown(); server.server_close(); thread.join()
+

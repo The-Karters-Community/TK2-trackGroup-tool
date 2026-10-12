@@ -14,6 +14,11 @@ BASE = "https://raw.githubusercontent.com/" + REPOSITORY + "/{revision}/catalog/
 NAME = re.compile(r"^[0-9a-f-]{36}\.tk2group\.json$")
 
 
+def categorized(group, category='community'):
+    if category not in ('speedrun', 'community'): raise ValueError('Unsupported catalog category.')
+    return {**group, 'category':category}
+
+
 def decode(raw):
     if len(raw) > 1024 * 1024:
         raise ValueError("Group file exceeds 1 MiB.")
@@ -34,7 +39,7 @@ def read_catalog(folder):
         group = decode(raw)
         if name != group["id"] + ".tk2group.json" or group["id"] in ids: raise ValueError("Duplicate or mismatched group ID.")
         ids.add(group["id"])
-        result.append(group)
+        result.append(categorized(group, entry.get('category', 'community')))
     return result
 
 
@@ -75,7 +80,7 @@ def refresh(cancelled=lambda: False):
         group = decode(raw)
         if group["id"] + ".tk2group.json" != name or hashlib.sha256(raw).hexdigest() != entry["sha256"]:
             raise ValueError("Remote group ID or checksum does not match.")
-        entries.append(group)
+        entries.append(categorized(group, entry.get('category', 'community')))
     if len({g["id"] for g in entries}) != len(entries): raise ValueError("Duplicate remote groups.")
     write_json(DATA / "catalog-cache.json", entries)
     return entries
@@ -85,6 +90,8 @@ def load():
     try:
         values = json.loads((DATA / "catalog-cache.json").read_text(encoding="utf-8"))
         if not isinstance(values, list) or len(values) > 1000: raise ValueError()
-        return [validate(x) for x in values]
+        # Older caches had no category. Use reviewed bundled labels for those IDs.
+        labels = {g['id']:g['category'] for g in read_catalog(ROOT / 'catalog')}
+        return [categorized(validate({k:v for k,v in x.items() if k != 'category'}), x.get('category', labels.get(x['id'], 'community'))) for x in values]
     except (OSError, ValueError, KeyError, TypeError):
         return read_catalog(ROOT / "catalog")

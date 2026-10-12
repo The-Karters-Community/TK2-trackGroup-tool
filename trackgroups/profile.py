@@ -61,6 +61,27 @@ class Profile:
     def unchanged(self):
         return self.original
 
+    def serialize(self, data):
+        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        result = self.spans[0] + self.spans[1] + encode_length(len(raw)) + raw
+        Profile(result)
+        return result
+
+    def rename_group(self, identity, name):
+        from .groups import validate_name
+        validate_name(name)
+        data = copy.deepcopy(self.data)
+        existing = next((g for g in data['ItemsGroupDefinedContainers'] if g['GroupDefinition']['UniqueID'] == identity), None)
+        if not existing or existing not in self.custom_groups():
+            raise ValueError("Choose an existing custom track group to rename.")
+        definition = existing['GroupDefinition']
+        if not definition.get('CanBeModified', True): raise ValueError("This group cannot be renamed.")
+        if definition['Name'] == name: return self.original, 'unchanged'
+        if any(g['GroupDefinition']['Name'] == name and g['GroupDefinition']['UniqueID'] != identity for g in self.groups):
+            raise ValueError("Another group already uses that name. Choose a distinct name.")
+        definition['Name'] = name
+        return self.serialize(data), 'renamed'
+
     def validate_official_tracks(self, group):
         known = {item["configID"] for container in self.groups
                  if container["GroupDefinition"].get("IsDefault")
@@ -103,7 +124,4 @@ class Profile:
                     "Name": name, "Type": 0, "SubType": 0, "MaxElementsCount": 0,
                     "IsForGP": False, "CreationDate": datetime.now().astimezone().isoformat(), "IsDefault": False}})
             outcome = "added"
-        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
-        result = self.spans[0] + self.spans[1] + encode_length(len(raw)) + raw
-        Profile(result)  # Never return bytes that our decoder cannot read.
-        return result, outcome
+        return self.serialize(data), outcome

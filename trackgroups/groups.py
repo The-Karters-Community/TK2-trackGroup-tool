@@ -7,6 +7,12 @@ import uuid
 MAX_TRACKS = 1000
 
 
+def validate_name(name):
+    if not isinstance(name, str) or not name.strip() or len(name) > 200 or any(ord(c) < 32 for c in name):
+        raise ValueError("Group name must be 1–200 characters without control characters.")
+    return name
+
+
 def validate(value):
     if not isinstance(value, dict) or value.get("format") != "tk2-track-group" or value.get("version") != 1:
         raise ValueError("Unsupported track group format. Expected version 1.")
@@ -16,9 +22,7 @@ def validate(value):
     uuid.UUID(value["id"])
     if type(value.get("revision")) is not int or value["revision"] < 1:
         raise ValueError("Revision must be a positive integer.")
-    name = value.get("name")
-    if not isinstance(name, str) or not name.strip() or len(name) > 200 or any(ord(c) < 32 for c in name):
-        raise ValueError("Group name must be 1–200 characters without control characters.")
+    validate_name(value.get("name"))
     if not isinstance(value.get("description", ""), str) or len(value.get("description", "")) > 4000:
         raise ValueError("Description is too long.")
     tracks = value.get("tracks")
