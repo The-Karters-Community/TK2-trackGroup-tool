@@ -12,9 +12,10 @@ export default function GroupList({
   onSelect,
   selected,
   local = false,
+  gallery = false,
 }) {
   return (
-    <div className="group-list">
+    <div className={`group-list ${gallery ? "group-gallery" : ""}`}>
       {groups.map((group) => {
         const { official, workshop } = counts(group);
         return (
@@ -23,6 +24,21 @@ export default function GroupList({
             key={group.id}
             onClick={() => onSelect(group)}
           >
+            {gallery && (
+              <span className="gallery-preview" aria-hidden="true">
+                {group.tracks.slice(0, 4).map((t, i) => (
+                  <span key={i}>
+                    {group.previewImages?.[i] && (
+                      <img src={group.previewImages[i]} alt="" loading="lazy" />
+                    )}
+                    {t.title ||
+                      (t.kind === "official"
+                        ? `Official ${t.configId}`
+                        : t.modId)}
+                  </span>
+                ))}
+              </span>
+            )}
             <span className="track-count">
               {group.tracks.length}
               <small>tracks</small>
@@ -37,9 +53,13 @@ export default function GroupList({
             </span>
             <span className="group-status">
               {local
-                ? group.exportReady
-                  ? "Ready to export"
-                  : "Connect Steam"
+                ? group.unresolvedTracks > 0
+                  ? `${group.unresolvedTracks} unresolved tracks`
+                  : group.missingTracks === null
+                    ? "Refresh Steam to check"
+                    : group.missingTracks > 0
+                      ? `${group.missingTracks} missing tracks`
+                      : "Tracks ready"
                 : {
                     installed: "Imported",
                     "update-available": "Changes available",

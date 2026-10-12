@@ -17,11 +17,14 @@ export function trackState(
   if (track.kind === "official") return "Included with the game";
   if (rename) return "Track unchanged";
   if (checking) return "Checking Steam";
-  if (!status) return "Connect Steam to check installation";
+  if (!track.workshopId)
+    return "Workshop ID unresolved · import the original group file to recover it";
+  if (!status) return "Refresh Steam to check installation";
+  if (!status.subscribed)
+    return "Missing subscription · subscribe and download";
   if (status.ready) return "Installed";
   if (status.total)
     return `Downloading · ${Math.round((status.downloaded / status.total) * 100)}%`;
-  if (!status.subscribed) return "Subscribe and download";
   return "Subscribed · download required";
 }
 

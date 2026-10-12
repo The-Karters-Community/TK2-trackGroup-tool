@@ -60,6 +60,32 @@ export default function Settings({ state, busy, run }) {
         </button>
       </div>
       <div className="settings-section">
+        <h2>App updates</h2>
+        <p>
+          Installed version: {state.version}. {state.update?.message}
+        </p>
+        <p className="hint">
+          Public releases are checked at startup. Portable updates replace app
+          files and restart automatically. Your groups, settings and save
+          recovery copies stay in their existing locations.
+        </p>
+        <button
+          disabled={busy || state.update?.state === "checking"}
+          onClick={() => run("check-update", {})}
+        >
+          Check for updates
+        </button>
+        {state.update?.state === "available" && state.update.portable && (
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => run("update", {})}
+          >
+            Update app
+          </button>
+        )}
+      </div>
+      <div className="settings-section">
         <h2>Recovery copies</h2>
         <p>
           Every changed save has an original copy and a transaction report.

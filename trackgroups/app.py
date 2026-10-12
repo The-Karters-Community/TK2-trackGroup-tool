@@ -66,7 +66,7 @@ def make_server(service):
                 if not 0 < length <= 1024 * 1024: raise ValueError("Request size is invalid.")
                 body = json.loads(self.rfile.read(length))
                 action = urlsplit(self.path).path.removeprefix("/api/")
-                if action in ("refresh", "catalog", "preview", "create", "rename", "import"):
+                if action in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import"):
                     result = service.start_job(action, body)
                 elif action == "cancel":
                     service.cancel.set(); result = {"message": "Cancellation requested. Already completed subscriptions remain."}
@@ -113,6 +113,7 @@ def main():
                 ctypes.windll.user32.MessageBoxW(None, "TK2 Track Groups is already open.", "TK2 Track Groups", 0)
             return
     service = Service()
+    service.updates.start()
     server = make_server(service)
     write_json(DATA / "session.json", {"origin": server.origin, "token": server.token, "pid": os.getpid()})
     if "--no-window" in sys.argv:
@@ -126,6 +127,10 @@ def main():
     thread.start()
     window = webview.create_window("TK2 Track Groups", server.origin, width=1180, height=820, min_size=(760, 560))
     server.window = window
+    def apply_update(folder):
+        service.updates.apply(folder)
+        window.destroy()
+    service.on_update = apply_update
 
     def closing():
         if service.job and service.job["state"] == "running":
@@ -135,7 +140,7 @@ def main():
         return True
 
     window.events.closing += closing
-    try: webview.start(gui="edgechromium")
+    try: webview.start(gui="edgechromium", icon=str(ROOT / 'assets/app.ico'))
     finally:
         server.shutdown(); server.server_close()
         session = DATA / "session.json"

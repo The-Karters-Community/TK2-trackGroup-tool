@@ -109,7 +109,7 @@ export default function App() {
     <div className="app-shell">
       <nav className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="brand-mark">TG</span>
+          <img className="brand-logo" src="/logo.png" alt="The Karters 2" />
           <strong>
             TK2<span>TRACK GROUPS</span>
           </strong>
@@ -168,6 +168,22 @@ export default function App() {
             {state.steamConnected ? "Refresh Steam" : "Connect Steam"}
           </button>
         </div>
+        {state.update?.state === "available" && (
+          <div className="feedback" role="status">
+            <span>{state.update.message}</span>
+            {state.update.portable ? (
+              <button
+                className="primary"
+                disabled={busy || Boolean(preview)}
+                onClick={() => run("update", {})}
+              >
+                Update app
+              </button>
+            ) : (
+              <span>Update this source checkout through Git.</span>
+            )}
+          </div>
+        )}
         {error && (
           <div className="feedback error" role="alert">
             {error}
@@ -247,7 +263,8 @@ export default function App() {
             onPreview={(group) => prepare("preview", { group })}
             onExport={exportGroup}
             onCreate={() => setEditor({})}
-            onRename={(group) => setEditor({ group })}
+            onEdit={(body) => run("edit", body)}
+            onRepair={(group) => prepare("repair", { id: group.id })}
             focusId={focusId}
           />
         )}

@@ -11,12 +11,16 @@ export default function Library({
   onPreview,
   onExport,
   onCreate,
-  onRename,
+  onEdit,
+  onRepair,
   focusId,
 }) {
   const [search, setSearch] = useState("");
   const [selectedId, select] = useState(null);
   const [category, setCategory] = useState("speedrun");
+  const [gallery, setGallery] = useState(
+    () => localStorage.getItem("my-groups-view") !== "list",
+  );
   useEffect(() => {
     if (focusId) select(focusId);
   }, [focusId]);
@@ -55,7 +59,7 @@ export default function Library({
           <h1>{local ? "My groups" : "Browse groups"}</h1>
           <p>
             {local
-              ? "These are your custom groups in the game. Import a file, create a group from Workshop IDs, rename or export one."
+              ? "Your game's custom groups. Create, import, edit racing order, or repair missing Workshop tracks."
               : "Choose a curated collection, review its tracks, then add it to My groups and your game."}
           </p>
         </header>
@@ -123,6 +127,22 @@ export default function Library({
           />
         </div>
         <div className="list-heading">
+          {local && (
+            <div className="view-switch" aria-label="Group view">
+              {["Gallery", "List"].map((view) => (
+                <button
+                  key={view}
+                  aria-pressed={gallery === (view === "Gallery")}
+                  onClick={() => {
+                    setGallery(view === "Gallery");
+                    localStorage.setItem("my-groups-view", view.toLowerCase());
+                  }}
+                >
+                  {view}
+                </button>
+              ))}
+            </div>
+          )}
           <span>
             {groups.length} {groups.length === 1 ? "group" : "groups"}
           </span>
@@ -142,6 +162,7 @@ export default function Library({
               select(g.id);
             }}
             local={local}
+            gallery={local && gallery}
           />
         ) : (
           <div className="empty">
@@ -186,7 +207,10 @@ export default function Library({
           }}
           onPreview={onPreview}
           onExport={onExport}
-          onRename={onRename}
+          onEdit={onEdit}
+          onRepair={onRepair}
+          editJob={state.job?.action === "edit" ? state.job : null}
+          key={selected.id}
           trackStatus={state.trackStatus}
         />
       )}

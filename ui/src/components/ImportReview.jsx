@@ -13,6 +13,7 @@ export default function ImportReview({
   const done = confirmed && job?.state === "completed";
   const failed = confirmed && job?.state === "failed";
   const rename = preview.mode === "rename";
+  const repair = preview.mode === "repair";
   const tracks = preview.group.tracks;
   const statuses = { ...preview.trackStatus, ...job?.items };
   if (done && !rename) {
@@ -31,25 +32,33 @@ export default function ImportReview({
     <section className="workflow-page">
       <header className="page-heading">
         <span className="eyebrow">
-          {done
-            ? "Saved to My groups"
-            : running
-              ? rename
-                ? "Saving group name"
-                : "Adding to My groups"
-              : rename
-                ? "Review name change"
-                : "Review before adding to My groups"}
+          {repair
+            ? done
+              ? "Tracks ready"
+              : running
+                ? "Restoring Workshop tracks"
+                : "Review missing tracks"
+            : done
+              ? "Saved to My groups"
+              : running
+                ? rename
+                  ? "Saving group name"
+                  : "Adding to My groups"
+                : rename
+                  ? "Review name change"
+                  : "Review before adding to My groups"}
         </span>
         <h1>{preview.destinationName}</h1>
         <p>
-          {rename
-            ? "Track references and order stay unchanged."
-            : preview.outcome === "unchanged"
-              ? "Already in My groups. This checks and downloads any missing tracks without adding another copy."
-              : preview.outcome === "updated"
-                ? "Update your existing group in its current position."
-                : "Add this collection to My groups and the game's custom Track Groups. The curated library stays unchanged."}
+          {repair
+            ? "Restore missing subscriptions and downloads. Your group name, track order and save will remain unchanged."
+            : rename
+              ? "Track references and order stay unchanged."
+              : preview.outcome === "unchanged"
+                ? "Already in My groups. This checks and downloads any missing tracks without adding another copy."
+                : preview.outcome === "updated"
+                  ? "Update your existing group in its current position."
+                  : "Add this collection to My groups and the game's custom Track Groups. The curated library stays unchanged."}
         </p>
       </header>
       {preview.previousName &&
@@ -133,13 +142,15 @@ export default function ImportReview({
           <>
             <button onClick={onBack}>Back</button>
             <button className="primary" onClick={onConfirm}>
-              {rename
-                ? "Save name"
-                : preview.outcome === "unchanged"
-                  ? "Check installed tracks"
-                  : preview.outcome === "updated"
-                    ? "Update My groups"
-                    : "Add to My groups"}
+              {repair
+                ? "Download missing tracks"
+                : rename
+                  ? "Save name"
+                  : preview.outcome === "unchanged"
+                    ? "Check installed tracks"
+                    : preview.outcome === "updated"
+                      ? "Update My groups"
+                      : "Add to My groups"}
             </button>
           </>
         )}

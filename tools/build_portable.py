@@ -4,6 +4,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import hashlib
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -27,8 +29,10 @@ if __name__ == '__main__':
     run(str(runtime), '-m', 'PyInstaller', '--noconfirm', '--clean', '--onedir', '--windowed',
         '--name', 'TK2 Track Groups', '--contents-directory', '.',
         '--distpath', str(ROOT / 'artifacts/build'), '--workpath', str(ROOT / 'local/pyinstaller'),
-        '--specpath', str(ROOT / 'local'), '--collect-all', 'webview',
+        '--specpath', str(ROOT / 'local'), '--icon', str(ROOT / 'assets/app.ico'),
         '--add-data', str(ROOT / 'ui/dist') + ';ui/dist', '--add-data', str(ROOT / 'catalog') + ';catalog',
+        '--add-data', str(ROOT / 'assets/app.ico') + ';assets',
+        '--add-data', str(ROOT / 'tools/apply_update.ps1') + ';tools',
         '--exclude-module', 'PyQt5', '--exclude-module', 'PyQt6', '--exclude-module', 'PySide6',
         '--exclude-module', 'tkinter', 'launch.py')
     if output.exists():
@@ -39,5 +43,9 @@ if __name__ == '__main__':
     shutil.copytree(ROOT / 'docs', output / 'docs')
     forbidden = list(output.rglob('steam_api*')) + list(output.rglob('GameAssembly.dll'))
     if forbidden: raise SystemExit('Build contains game files: ' + str(forbidden))
-    archive = shutil.make_archive(str(output), 'zip', output.parent, output.name)
+    files = {p.relative_to(output).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in output.rglob('*') if p.is_file()}
+    (output / 'portable-manifest.json').write_text(json.dumps({'app':'TK2 Track Groups', 'version':VERSION, 'files':files}, indent=2), encoding='utf-8')
+    archive = shutil.make_archive(str(output), 'zip', output)
+    checksum = hashlib.sha256(Path(archive).read_bytes()).hexdigest()
+    Path(archive + '.sha256').write_text(checksum + '  ' + Path(archive).name + '\n', encoding='ascii')
     print(f'Portable folder: {output}\nZIP: {archive}\nSize: {Path(archive).stat().st_size / 1024**2:.1f} MiB')

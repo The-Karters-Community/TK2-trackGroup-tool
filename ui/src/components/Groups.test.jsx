@@ -7,6 +7,52 @@ import ImportReview from "./ImportReview.jsx";
 import GroupEditor from "./GroupEditor.jsx";
 
 afterEach(cleanup);
+test("local name and racing order are saved together without a review page", () => {
+  const onEdit = vi.fn();
+  render(
+    <GroupDetails
+      group={{ ...group, expectedHash: "baseline", exportReady: true }}
+      local
+      connected
+      onEdit={onEdit}
+      onClose={vi.fn()}
+    />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edit name & track order" }),
+  );
+  fireEvent.change(screen.getByLabelText("Group name"), {
+    target: { value: "Renamed" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Move Second up" }));
+  expect(screen.getAllByRole("listitem").map((e) => e.textContent)).toEqual([
+    "1Second",
+    "2First",
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(onEdit).toHaveBeenCalledWith({
+    id: group.id,
+    name: "Renamed",
+    order: [1, 0],
+    expectedHash: "baseline",
+  });
+  expect(screen.queryByText(/Review name change/)).toBeNull();
+});
+
+test("unsubscribed local groups offer repair and gallery can switch to a list", () => {
+  const repair = vi.fn();
+  const missing = {
+    ...group,
+    missingTracks: 1,
+    unresolvedTracks: 0,
+    exportReady: true,
+  };
+  render(<GroupDetails group={missing} local connected onRepair={repair} />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Repair missing tracks" }),
+  );
+  expect(repair).toHaveBeenCalledWith(missing);
+});
 test("preview excludes UI-only group fields", () => {
   const onPreview = vi.fn();
   const portable = {
@@ -105,7 +151,9 @@ test("review names each track and shows download progress in the same view", () 
     expect.stringContaining("01First"),
     expect.stringContaining("02Second"),
   ]);
-  expect(screen.getByText("Subscribe and download")).toBeTruthy();
+  expect(
+    screen.getByText("Missing subscription · subscribe and download"),
+  ).toBeTruthy();
   expect(
     screen.getByText(/Nothing has been downloaded or saved yet/),
   ).toBeTruthy();
