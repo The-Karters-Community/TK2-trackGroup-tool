@@ -67,3 +67,5 @@ No release was published. Backups, complete profiles, account IDs, private diagn
 - Editing name and using move arrows changed the draft only; Discard restored it. The first track list offset stayed exactly 463px before and after Save/Discard became visible. No profile writes or subscriptions were performed during this UI check.
 - SortableJS animates pointer reordering with a dedicated grip, restores DOM ownership before the React update, respects reduced motion and retains immediate keyboard move arrows. Automated tests exercise its actual callback contract and reordered draft; a physical mouse drag was not exercised through the DOM-only browser automation.
 - 48 Python tests and 16 UI tests pass, with catalog validation, formatting and production build.
+
+- Rebuilt the flat 16.5 MiB portable ZIP. The relocated native smoke test passed with developer runtimes removed from PATH: automatic Steam/profile access, preview/no-op save preservation, clean host/helper shutdown and deletion of the copied folder. The exact Launch Track Groups.cmd also connected automatically and its native host exited cleanly.
