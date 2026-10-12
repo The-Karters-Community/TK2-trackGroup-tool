@@ -58,7 +58,9 @@ class EditingTests(unittest.TestCase):
 
     def test_catalog_categories_do_not_enter_portable_exports(self):
         values = catalog.read_catalog(Path(__file__).resolve().parents[1] / 'catalog')
-        self.assertTrue(all(g['category'] == 'speedrun' for g in values))
+        initial_ids = {'f800601b-b5ee-44dd-b118-27d719220ca9', '67eeba54-c1a1-4795-901e-aab8e80f0174', 'b48feb66-16f1-4d23-94cf-e9b6a9303427'}
+        self.assertTrue(all(g['category'] == 'speedrun' for g in values if g['id'] in initial_ids))
+        self.assertEqual(catalog.categorized(group())['category'], 'community')
         with self.assertRaises(ValueError): catalog.categorized(group(), 'anything')
 
     def test_create_preview_is_read_only_and_enriches_names_and_status(self):

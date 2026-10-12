@@ -20,9 +20,12 @@ from test_profile import group, profile
 class CatalogTests(unittest.TestCase):
     def test_bundled_catalog_has_exact_order_and_counts(self):
         values = catalog.read_catalog(Path(__file__).resolve().parents[1] / 'catalog')
-        self.assertEqual([len(g['tracks']) for g in values], [16, 24, 18])
-        self.assertEqual(values[0]['name'], 'Official 16-Track GP  SR.com')
-        self.assertEqual(sum(t['kind'] == 'workshop' for g in values for t in g['tracks']), 42)
+        initial_ids = ['f800601b-b5ee-44dd-b118-27d719220ca9', '67eeba54-c1a1-4795-901e-aab8e80f0174', 'b48feb66-16f1-4d23-94cf-e9b6a9303427']
+        initial = [g for g in values if g['id'] in initial_ids]
+        self.assertEqual([g['id'] for g in initial], initial_ids)
+        self.assertEqual([len(g['tracks']) for g in initial], [16, 24, 18])
+        self.assertEqual(initial[0]['name'], 'Official 16-Track GP  SR.com')
+        self.assertEqual(sum(t['kind'] == 'workshop' for g in initial for t in g['tracks']), 42)
 
     def test_bad_refresh_retains_cache(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -33,11 +36,12 @@ class CatalogTests(unittest.TestCase):
 
     def test_refresh_pins_all_files_to_one_commit(self):
         bundled = Path(__file__).resolve().parents[1] / 'catalog'
+        count = len(catalog.read_catalog(bundled))
         revision = 'a' * 40
         with tempfile.TemporaryDirectory() as folder, patch.object(catalog, 'DATA', Path(folder)), patch.object(catalog, 'resolve_revision', return_value=revision) as resolve, patch.object(catalog, 'fetch', side_effect=lambda name, commit: (bundled / name).read_bytes()) as fetch:
-            self.assertEqual(len(catalog.refresh()), 3)
+            self.assertEqual(len(catalog.refresh()), count)
             resolve.assert_called_once_with()
-            self.assertEqual(len(fetch.call_args_list), 4)
+            self.assertEqual(len(fetch.call_args_list), count + 1)
             self.assertTrue(all(call.args[1] == revision for call in fetch.call_args_list))
 
     def test_invalid_remote_revision_is_rejected(self):

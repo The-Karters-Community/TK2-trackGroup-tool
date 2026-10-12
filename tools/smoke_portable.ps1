@@ -28,7 +28,34 @@ try {
         $tgState = Invoke-RestMethod -Uri "$($tgSession.origin)/api/state" -Headers $tgHeaders
     } until ($tgState.job.state -ne 'running' -or [DateTime]::UtcNow -gt $tgLimit)
     if ($tgState.job.state -ne 'completed' -or -not $tgState.steamConnected -or $tgState.syncError) { throw "Steam/profile validation failed: $($tgState.job.message) $($tgState.syncError)" }
-    if ($tgState.groups.Count -ne 3 -or $tgState.localGroups.Count -lt 3) { throw 'Expected library/profile groups were not found.' }
+    if ($tgState.groups.Count -lt 3 -or $tgState.localGroups.Count -lt 3) { throw 'Expected library/profile groups were not found.' }
+    if (@($tgState.groups | Where-Object {$_.category -eq 'speedrun'}).Count -lt 3) { throw 'Reviewed Speedrun categories were not found.' }
+    $tgProfileFile = Join-Path $tgState.settings.profileDirectory $tgState.settings.profile
+    $tgOriginalHash = (Get-FileHash -LiteralPath $tgProfileFile).Hash
+    # Exercise the frozen draft/rename code without changing the user's collection.
+    $tgRename = $tgState.localGroups[0]
+    $tgDraftChecks = @(
+        @{action='create'; body=@{name='Portable verification (not saved)';items="3263970719`n3279611598"}; mode='install'},
+        @{action='rename'; body=@{id=$tgRename.id;name=$tgRename.name}; mode='rename'}
+    )
+    foreach ($tgCheck in $tgDraftChecks) {
+        Invoke-RestMethod -Uri "$($tgSession.origin)/api/$($tgCheck.action)" -Method Post -Headers $tgHeaders -ContentType application/json -Body ($tgCheck.body | ConvertTo-Json) | Out-Null
+        $tgLimit = [DateTime]::UtcNow.AddSeconds(60)
+        do {
+            Start-Sleep -Milliseconds 300
+            $tgState = Invoke-RestMethod -Uri "$($tgSession.origin)/api/state" -Headers $tgHeaders
+        } until ($tgState.job.state -ne 'running' -or [DateTime]::UtcNow -gt $tgLimit)
+        if ($tgState.job.state -ne 'completed' -or $tgState.job.result.preview.mode -ne $tgCheck.mode) { throw "Portable preview failed: $($tgState.job.message)" }
+    }
+    # Confirm the unchanged-name preview: validates the bundled write path as a no-op.
+    Invoke-RestMethod -Uri "$($tgSession.origin)/api/import" -Method Post -Headers $tgHeaders -ContentType application/json -Body (@{token=$tgState.job.result.preview.token} | ConvertTo-Json) | Out-Null
+    $tgLimit = [DateTime]::UtcNow.AddSeconds(60)
+    do {
+        Start-Sleep -Milliseconds 300
+        $tgState = Invoke-RestMethod -Uri "$($tgSession.origin)/api/state" -Headers $tgHeaders
+    } until ($tgState.job.state -ne 'running' -or [DateTime]::UtcNow -gt $tgLimit)
+    if ($tgState.job.state -ne 'completed' -or $tgState.job.result.outcome -ne 'unchanged') { throw "Portable no-op rename failed: $($tgState.job.message)" }
+    if ((Get-FileHash -LiteralPath $tgProfileFile).Hash -ne $tgOriginalHash) { throw 'Preview/no-op checks modified the profile.' }
     $tgChildren = @(Get-CimInstance Win32_Process | Where-Object {$_.ParentProcessId -eq $tgApp.Id} | Select-Object -ExpandProperty ProcessId)
     Invoke-RestMethod -Uri "$($tgSession.origin)/api/shutdown" -Method Post -Headers $tgHeaders -ContentType application/json -Body '{}' | Out-Null
     if (-not $tgApp.WaitForExit(15000)) { throw 'Native app did not exit cleanly.' }
