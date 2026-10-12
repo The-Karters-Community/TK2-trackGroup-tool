@@ -53,3 +53,6 @@ No release was published. Backups, complete profiles, account IDs, private diagn
 - Both library views offer independently remembered Gallery/List controls. Local details expose name editing, drag grips, keyboard-accessible move arrows, per-track status and Steam links. Save/Discard appear only for dirty drafts. Automated tests exercise HTML5 drag/drop; visible browser verification exercised move arrows and the conditional controls.
 - Saved a temporary LEGO name and first-two-track reorder directly through the source UI, then restored both through the same UI. Local and Steam Remote Storage saves matched the fresh original byte-for-byte afterward. Polling preserves a dirty draft's original concurrency hash.
 - Validation: 47 Python tests, 13 UI tests, catalog validation and production frontend build passed.
+
+- The exact `Launch Track Groups.cmd` started the native source app, rebuilt its UI, and verified Steam/profile access: four catalog groups, LEGO export ready, zero unresolved identities and 14 missing tracks. Closed the native app afterward.
+- Rebuilt the flat portable ZIP (13.9 MiB) and verified its inventory hashes. The relocated native smoke test passed without developer runtimes on PATH, including the LEGO repair preview, real Steam access, clean child-process exit and deletion of the copied application folder.

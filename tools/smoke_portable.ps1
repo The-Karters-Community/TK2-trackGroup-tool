@@ -28,8 +28,8 @@ try {
         $tgState = Invoke-RestMethod -Uri "$($tgSession.origin)/api/state" -Headers $tgHeaders
     } until ($tgState.job.state -ne 'running' -or [DateTime]::UtcNow -gt $tgLimit)
     if ($tgState.job.state -ne 'completed' -or -not $tgState.steamConnected -or $tgState.syncError) { throw "Steam/profile validation failed: $($tgState.job.message) $($tgState.syncError)" }
-    if ($tgState.groups.Count -lt 3 -or $tgState.localGroups.Count -lt 3) { throw 'Expected library/profile groups were not found.' }
-    if (@($tgState.groups | Where-Object {$_.category -eq 'speedrun'}).Count -lt 3) { throw 'Reviewed Speedrun categories were not found.' }
+    if ($tgState.groups.Count -lt 4 -or $tgState.localGroups.Count -lt 3) { throw 'Expected library/profile groups were not found.' }
+    if (@($tgState.groups | Where-Object {$_.category -eq 'speedrun'}).Count -lt 4) { throw 'Reviewed Speedrun categories were not found.' }
     $tgProfileFile = Join-Path $tgState.settings.profileDirectory $tgState.settings.profile
     $tgOriginalHash = (Get-FileHash -LiteralPath $tgProfileFile).Hash
     # Exercise the frozen draft/rename code without changing the user's collection.
@@ -38,6 +38,13 @@ try {
         @{action='create'; body=@{name='Portable verification (not saved)';items="3263970719`n3279611598"}; mode='install'},
         @{action='rename'; body=@{id=$tgRename.id;name=$tgRename.name}; mode='rename'}
     )
+    $tgLego = $tgState.localGroups | Where-Object {$_.id -eq '4fb49e19-37fa-4768-9dd8-7e5fd9c9f485'}
+    if ($tgLego) {
+        if (-not $tgLego.exportReady -or $tgLego.unresolvedTracks -ne 0) { throw 'Bundled LEGO identities were not resolved.' }
+        if ($tgLego.missingTracks -gt 0) {
+            $tgDraftChecks = @(@{action='repair'; body=@{id=$tgLego.id}; mode='repair'}) + $tgDraftChecks
+        }
+    }
     foreach ($tgCheck in $tgDraftChecks) {
         Invoke-RestMethod -Uri "$($tgSession.origin)/api/$($tgCheck.action)" -Method Post -Headers $tgHeaders -ContentType application/json -Body ($tgCheck.body | ConvertTo-Json) | Out-Null
         $tgLimit = [DateTime]::UtcNow.AddSeconds(60)
