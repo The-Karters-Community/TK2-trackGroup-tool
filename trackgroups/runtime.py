@@ -68,7 +68,7 @@ class Worker:
                     if time.monotonic() > deadline:
                         # Do not interrupt a save transaction halfway through recovery.
                         (folder / "cancel").touch()
-                        if action in ("install", "rename"):
+                        if action in ("install", "rename", "edit", "repair"):
                             progress({"message": "Waiting for the save worker to finish safely…"})
                             deadline = float("inf")
                         else:

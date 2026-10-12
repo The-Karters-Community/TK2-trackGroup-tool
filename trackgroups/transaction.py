@@ -33,7 +33,7 @@ def atomic_bytes(path, data):
         if os.path.exists(temp): os.unlink(temp)
 
 
-def commit(steam, path, group, expected_hash, account, allow_update=False, *, rename=False, backups=None, running=game_running):
+def commit(steam, path, group, expected_hash, account, allow_update=False, *, rename=False, edit=False, backups=None, running=game_running):
     path = Path(path)
     if not SAVE_NAME.fullmatch(path.name):
         raise ValueError("Unsupported profile filename.")
@@ -46,7 +46,10 @@ def commit(steam, path, group, expected_hash, account, allow_update=False, *, re
         raise ValueError("Profile changed since preview. Refresh and review the group again.")
     if steam.read_save(path.name) != before:
         raise ValueError("Local and Steam saves disagree. Open the game to resolve Steam sync, close it, then refresh.")
-    after, outcome = Profile(before).rename_group(group['id'], group['name']) if rename else Profile(before).import_group(group, allow_update=allow_update)
+    p = Profile(before)
+    if edit: after, outcome = p.edit_group(group['id'], group['name'], group['order'])
+    elif rename: after, outcome = p.rename_group(group['id'], group['name'])
+    else: after, outcome = p.import_group(group, allow_update=allow_update)
     if after == before: return {"outcome": "unchanged", "backup": None}
     folder = (backups or DATA / "backups") / str(time.time_ns())
     folder.mkdir(parents=True)

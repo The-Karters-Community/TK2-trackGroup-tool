@@ -49,6 +49,7 @@ class Steam:
                 "SetReturnMetadata": (C.c_bool, [U64, C.c_bool]),
                 "SendQueryUGCRequest": (U64, [U64]), "GetQueryUGCResult": (C.c_bool, [U64, U32, PTR]),
                 "GetQueryUGCMetadata": (C.c_bool, [U64, U32, PTR, U32]), "ReleaseQueryUGCRequest": (C.c_bool, [U64])}
+            functions['GetQueryUGCPreviewURL'] = (C.c_bool, [U64, U32, PTR, U32])
             for name, (result, args) in functions.items():
                 self.bind("SteamAPI_ISteamUGC_" + name, result, [PTR] + args)
             self.bind("SteamAPI_ISteamUtils_IsAPICallCompleted", C.c_bool, [PTR, U64, C.POINTER(C.c_bool)])
@@ -144,6 +145,9 @@ class Steam:
                     result[item] = {"available": True, "workshopId": item,
                         "title": raw[24:24 + 128].split(b"\0", 1)[0].decode("utf-8", "replace"),
                         "modId": metadata.get("strOwnerModServerUpdateKey", "")}
+                    preview = C.create_string_buffer(4096)
+                    if self.ugc_call('GetQueryUGCPreviewURL', query, i, preview, len(preview)):
+                        result[item]['previewUrl'] = preview.value.decode('utf-8', 'replace')
             finally:
                 self.ugc_call("ReleaseQueryUGCRequest", query)
         return result

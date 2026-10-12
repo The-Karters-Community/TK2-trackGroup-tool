@@ -82,6 +82,19 @@ class Profile:
         definition['Name'] = name
         return self.serialize(data), 'renamed'
 
+    def edit_group(self, identity, name, order):
+        renamed, _ = self.rename_group(identity, name)
+        p = Profile(renamed)
+        existing = next(g for g in p.custom_groups() if g['GroupDefinition']['UniqueID'] == identity)
+        size = len(existing['groupItems'])
+        if not isinstance(order, list) or len(order) != size or any(type(i) is not int for i in order) or sorted(order) != list(range(size)):
+            raise ValueError('Track order must include each existing track exactly once.')
+        if order == list(range(size)):
+            return renamed, 'unchanged' if renamed == self.original else 'renamed'
+        target = next(g for g in p.groups if g['GroupDefinition']['UniqueID'] == identity)
+        target['groupItems'] = [existing['groupItems'][i] for i in order]
+        return p.serialize(p.data), 'updated'
+
     def validate_official_tracks(self, group):
         known = {item["configID"] for container in self.groups
                  if container["GroupDefinition"].get("IsDefault")

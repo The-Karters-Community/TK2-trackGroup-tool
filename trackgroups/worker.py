@@ -19,7 +19,7 @@ def run(folder):
         cancelled = lambda: (folder / "cancel").exists()
         progress = lambda value: write_json(folder / "progress.json", value)
         if action == "snapshot":
-            ids = steam.subscribed()
+            ids = list(dict.fromkeys(steam.subscribed() + request.get('ids', [])))
             details = steam.details(ids, lambda: (folder / "cancel").exists())
             result = {"account": steam.account, "items": details,
                 "cloudEnabled": bool(steam.storage_call("IsCloudEnabledForAccount") and steam.storage_call("IsCloudEnabledForApp")),
@@ -42,7 +42,7 @@ def run(folder):
             # Explicit diagnostic: rewrite identical bytes, then verify no content changed.
             steam.write_save(request["profile"], data)
             result = {"unchanged": steam.read_save(request["profile"]) == data}
-        elif action == "rename":
+        elif action in ("rename", "edit"):
             from .transaction import commit
             from .runtime import PROFILE_DIR
             from .profile import SAVE_NAME
@@ -51,8 +51,8 @@ def run(folder):
                 raise ValueError("Enable Steam Cloud before renaming, so both save copies stay synchronized.")
             if cancelled(): raise ValueError("Rename cancelled before writing the profile.")
             progress({'phase':'saving', 'message':'Saving the new group name. Keep the game closed.'})
-            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=True)
-        elif action == "install":
+            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=action == 'rename', edit=action == 'edit')
+        elif action in ("install", "repair"):
             from .groups import validate
             from .transaction import commit, digest, require_recovered
             from .runtime import PROFILE_DIR, game_running
@@ -103,7 +103,12 @@ def run(folder):
                 time.sleep(.5)
             if cancelled(): raise ValueError("Import cancelled before writing the profile.")
             progress({"phase": "saving", "message": "Verifying and saving the group. Please keep the game closed.", "completed": len(ids), "total": len(ids)})
-            result = commit(steam, PROFILE_DIR / name, group, request["expectedHash"], request["account"], request.get("allowUpdate", False))
+            if action == 'repair':
+                if game_running() or (PROFILE_DIR / name).read_bytes() != local or steam.read_save(name) != local:
+                    raise ValueError('Profile changed during repair. Refresh Steam. Subscriptions remain.')
+                result = {'outcome':'repaired', 'backup':None}
+            else:
+                result = commit(steam, PROFILE_DIR / name, group, request["expectedHash"], request["account"], request.get("allowUpdate", False))
             result["newSubscriptions"] = subscribed
         else:
             raise ValueError("Unknown Steam worker action.")
