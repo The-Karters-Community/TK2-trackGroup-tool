@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -12,6 +13,26 @@ from trackgroups.catalog import REPOSITORY
 
 
 class UpdateTests(unittest.TestCase):
+    def test_bad_archive_checksum_and_cancellation_preserve_installed_files(self):
+        for cancelled in (False, True):
+            with self.subTest(cancelled=cancelled), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)/'app'; root.mkdir()
+                (root/'portable-manifest.json').write_text('{}')
+                (root/EXE).write_bytes(b'original')
+                updater = Updates(); updater.release = {'version':'0.1.1', 'checksum':'fixture-checksum', 'url':'fixture-zip'}
+                checksum = hashlib.sha256(b'archive').hexdigest() if cancelled else '0'*64
+                with patch.object(updates, 'ROOT', root), patch.object(updates.sys, 'frozen', True, create=True), patch.object(updates, 'read_url', side_effect=[checksum.encode(), b'archive']):
+                    with self.assertRaisesRegex(ValueError, 'cancelled' if cancelled else 'checksum mismatch'):
+                        updater.prepare(lambda:cancelled)
+                self.assertEqual((root/EXE).read_bytes(), b'original')
+                self.assertFalse(list(root.parent.glob('tk2-track-groups-update-*')))
+
+    def test_streaming_download_enforces_limit_and_observes_cancellation(self):
+        with patch.object(updates.urllib.request, 'urlopen', return_value=io.BytesIO(b'too much')):
+            with self.assertRaisesRegex(ValueError, 'size limit'): updates.read_url('https://example.test', 2)
+        with patch.object(updates.urllib.request, 'urlopen', return_value=io.BytesIO(b'archive')):
+            with self.assertRaisesRegex(ValueError, 'cancelled'): updates.read_url('https://example.test', 100, lambda:True)
+
     def test_destination_collision_stops_before_download_or_app_shutdown(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)/'TK2-Track-Groups-0.1.0-dev-win-x64'; root.mkdir()
