@@ -4,7 +4,7 @@ A standalone Windows app for sharing ordered track groups in **The Karters 2: Tu
 
 **Development preview: 0.1.0-dev.** Supports game build **0.1.4.18**, Steam app **2269950**. No BepInEx or mod toolkit required. No release has been published.
 
-![Community library with ordered Workshop tracks](docs/images/library.jpg)
+![Speedrun and Community library with ordered Workshop tracks](docs/images/library.png)
 
 ## Use the app
 
@@ -24,6 +24,8 @@ Portable builds contain the runtime and compiled interface. Extract the entire f
 - **Export group** shares group data and public metadata, never player progress, account IDs, upload credentials, or track assets. Connect Steam to resolve Workshop dependencies first.
 
 Only reviewed catalog submissions appear in Browse groups. The bundled three collections are under Speedrun; the Community category is ready for future reviewed submissions.
+
+![Review showing numbered track names and installation status](docs/images/import-review.png)
 
 | Bundled group | Official | Workshop |
 | --- | ---: | ---: |

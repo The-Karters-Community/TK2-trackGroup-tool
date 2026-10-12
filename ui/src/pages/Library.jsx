@@ -97,13 +97,12 @@ export default function Library({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button
-            disabled={busy}
-            onClick={() => run(local ? "refresh" : "catalog", {})}
-          >
-            <ReloadIcon />
-            Refresh {local ? "Steam" : "library"}
-          </button>
+          {!local && (
+            <button disabled={busy} onClick={() => run("catalog", {})}>
+              <ReloadIcon />
+              Refresh library
+            </button>
+          )}
           {local && (
             <button disabled={busy} onClick={() => input.current.click()}>
               <FilePlusIcon />
@@ -128,7 +127,11 @@ export default function Library({
             {groups.length} {groups.length === 1 ? "group" : "groups"}
           </span>
           <span>
-            {local ? "Custom groups only" : "Reviewed community submissions"}
+            {local
+              ? "Custom groups only"
+              : category === "speedrun"
+                ? "Reviewed Speedrun collections"
+                : "Curated community groups"}
           </span>
         </div>
         {groups.length ? (
