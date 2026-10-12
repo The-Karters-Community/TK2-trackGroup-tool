@@ -6,6 +6,7 @@ import subprocess
 import sys
 import hashlib
 import json
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -27,6 +28,7 @@ if __name__ == '__main__':
     run(str(runtime), '-m', 'pip', 'install', '-r', 'requirements.txt')
     output = ROOT / 'artifacts' / f'TK2-Track-Groups-{VERSION}-win-x64'
     run(str(runtime), '-m', 'PyInstaller', '--noconfirm', '--clean', '--onedir', '--windowed',
+        '--optimize', '2',
         '--name', 'TK2 Track Groups', '--contents-directory', '.',
         '--distpath', str(ROOT / 'artifacts/build'), '--workpath', str(ROOT / 'local/pyinstaller'),
         '--specpath', str(ROOT / 'local'), '--icon', str(ROOT / 'assets/app.ico'),
@@ -45,7 +47,10 @@ if __name__ == '__main__':
     if forbidden: raise SystemExit('Build contains game files: ' + str(forbidden))
     files = {p.relative_to(output).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in output.rglob('*') if p.is_file()}
     (output / 'portable-manifest.json').write_text(json.dumps({'app':'TK2 Track Groups', 'version':VERSION, 'files':files}, indent=2), encoding='utf-8')
-    archive = shutil.make_archive(str(output), 'zip', output)
+    archive = str(output) + '.zip'
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
+        for path in sorted(output.rglob('*')):
+            if path.is_file(): bundle.write(path, path.relative_to(output).as_posix())
     checksum = hashlib.sha256(Path(archive).read_bytes()).hexdigest()
     Path(archive + '.sha256').write_text(checksum + '  ' + Path(archive).name + '\n', encoding='ascii')
     print(f'Portable folder: {output}\nZIP: {archive}\nSize: {Path(archive).stat().st_size / 1024**2:.1f} MiB')

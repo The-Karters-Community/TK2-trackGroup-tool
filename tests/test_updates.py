@@ -4,12 +4,25 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
-from trackgroups.updates import extract_verified, release_info, EXE
+from trackgroups.updates import extract_verified, release_info, EXE, Updates
+from trackgroups import updates
 from trackgroups.catalog import REPOSITORY
 
 
 class UpdateTests(unittest.TestCase):
+    def test_destination_collision_stops_before_download_or_app_shutdown(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)/'TK2-Track-Groups-0.1.0-dev-win-x64'; root.mkdir()
+            (root/'portable-manifest.json').write_text('{}')
+            (root.parent/'TK2-Track-Groups-0.1.1-win-x64').mkdir()
+            updater = Updates(); updater.release = {'version':'0.1.1'}
+            with patch.object(updates, 'ROOT', root), patch.object(updates.sys, 'frozen', True, create=True), patch.object(updates, 'read_url') as download:
+                with self.assertRaisesRegex(ValueError, 'already exists'): updater.prepare()
+                download.assert_not_called()
+            self.assertTrue(root.exists())
+
     def release(self, tag='v0.1.1'):
         name = f'TK2-Track-Groups-{tag[1:]}-win-x64.zip'
         return {'tag_name':tag, 'draft':False, 'prerelease':False,

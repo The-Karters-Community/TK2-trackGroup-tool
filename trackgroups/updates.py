@@ -26,12 +26,18 @@ def version(value):
     return tuple(map(int, match.groups()))
 
 
-def read_url(url, limit):
+def read_url(url, limit, cancelled=lambda:False):
     request = urllib.request.Request(url, headers={'User-Agent':'TK2-Track-Groups', 'Accept':'application/vnd.github+json'})
     with urllib.request.urlopen(request, timeout=20) as response:
-        data = response.read(limit + 1)
-    if len(data) > limit: raise ValueError('Release download exceeds its size limit.')
-    return data
+        chunks = []; size = 0
+        while True:
+            if cancelled(): raise ValueError('Update cancelled. Installed files are unchanged.')
+            chunk = response.read1(65536)
+            if not chunk: break
+            size += len(chunk)
+            if size > limit: raise ValueError('Release download exceeds its size limit.')
+            chunks.append(chunk)
+    return b''.join(chunks)
 
 
 def release_info(release, current=VERSION):
@@ -119,7 +125,7 @@ class Updates:
         try:
             checksum = read_url(release['checksum'], 4096).decode('ascii').split()[0]
             if not re.fullmatch(r'[a-fA-F0-9]{64}', checksum): raise ValueError('Invalid release checksum.')
-            raw = read_url(release['url'], 100 * 1024**2)
+            raw = read_url(release['url'], 100 * 1024**2, cancelled)
             if cancelled(): raise ValueError('Update cancelled. Installed files are unchanged.')
             if hashlib.sha256(raw).hexdigest() != checksum.lower(): raise ValueError('Update checksum mismatch. Installed files are unchanged.')
             archive = folder / 'release.zip'; archive.write_bytes(raw)

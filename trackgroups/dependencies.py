@@ -17,7 +17,7 @@ class Dependencies:
         for item, value in values.items():
             if not isinstance(item, str) or not item.isdecimal() or not 0 < int(item) < 2**64:
                 continue
-            if not isinstance(value, dict) or not value.get('modId'):
+            if not isinstance(value, dict) or not value.get('modId') or value.get('available') is False:
                 continue
             # Never cache account, owner or upload metadata. Availability is refreshed separately.
             self.items[item] = {'workshopId': item, 'modId': str(value['modId']),
