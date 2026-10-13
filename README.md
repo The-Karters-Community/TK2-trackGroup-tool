@@ -74,7 +74,7 @@ The saved official group name contains two spaces before `SR.com`; exports prese
 
 ## Save safety
 
-Imports modify only the selected custom group in the third profile record. The first two records remain byte-for-byte identical; built-ins, other custom groups, and unrelated fields are preserved. Local and Steam Remote Storage copies must agree before importing. Writes retain a backup, recheck the original, replace the local file atomically, and verify both copies. Steam manages its Cloud upload; the app never edits `remotecache.vdf`.
+Track-group imports modify only the selected custom group in the third profile record. The first two records remain byte-for-byte identical. Preset edits can change the first record and selected preset groups in the third; the separator, built-ins, track groups and unrelated fields are preserved. Local and Steam Remote Storage copies must agree before importing. Writes retain a backup, recheck the original, replace the local file atomically, and verify both copies. Steam manages its Cloud upload; the app never edits `remotecache.vdf`.
 
 Preferences, cache, backups, and diagnostics live in `%LOCALAPPDATA%\TK2 Track Groups`. Closing shuts down the server. During an operation, closing requests cancellation and keeps the window open until the worker finishes safely; close again afterward. See [recovery instructions](docs/RECOVERY.md) if recovery needs attention.
 
