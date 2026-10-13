@@ -3,6 +3,7 @@ node_modules/
 __pycache__/
 *.pyc
 ui/dist/
+ui/web-dist/
 local/
 artifacts/
 *.spec

@@ -577,6 +577,189 @@ progress {
     transition: none !important;
   }
 }
+
+/* Browser edition reuses the desktop library and track components. */
+.web-shell .sidebar {
+  z-index: 4;
+}
+.web-status > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.web-status svg {
+  width: 16px;
+  height: 16px;
+}
+.web-intro {
+  margin: 20px 24px 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #1b2117;
+}
+.web-intro strong {
+  font-size: 16px;
+}
+.web-intro p {
+  margin: 6px 0 0;
+}
+.text-button {
+  display: inline;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: inherit;
+}
+.web-wide {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.web-group-dialog {
+  position: fixed;
+  inset: 16px 16px 16px auto;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+}
+.web-group-dialog .details {
+  border: 0;
+  min-height: 100%;
+}
+.web-field {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.web-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.web-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.web-review .web-check {
+  margin-block: 18px;
+}
+.web-review .workflow-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+.web-downloads {
+  margin: 8px 24px 24px;
+  padding: 20px;
+  border: 1px solid #667d45;
+  border-radius: 9px;
+  background: #1e291a;
+}
+.web-downloads strong {
+  font-size: 16px;
+}
+.web-downloads p {
+  margin: 5px 0 12px;
+  font-size: 12px;
+}
+.web-download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+.web-downloads .text-button {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.web-steps {
+  list-style: none;
+  padding: 0;
+  counter-reset: steps;
+}
+.web-steps > li {
+  padding: 14px 0 18px 48px;
+  border-top: 1px solid var(--border);
+  position: relative;
+  counter-increment: steps;
+}
+.web-steps > li::before {
+  content: counter(steps, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 28px;
+  color: var(--accent);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.web-steps h2 {
+  font-size: 18px;
+}
+.web-help code {
+  overflow-wrap: anywhere;
+  color: #d4dfc7;
+  font-size: 12px;
+}
+.web-shell .group-copy strong {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 650px) {
+  .web-shell .sidebar {
+    position: sticky;
+    top: 0;
+    padding: 8px;
+  }
+  .web-shell .nav-items {
+    justify-content: space-around;
+    gap: 0;
+  }
+  .web-shell .nav-items button {
+    padding: 12px 9px;
+    font-size: 12px;
+  }
+  .web-shell .nav-items svg {
+    width: 15px;
+    height: 15px;
+  }
+  .web-shell .web-status {
+    font-size: 11px;
+  }
+  .web-shell .feedback.toast {
+    left: 12px;
+    max-width: calc(100vw - 24px);
+  }
+  .web-intro,
+  .web-downloads {
+    margin-inline: 18px;
+  }
+  .web-download-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .web-shell .library-heading .category-tabs button {
+    padding: 9px 12px;
+  }
+  .web-shell .library-heading {
+    gap: 12px;
+  }
+  .web-review .workflow-actions {
+    flex-wrap: wrap;
+  }
+  .web-shell .edit-tracks li {
+    grid-template-columns: 22px 18px 54px minmax(0, 1fr) 26px;
+  }
+  .web-shell .edit-tracks .track-preview {
+    width: 54px;
+  }
+}
 .brand {
   flex-direction: column;
   align-items: flex-start;

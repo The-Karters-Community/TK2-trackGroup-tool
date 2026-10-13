@@ -6,13 +6,14 @@ export { trackName } from "./TrackPreview.jsx";
 export function trackState(
   track,
   status,
-  { rename = false, checking = false } = {},
+  { rename = false, checking = false, browser = false } = {},
 ) {
   if (track.kind === "official") return "Included with the game";
   if (rename) return "Track unchanged";
   if (checking) return "Checking Steam";
   if (!track.workshopId)
     return "Workshop ID unresolved · import the original group file to recover it";
+  if (browser) return "Workshop · open in Steam to subscribe";
   if (!status) return "Refresh Steam to check installation";
   if (!status.subscribed)
     return "Missing subscription · subscribe and download";
@@ -29,6 +30,7 @@ export default function TrackList({
   images = [],
   rename = false,
   checking = false,
+  browser = false,
 }) {
   return (
     <ol className="track-list" aria-label="Tracks in racing order">
@@ -42,6 +44,7 @@ export default function TrackList({
               {trackState(track, statuses[track.workshopId], {
                 rename,
                 checking,
+                browser,
               })}
             </small>
           </span>

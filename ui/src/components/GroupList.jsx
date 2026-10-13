@@ -52,19 +52,20 @@ export default function GroupList({
               </span>
             </span>
             <span className="group-status">
-              {local
-                ? group.unresolvedTracks > 0
-                  ? `${group.unresolvedTracks} unresolved tracks`
-                  : group.missingTracks === null
-                    ? "Refresh Steam to check"
-                    : group.missingTracks > 0
-                      ? `${group.missingTracks} missing tracks`
-                      : "Tracks ready"
-                : {
-                    installed: "Imported",
-                    "update-available": "Changes available",
-                    "not-imported": "Not imported",
-                  }[group.importState]}
+              {group.statusText ??
+                (local
+                  ? group.unresolvedTracks > 0
+                    ? `${group.unresolvedTracks} unresolved tracks`
+                    : group.missingTracks === null
+                      ? "Refresh Steam to check"
+                      : group.missingTracks > 0
+                        ? `${group.missingTracks} missing tracks`
+                        : "Tracks ready"
+                  : {
+                      installed: "Imported",
+                      "update-available": "Changes available",
+                      "not-imported": "Not imported",
+                    }[group.importState])}
             </span>
             <ArrowRightIcon aria-hidden="true" />
           </button>

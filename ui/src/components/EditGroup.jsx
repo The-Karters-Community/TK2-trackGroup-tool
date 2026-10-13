@@ -36,6 +36,7 @@ export default function EditGroup({
   editJob,
   statuses = {},
   onDirty,
+  browser = false,
 }) {
   const [baseline, setBaseline] = useState(group);
   const [name, setName] = useState(group.name);
@@ -124,8 +125,10 @@ export default function EditGroup({
         />
       </label>
       <p className="hint">
-        Drag the grip to reorder tracks, or use the arrows. Keep the game closed
-        when saving.
+        Drag the grip to reorder tracks, or use the arrows.{" "}
+        {browser
+          ? "Changes stay in this tab until you download the edited save."
+          : "Keep the game closed when saving."}
       </p>
       <div className="edit-actions-slot">
         <div
@@ -175,7 +178,9 @@ export default function EditGroup({
               />
               <span className="track-copy">
                 <strong>{title}</strong>
-                <small>{trackState(track, statuses[track.workshopId])}</small>
+                <small>
+                  {trackState(track, statuses[track.workshopId], { browser })}
+                </small>
                 {track.workshopId && (
                   <a
                     className="track-link"

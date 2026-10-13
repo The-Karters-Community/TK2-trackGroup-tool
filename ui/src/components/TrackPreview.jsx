@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ImageIcon } from "@radix-ui/react-icons";
 import officialTracks from "../../../catalog/official-tracks.json";
+import { assetUrl } from "../assets.js";
 
 export function trackName(track) {
   return (
@@ -24,7 +25,7 @@ export default function TrackPreview({
     <span className={className} aria-hidden="true">
       {src && failed !== src ? (
         <img
-          src={encodeURI(src)}
+          src={encodeURI(assetUrl(src))}
           alt=""
           loading="lazy"
           draggable={false}

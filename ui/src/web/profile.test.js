@@ -62,6 +62,37 @@ describe("browser save codec", () => {
     expect(stringify(p.data)).toContain("76561198123456789");
     expect(stringify(p.data)).toContain("1.234567890123456789");
   });
+  it("preserves computed built-in groups with absent or null item arrays", () => {
+    const p = supported();
+    p.data.ItemsGroupDefinedContainers.unshift(
+      {
+        GroupDefinition: {
+          UniqueID: "computed",
+          Name: "Built-in",
+          IsDefault: true,
+          Type: 0,
+          SubType: 0,
+          Index: 2,
+        },
+      },
+      {
+        groupItems: null,
+        GroupDefinition: {
+          UniqueID: "other",
+          Name: "Other",
+          IsDefault: true,
+          Type: 1,
+          SubType: 4,
+          Index: 0,
+        },
+      },
+    );
+    const original = readProfile(fixture(stringify(p.data)));
+    const after = readProfile(importGroup(original, group()).bytes);
+    expect(stringify(after.data.ItemsGroupDefinedContainers.slice(0, 2))).toBe(
+      stringify(original.data.ItemsGroupDefinedContainers.slice(0, 2)),
+    );
+  });
   it("adds Unicode mixed groups while preserving the two records, built-ins and unrelated data", () => {
     const p = supported();
     const result = importGroup(p, group());
