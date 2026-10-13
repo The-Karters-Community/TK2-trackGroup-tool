@@ -2,7 +2,7 @@
 
 A standalone Windows app for sharing ordered track groups in **The Karters 2: Turbo Charged**. Browse a reviewed community library, export custom groups, and import groups with their Steam Workshop subscriptions.
 
-**Development preview: 0.1.0-dev.** Supports game build **0.1.4.18**, Steam app **2269950**. No BepInEx or mod toolkit required. No release has been published.
+**Stable release: 0.1.0.** Supports game build **0.1.4.18**, Steam app **2269950**. No BepInEx or mod toolkit required. [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
 
 ![Speedrun and Community library with ordered Workshop tracks](docs/images/library.png)
 
@@ -75,7 +75,7 @@ npm test
 npm run format:check
 npm run build
 python tools/build_portable.py
-./tools/smoke_portable.ps1 -PortableFolder ./artifacts/TK2-Track-Groups-0.1.0-dev-win-x64
+./tools/smoke_portable.ps1 -PortableFolder ./artifacts/TK2-Track-Groups-0.1.0-win-x64
 ```
 
 The build creates a portable folder and ZIP under ignored `artifacts/`. It bundles Python and compiled UI assets, excludes developer dependencies, and never bundles `steam_api64.dll`. A dedicated helper loads that DLL from the installed game and uses the existing Steam client; it does not launch a second game instance.
@@ -86,7 +86,7 @@ The ZIP contains the executable and its dependencies directly at its root: extra
 
 Startup checks stable releases from [this repository](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases). **Settings → Check for updates** checks again. A portable app with a newer compatible release shows **Update app**. Source checkouts use Git instead. Updates require a button click, verify the archive SHA-256 and every manifest file, replace the current app, then reopen it. Standard `TK2-Track-Groups-<version>-win-x64` folders are renamed to the new version; custom folder names remain as chosen. A destination collision stops before shutdown. Settings, track identities and save backups remain outside the installation folder. Additional user files are preserved, obsolete app-owned files are removed, and temporary rollback files are removed after the new app passes startup verification. A failed startup restores and reopens the previous app.
 
-No public release exists yet. To make a future release compatible with the updater:
+To make a future release compatible with the updater:
 
 1. Set the same **stable** version in `trackgroups/__init__.py`, `package.json`, and the package lock. Run checks and build from a clean, committed checkout pushed to `main`.
 2. Upload both generated files to a matching tag `vX.Y.Z`: `TK2-Track-Groups-X.Y.Z-win-x64.zip` and `TK2-Track-Groups-X.Y.Z-win-x64.zip.sha256`. Keep the generated `portable-manifest.json` inside the ZIP. Draft/prerelease releases are not offered as normal updates.

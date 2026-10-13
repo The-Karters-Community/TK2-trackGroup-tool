@@ -20,7 +20,7 @@ try {
     if (-not $tgSession -or $tgSession.pid -ne $tgApp.Id) { throw 'No portable session created.' }
     $tgHeaders = @{'X-TK2-Token'=$tgSession.token}
     $tgHealth = Invoke-RestMethod -Uri "$($tgSession.origin)/api/health"
-    if ($tgHealth.version -ne '0.1.0-dev') { throw 'Unexpected app version.' }
+    if ($tgHealth.version -ne (Get-Content -LiteralPath (Join-Path $tgTest 'portable-manifest.json') -Raw | ConvertFrom-Json).version) { throw 'Unexpected app version.' }
     # Startup connects once; wait instead of starting a competing refresh.
     $tgLimit = [DateTime]::UtcNow.AddSeconds(60)
     do {

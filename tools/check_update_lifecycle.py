@@ -36,6 +36,13 @@ def session(version, pid=None):
 
 
 def close(value):
+    # Automatic Steam refresh may still be running when startup health becomes available.
+    def idle():
+        request = urllib.request.Request(value['origin']+'/api/state', headers={'X-TK2-Token':value['token']})
+        with urllib.request.urlopen(request, timeout=5) as response:
+            state = json.load(response)
+        return not state.get('job') or state['job']['state'] != 'running'
+    wait_for(idle)
     request = urllib.request.Request(value['origin']+'/api/shutdown', data=b'{}',
                                     headers={'X-TK2-Token':value['token'], 'Content-Type':'application/json'})
     with urllib.request.urlopen(request, timeout=5): pass
