@@ -18,6 +18,20 @@
 - Real UI drag moved the first entry across multiple rows; Discard restored the
   original order without writing the profile. Modded opened by default and the
   exact Mephiles, vehicle and wheel variants were checked visually.
+- Gates: 65 Python / 60 frontend tests, formatting, catalog and static browser
+  checks passed. A production browser build displayed a synthetic 200-preset
+  library using a locally chosen PresetIcons folder. No real profile writes.
+- Cold packaged validation caught a missing decoder runtime dependency despite
+  successful metadata parsing. Added the Python-distribution decoder binary and
+  CPU schema resources, plus explicit package checks; the isolated packaged host
+  then generated all 1,182 thumbnails. None of these dependencies come from the
+  installed game. Failed preview decoding records a local diagnostic and avoids
+  treating an incomplete thumbnail cache as valid after restart.
+- Final rebuilt ZIP is 26.9 MiB with a flat root; all 239 manifest hashes,
+  decoder resources, ZIP checksum/integrity and game-asset exclusions passed.
+  A genuinely empty-cache run of that final binary produced 1,182 thumbnails;
+  an authenticated exact-variant PNG decoded at 159×160. The host exited through
+  its shutdown API, and the package folder could be renamed and restored.
 
 ## 2026-10-13 — preset format and transactions
 

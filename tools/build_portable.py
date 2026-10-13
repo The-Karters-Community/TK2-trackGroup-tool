@@ -36,12 +36,17 @@ if __name__ == '__main__':
         '--add-data', str(ROOT / 'assets/app.ico') + ';assets',
         '--add-data', str(ROOT / 'tools/apply_update.ps1') + ';tools',
         '--collect-data', 'UnityPy',
+        '--collect-data', 'archspec',
+        '--collect-binaries', 'fmod_toolkit',
         '--exclude-module', 'PyQt5', '--exclude-module', 'PyQt6', '--exclude-module', 'PySide6',
         '--exclude-module', 'tkinter', 'launch.py')
     if output.exists():
         if not output.resolve().is_relative_to((ROOT / 'artifacts').resolve()): raise SystemExit('Unsafe output.')
         shutil.rmtree(output)
     shutil.move(str(ROOT / 'artifacts/build/TK2 Track Groups'), output)
+    for required in ('UnityPy/resources/lzma.tpk', 'archspec/json/cpu/microarchitectures.json',
+                     'fmod_toolkit/libfmod/Windows/x64/fmod.dll'):
+        if not (output / required).is_file(): raise SystemExit('Missing decoder dependency: ' + required)
     for name in ('README.md', 'CONTRIBUTING.md', 'LICENSE'): shutil.copy2(ROOT / name, output / name)
     shutil.copytree(ROOT / 'docs', output / 'docs')
     forbidden = list(output.rglob('steam_api*')) + list(output.rglob('GameAssembly.dll'))

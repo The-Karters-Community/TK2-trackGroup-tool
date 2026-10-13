@@ -56,6 +56,7 @@ class Appearance:
         self.warning = ""
         self.signature = ""
         self.files = {}
+        self.preview_error = ""
 
     def sources(self, game):
         root = Path(game).resolve()
@@ -133,7 +134,11 @@ class Appearance:
             cache = self.folder / "index.json"
             try:
                 saved = json.loads(cache.read_text(encoding="utf-8"))
-                if saved.get("version") == 2 and saved.get("signature") == signature:
+                if (
+                    saved.get("version") == 3
+                    and saved.get("signature") == signature
+                    and not saved.get("previewError")
+                ):
                     self.items = saved["items"]
                     self.signature = signature
                     self.game = game
@@ -141,6 +146,8 @@ class Appearance:
             except (OSError, ValueError, KeyError):
                 pass
             import UnityPy
+
+            self.preview_error = ""
 
             result = {kind: {} for kind in KINDS.values()}
             finished = set()
@@ -245,12 +252,24 @@ class Appearance:
                 except Exception:
                     # One damaged/unavailable package must not hide the library.
                     continue
-            write_json(cache, {"version": 2, "signature": signature, "items": result})
+            write_json(
+                cache,
+                {
+                    "version": 3,
+                    "signature": signature,
+                    "items": result,
+                    "previewError": self.preview_error,
+                },
+            )
             with self.lock:
                 self.items = result
-                self.signature = signature
+                self.signature = signature if not self.preview_error else ""
                 self.game = game
-                self.warning = ""
+                self.warning = (
+                    "Some appearance thumbnails are unavailable. Saved setup previews can still be used."
+                    if self.preview_error
+                    else ""
+                )
         except Exception as exc:
             with self.lock:
                 self.warning = (
@@ -284,7 +303,10 @@ class Appearance:
                 image.save(temporary, format="PNG")
                 os.replace(temporary, path)
             return "/api/preset-image/" + key
-        except Exception:
+        except Exception as exc:
+            if not self.preview_error:
+                self.preview_error = str(exc)
+                write_json(self.folder / "preview-error.json", {"message": str(exc)})
             return ""
 
     def snapshot(self, presets):

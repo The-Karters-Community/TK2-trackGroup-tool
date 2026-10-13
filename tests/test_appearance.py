@@ -125,7 +125,7 @@ class AppearanceTests(unittest.TestCase):
                 "stickers": {},
             }
             (art.folder / "index.json").write_text(
-                json.dumps({"version": 2, "signature": signature, "items": items})
+                json.dumps({"version": 3, "signature": signature, "items": items})
             )
             with patch.object(art, "sources", return_value=[]):
                 art._build("fake-game")
