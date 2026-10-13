@@ -34,9 +34,7 @@ it("uses the shared preset manager and includes changes in the guarded save down
     },
   });
   await screen.findByRole("button", { name: /^Preset #100/ });
-  fireEvent.click(
-    screen.getByRole("button", { name: /^Preset #100/ }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: /^Preset #100/ }));
   fireEvent.click(
     screen.getByRole("button", { name: "Duplicate", exact: true }),
   );

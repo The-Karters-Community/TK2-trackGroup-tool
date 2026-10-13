@@ -167,12 +167,13 @@ def apply(profile, change):
     presets = read(profile); data = copy.deepcopy(profile.data)
     groups = data['ItemsGroupDefinedContainers']; mode = change.get('mode')
     if mode == 'import':
-        pack = validate_pack(change['pack']); used = reserved_ids(presets, data); mapping = {}
+        pack = validate_pack(change['pack']); used = reserved_ids(presets, data); mapping = {}; claimed = set()
         for entry in pack['presets']:
-            match = next((p for p in presets if cosmetic(p) == entry['data']), None)
+            match = next((p for p in presets if p['iPresetID'] not in claimed and cosmetic(p) == entry['data']), None)
             if match is None:
                 match = {'iPresetID':allocate(used), **copy.deepcopy(entry['data'])}; presets.append(match)
             mapping[entry['key']] = match['iPresetID']
+            claimed.add(match['iPresetID'])
         for group in pack['groups']:
             save_group(groups, group['id'], group['name'], [mapping[k] for k in group['presets']], update=change.get('confirmUpdate') is True)
     elif mode == 'preset':

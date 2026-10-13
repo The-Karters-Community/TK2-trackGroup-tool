@@ -275,17 +275,20 @@ export function applyPresetChange(profile, change) {
     case "import": {
       const pack = validatePack(change.pack);
       const mapping = new Map();
+      const claimed = new Set();
       for (const entry of pack.presets) {
         let p = presets.find(
           (p) =>
+            !claimed.has(number(p.iPresetID)) &&
             JSON.stringify(cosmetic(p)) ===
-            JSON.stringify(cosmetic(entry.data)),
+              JSON.stringify(cosmetic(entry.data)),
         );
         if (!p) {
           p = { iPresetID: allocate(), ...cosmetic(entry.data) };
           presets.push(p);
         }
         mapping.set(entry.key, number(p.iPresetID));
+        claimed.add(number(p.iPresetID));
       }
       pack.groups.forEach((g) =>
         saveGroup(

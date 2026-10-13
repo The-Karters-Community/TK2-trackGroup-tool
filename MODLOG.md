@@ -25,3 +25,12 @@
   verified on synthetic data; its exported pack passed the Python validator.
 - Cosmetic name/preview resolution and automatic cosmetic Workshop installation
   remain explicit limitations. No claim of live in-game preset validation yet.
+- Final checks: 60 Python and 56 frontend tests passed, along with formatting,
+  catalog and restricted browser-build checks. Distinct presets with identical
+  cosmetics retain separate IDs and ordered membership on repeat import.
+- Rebuilt the unchanged `0.1.1-dev` portable ZIP (16.7 MiB); verified all manifest
+  hashes, ZIP checksum, flat archive root and archive integrity. A relocated
+  packaged host connected to Steam, read 20 presets/two groups and exited through
+  its shutdown API. Its folder could be renamed afterward; automated deletion
+  of the disposable test copy was blocked by approval review. Native WebView
+  window close and modified-preset loading in the game remain unverified.

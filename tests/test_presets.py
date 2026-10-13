@@ -62,6 +62,15 @@ class PresetTests(unittest.TestCase):
         raw,_=apply(p,{'mode':'preset','presetId':100,'data':value})
         after=Profile(raw); self.assertEqual(after.spans[1:],p.spans[1:]); self.assertEqual(read(after)[0]['stickersData'][0]['futureStickerField'],6)
 
+    def test_distinct_identical_presets_remain_distinct_and_repeat_is_noop(self):
+        p=Profile(fixture()); raw,_=apply(p,{'mode':'duplicate','presetId':100}); q=Profile(raw)
+        identity=view(q)['groups'][0]['id']
+        q=Profile(apply(q,{'mode':'group','groupId':identity,'name':'Sonic','members':[102,100]})[0])
+        pack=export(q,[],[identity])
+        after,_=apply(p,{'mode':'import','pack':pack,'confirmUpdate':True})
+        state=view(Profile(after)); self.assertEqual(len(state['presets']),2);self.assertEqual(state['groups'][0]['members'],[102,100])
+        repeated,_=apply(Profile(after),{'mode':'import','pack':pack,'confirmUpdate':True});self.assertEqual(repeated,after)
+
     def test_malformed_private_unknown_and_missing_member_rejected(self):
         p=Profile(fixture()); pack=export(p,[100],[])
         for mutate in [lambda p:p.update(credentials='secret'),lambda p:p['presets'][0]['data'].update(account=1),lambda p:p['presets'][0]['data'].update(iWheelMaterialID=True),lambda p:p['presets'][0]['data']['stickersData'].pop()]:

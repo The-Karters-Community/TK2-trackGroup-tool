@@ -12,6 +12,27 @@ import {
 import { fixture, groupId } from "./test-fixture.js";
 const open = (bytes) => readProfile(bytes, "1PTK_PlayerData_v19tpp0_bt0");
 describe("Portable presets", () => {
+  it("keeps distinct identical presets distinct and repeated imports unchanged", () => {
+    const p = open(fixture());
+    const q = open(applyPresetChange(p, { mode: "duplicate", presetId: 100 }));
+    const source = open(
+      applyPresetChange(q, {
+        mode: "group",
+        groupId,
+        name: "Sonic",
+        members: [102, 100],
+      }),
+    );
+    const pack = exportPresets(presetState(source), [], [groupId]);
+    const after = open(
+      applyPresetChange(p, { mode: "import", pack, confirmUpdate: true }),
+    );
+    expect(presetState(after).presets).toHaveLength(2);
+    expect(presetState(after).groups[0].members).toEqual([102, 100]);
+    expect(
+      applyPresetChange(after, { mode: "import", pack, confirmUpdate: true }),
+    ).toEqual(after.original);
+  });
   it("exports selected groups without private data or native extensions", () => {
     const pack = exportPresets(presetState(open(fixture())), [], [groupId]);
     expect(pack.groups[0].name).toBe("Sönic");
