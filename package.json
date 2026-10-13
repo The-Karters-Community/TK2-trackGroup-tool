@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:web": "vite --mode web --config ui/vite.config.js --configLoader native",
+    "build:web": "vite build --mode web --config ui/vite.config.js --configLoader native",
     "dev": "vite --config ui/vite.config.js --configLoader native",
     "build": "vite build --config ui/vite.config.js --configLoader native",
     "test": "vitest run --config ui/vite.config.js --configLoader native",
@@ -12,6 +14,7 @@
   },
   "dependencies": {
     "@radix-ui/react-icons": "1.3.2",
+    "lossless-json": "4.3.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "sortablejs": "1.15.7"
