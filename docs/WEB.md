@@ -2,6 +2,8 @@
 
 Use [TK2 Track Groups online](https://the-karters-community.github.io/TK2-trackGroup-tool/). No executable, account login, Node.js or local server is required. The website supports the verified **0.1.4.18** save format.
 
+![Hosted Speedrun library](images/web-library.jpg)
+
 ## What works
 
 - Browse the reviewed Speedrun and Community catalog in Gallery or List layout; search names and tracks. Currently the four bundled collections are Speedrun groups.

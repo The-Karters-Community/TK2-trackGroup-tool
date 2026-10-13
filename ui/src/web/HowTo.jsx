@@ -8,6 +8,15 @@ export default function HowTo({ onOpen }) {
         connect to Steam or write to your game automatically. Supports game
         build <strong>0.1.4.18</strong>.
       </p>
+      <div className="notice">
+        <strong>Browser save editing is experimental</strong>
+        <p>
+          Save preservation and browser downloads have been tested. Applying an
+          edited download in the game with Steam Cloud disabled has not yet been
+          verified in a live race. Keep your original backup until you have
+          checked the result.
+        </p>
+      </div>
       <ol className="web-steps">
         <li>
           <h2>Close the game and pause Steam Cloud</h2>
