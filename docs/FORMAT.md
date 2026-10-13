@@ -36,8 +36,10 @@ Local IL2CPP/Ghidra evidence (approximate native analysis, not original source):
 | `PTK_PlayerProfile.OnLocalSaveLoaded` | `0x18055ac10` | Three reads; third deserialized as profile |
 | `ItemsGroupContainerConverter.WriteJson` | `0x1805a8d60` | Container representation |
 | `PlatformSpecific_Steam.SaveCloudSaveData_Impl` | `0x1809f1bd0` | Remote Storage plus local save |
-| `PlatformSpecific_Steam.LoadCloudSaveData_Impl` | `0x1809f0a20` | Steam first, local fallback |
+| `PlatformSpecific_Steam.LoadCloudSaveData_Impl` | `0x1809f0a20` | Steam first when both Cloud flags enabled; explicit local load if either flag is disabled |
 
 Installed API interfaces: UGC v016, Remote Storage v016, Utils v010, User v021. Callback layouts were tested against the installed DLL with a real account. The tool uses [SubscribeItem](https://partner.steamgames.com/doc/api/ISteamUGC#SubscribeItem), verifies metadata/app ID, waits for ready download state, and checks the item-scoped Addressables catalog, track scene, ModInfo key, and local bundles. No assets are extracted or redistributed.
 
 Remote Storage verification checks the Steam client's copy. Steam handles network Cloud synchronization; a local API write does not prove remote server upload completion.
+
+The browser edition uses a separate, preservation-tested JS codec with lossless numeric parsing. It has no Remote Storage transaction or live dependency checks. Its manual LocalLow workflow requires Cloud disabled; see [browser evidence and limitations](WEB.md).

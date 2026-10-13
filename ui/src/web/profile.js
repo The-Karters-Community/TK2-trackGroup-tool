@@ -240,11 +240,12 @@ function nativeItems(group) {
 }
 
 export function matchesGroup(container, group) {
+  const expectedItems = nativeItems(group);
   return (
     container.GroupDefinition.Name === group.name &&
     container.groupItems.length === group.tracks.length &&
     container.groupItems.every((item, i) => {
-      const expected = nativeItems(group)[i];
+      const expected = expectedItems[i];
       return (
         Object.keys(item).length === 3 &&
         number(item.configID) === expected.configID &&

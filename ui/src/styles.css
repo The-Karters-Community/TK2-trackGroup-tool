@@ -650,6 +650,15 @@ progress {
 .web-review .web-check {
   margin-block: 18px;
 }
+.web-previous-group {
+  padding-block: 12px;
+  border-block: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.web-previous-group summary {
+  cursor: pointer;
+}
 .web-review .workflow-actions {
   display: flex;
   justify-content: flex-end;

@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
 import TrackList from "../components/TrackList.jsx";
 
-export default function SaveReview({ review, images, onClose, onConfirm }) {
+export default function SaveReview({
+  review,
+  images,
+  currentGroups = [],
+  onClose,
+  onConfirm,
+}) {
   const dialog = useRef();
   const { group, existing, sameName, unchanged } = review;
   const [targetId, setTargetId] = useState(
@@ -11,6 +17,9 @@ export default function SaveReview({ review, images, onClose, onConfirm }) {
   const [confirmed, setConfirmed] = useState(false);
   const target =
     existing || sameName.find((c) => c.GroupDefinition.UniqueID === targetId);
+  const before = currentGroups.find(
+    (g) => g.id === target?.GroupDefinition.UniqueID,
+  );
   useEffect(() => {
     dialog.current.showModal();
     return () => dialog.current?.close();
@@ -80,6 +89,21 @@ export default function SaveReview({ review, images, onClose, onConfirm }) {
             Replace this group's name and track order
           </label>
         )}
+        {before && !unchanged && (
+          <details className="web-previous-group">
+            <summary>
+              Current group: {before.name} · {before.tracks.length} tracks
+            </summary>
+            <TrackList
+              tracks={before.tracks}
+              images={before.previewImages}
+              browser
+            />
+          </details>
+        )}
+        <h3>
+          {target && !unchanged ? "Replacement track order" : "Track order"}
+        </h3>
         <TrackList tracks={group.tracks} images={images} browser />
         <div className="workflow-actions">
           <button onClick={onClose}>Back</button>

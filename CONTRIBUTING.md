@@ -21,4 +21,6 @@ Only build 0.1.4.18 supports writes. Obtain fresh evidence and preservation test
 
 ## Builds and releases
 
-`python tools/build_portable.py` builds without publishing. `trackgroups/__init__.py` owns the version; keep `package.json` consistent. Development remains `0.1.0-dev` until a release is requested. Do not bump for routine edits or publish automatically. Release the entire portable folder as ZIP with a SHA-256. Test from a relocated path without source dependencies, close it, and verify its folder can be removed.
+`python tools/build_portable.py` builds without publishing. `trackgroups/__init__.py` owns the version; keep `package.json` consistent. Current development is `0.1.1-dev`, following stable `0.1.0`. Do not bump for routine edits or publish automatically. Release the entire portable folder as ZIP with a SHA-256. Test from a relocated path without source dependencies, close it, and verify its folder can be removed.
+
+For the browser edition, use `npm run dev:web` without launching Python. Build with `npm run build:web` and check with `python tools/check_web_build.py`. Pages deploys verified source from `main` independently of desktop releases. Keep save data in browser memory; do not add profile uploads or Steam account credentials. See [browser development and evidence](docs/WEB.md).

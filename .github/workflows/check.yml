@@ -18,3 +18,5 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+      - run: npm run build:web
+      - run: python tools/check_web_build.py

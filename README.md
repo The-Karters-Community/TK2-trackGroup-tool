@@ -4,6 +4,8 @@ A standalone Windows app for sharing ordered track groups in **The Karters 2: Tu
 
 **Stable release: 0.1.0.** Supports game build **0.1.4.18**, Steam app **2269950**. No BepInEx or mod toolkit required. [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
 
+**Prefer a website?** [Open the browser edition](https://the-karters-community.github.io/TK2-trackGroup-tool/). Browse the Speedrun library, download group files, and prepare save edits locally without an executable or profile upload. Applying them requires manual Workshop subscriptions and file replacement with Steam Cloud disabled for this game. [Browser instructions and limits](docs/WEB.md).
+
 ![Speedrun and Community library with ordered Workshop tracks](docs/images/library.png)
 
 ## Use the app
@@ -103,6 +105,7 @@ To make a future release compatible with the updater:
 | `trackgroups/dependencies.py` | Public track identity cache, retained after unsubscribe |
 | `trackgroups/updates.py`, `tools/apply_update.ps1` | Verified portable release updates and rollback |
 | `ui/src/` | React pages, shared components, one stylesheet |
+| `ui/src/web/`, `.github/workflows/pages.yml` | Browser-local save editor and GitHub Pages deployment |
 | `tests/`, `tools/`, `.github/workflows/` | Checks, builds, catalog validation |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [format/evidence notes](docs/FORMAT.md). Tool code is MIT licensed; tracks, the game logo and game content retain their authors' rights. Branding uses the same supplied logo/icon as the community mod toolkit.

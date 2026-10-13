@@ -377,6 +377,7 @@ export default function WebApp() {
         <SaveReview
           review={review}
           images={withPreviews(review.group).previewImages}
+          currentGroups={localGroups}
           onClose={() => setReview(null)}
           onConfirm={applyImport}
         />
