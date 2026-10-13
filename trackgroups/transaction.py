@@ -33,7 +33,7 @@ def atomic_bytes(path, data):
         if os.path.exists(temp): os.unlink(temp)
 
 
-def commit(steam, path, group, expected_hash, account, allow_update=False, *, rename=False, edit=False, backups=None, running=game_running):
+def commit(steam, path, group, expected_hash, account, allow_update=False, *, rename=False, edit=False, preset=False, backups=None, running=game_running):
     path = Path(path)
     if not SAVE_NAME.fullmatch(path.name):
         raise ValueError("Unsupported profile filename.")
@@ -47,7 +47,10 @@ def commit(steam, path, group, expected_hash, account, allow_update=False, *, re
     if steam.read_save(path.name) != before:
         raise ValueError("Local and Steam saves disagree. Open the game to resolve Steam sync, close it, then refresh.")
     p = Profile(before)
-    if edit: after, outcome = p.edit_group(group['id'], group['name'], group['order'])
+    if preset:
+        from .presets import apply
+        after, outcome = apply(p, group)
+    elif edit: after, outcome = p.edit_group(group['id'], group['name'], group['order'])
     elif rename: after, outcome = p.rename_group(group['id'], group['name'])
     else: after, outcome = p.import_group(group, allow_update=allow_update)
     if after == before: return {"outcome": "unchanged", "backup": None}
@@ -55,7 +58,7 @@ def commit(steam, path, group, expected_hash, account, allow_update=False, *, re
     folder.mkdir(parents=True)
     (folder / "original.save").write_bytes(before)
     journal = {"profile": str(path), "originalHash": digest(before), "importedHash": digest(after),
-        "groupId": group["id"], "state": "prepared"}
+        "groupId": group.get("id", group.get("groupId", "presets")), "state": "prepared"}
     write_json(folder / "transaction.json", journal)
     cloud_attempted = False
     local_attempted = False

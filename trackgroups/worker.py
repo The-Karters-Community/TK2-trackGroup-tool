@@ -53,7 +53,7 @@ def run(folder):
             # Explicit diagnostic: rewrite identical bytes, then verify no content changed.
             steam.write_save(request["profile"], data)
             result = {"unchanged": steam.read_save(request["profile"]) == data}
-        elif action in ("rename", "edit"):
+        elif action in ("rename", "edit", "presets"):
             from .transaction import commit
             from .runtime import PROFILE_DIR
             from .profile import SAVE_NAME
@@ -62,7 +62,7 @@ def run(folder):
                 raise ValueError("Enable Steam Cloud before renaming, so both save copies stay synchronized.")
             if cancelled(): raise ValueError("Rename cancelled before writing the profile.")
             progress({'phase':'saving', 'message':'Saving the new group name. Keep the game closed.'})
-            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=action == 'rename', edit=action == 'edit')
+            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=action == 'rename', edit=action == 'edit', preset=action == 'presets')
         elif action in ("install", "repair"):
             from .groups import validate
             from .transaction import commit, digest, require_recovered

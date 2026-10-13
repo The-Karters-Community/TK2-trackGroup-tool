@@ -66,11 +66,23 @@ def make_server(service):
                 if not 0 < length <= 1024 * 1024: raise ValueError("Request size is invalid.")
                 body = json.loads(self.rfile.read(length))
                 action = urlsplit(self.path).path.removeprefix("/api/")
-                if action in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import"):
+                if action in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import", "presets"):
                     result = service.start_job(action, body)
                 elif action == "cancel":
                     service.cancel.set(); result = {"message": "Cancellation requested. Already completed subscriptions remain."}
                 elif action == "settings": result = service.settings(body)
+                elif action == 'export-presets':
+                    pack = service.export_presets(body)
+                    try: import webview
+                    except ImportError: webview = None
+                    if webview and webview.windows:
+                        chosen = webview.windows[0].create_file_dialog(webview.FileDialog.SAVE,
+                            save_filename='customizations.tk2presets.json', file_types=('Preset packs (*.tk2presets.json)',))
+                        if chosen:
+                            write_json(Path(chosen[0]), pack)
+                            result = {'saved': True, 'message': 'Preset pack exported.'}
+                        else: result = {'saved': False, 'message': 'Export cancelled.'}
+                    else: result = {'pack': pack}
                 elif action == "export":
                     group = service.export(body["id"])
                     try: import webview

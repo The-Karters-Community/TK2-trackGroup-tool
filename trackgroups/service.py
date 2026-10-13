@@ -42,16 +42,25 @@ class Service:
         self.cancel = threading.Event()
         self.previews = {}
         self.local_groups = []
+        self.preset_state = {'presets': [], 'groups': [], 'error': ''}
         self.load_local()
 
     def load_local(self):
-        if not self.profile: self.local_groups = []; return
+        if not self.profile:
+            self.local_groups = []
+            self.preset_state = {'presets': [], 'groups': [], 'error': 'Select a game profile in Settings.'}
+            return
         try:
             raw = (PROFILE_DIR / self.profile).read_bytes()
             self.local_groups = Profile(raw).custom_groups()
             self.local_hash = digest(raw)
+            from .presets import view
+            try: self.preset_state = {**view(Profile(raw)), 'error': ''}
+            except (ValueError, KeyError, TypeError) as exc:
+                self.preset_state = {'presets': [], 'groups': [], 'error': str(exc)}
         except (OSError, ValueError, KeyError, TypeError) as exc:
             self.local_groups = []
+            self.preset_state = {'presets': [], 'groups': [], 'error': str(exc)}
             self.sync_error = "Could not read this profile: " + str(exc)
 
     def supported_game(self):
@@ -105,6 +114,7 @@ class Service:
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
             return {"version": VERSION, "update":self.updates.snapshot(),
                 "groups": reviewed, "localGroups": local,
+                "presetState": copy.deepcopy(self.preset_state), "profileHash": getattr(self, 'local_hash', ''),
                 "settings": {"game": self.game, "profile": self.profile, "profiles": self.profiles,
                     "profileDirectory": str(PROFILE_DIR), "dataDirectory": str(DATA)},
                 "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled, "trackStatus": copy.deepcopy(self.track_status),
@@ -113,7 +123,7 @@ class Service:
     def start_job(self, action, body):
         with self.lock:
             if self.job and self.job["state"] == "running": raise ValueError("An operation is already running.")
-            if action not in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import"): raise ValueError("Unknown operation.")
+            if action not in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import", "presets"): raise ValueError("Unknown operation.")
             self.cancel.clear()
             self.job = {"id": str(uuid.uuid4()), "action": action, "state": "running", "message": "Starting…", "phase": "starting"}
             threading.Thread(target=self.perform, args=(action, body), daemon=False).start()
@@ -224,6 +234,17 @@ class Service:
                 result = self.make_preview('preview', {'group':self.export(body['id'])})
                 self.previews[result['preview']['token']]['mode'] = 'repair'
                 result['preview'].update(mode='repair', outcome='unchanged')
+            elif action == 'presets':
+                from .presets import apply
+                self.supported_game()
+                if game_running(): raise ValueError('Close The Karters 2 before editing presets.')
+                if not self.profile or not self.account or self.sync_error: raise ValueError('Refresh Steam and resolve the profile status first.')
+                local = (PROFILE_DIR / self.profile).read_bytes()
+                if digest(local) != body['expectedHash']: raise ValueError('Profile changed while editing. Refresh and review again.')
+                apply(Profile(local), body['change'])
+                result = Worker(self.game).request('presets', {'group':body['change'], 'expectedHash':digest(local), 'account':self.account, 'profile':self.profile}, self.progress, self.cancel.is_set)
+                with self.lock: self.load_local()
+                result['message'] = 'Presets saved to the local and Steam copies. You can start the game.'
             elif action == 'edit':
                 self.supported_game()
                 if game_running(): raise ValueError('Close The Karters 2 before editing groups.')
@@ -262,3 +283,8 @@ class Service:
             native = next((g for g in self.local_groups if g["GroupDefinition"]["UniqueID"] == identity), None)
             if native is None: raise ValueError("Custom group not found.")
             return export_native(native, mapping)
+
+    def export_presets(self, body):
+        from .presets import export
+        if not self.profile: raise ValueError('Select a profile first.')
+        return export(Profile((PROFILE_DIR / self.profile).read_bytes()), body.get('ids', []), body.get('groups', []))
