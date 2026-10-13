@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
+import Dialog from "../components/Dialog.jsx";
 import TrackList from "../components/TrackList.jsx";
 
 export default function SaveReview({
@@ -9,7 +10,6 @@ export default function SaveReview({
   onClose,
   onConfirm,
 }) {
-  const dialog = useRef();
   const { group, existing, sameName, unchanged } = review;
   const [targetId, setTargetId] = useState(
     existing?.GroupDefinition.UniqueID || "",
@@ -20,19 +20,11 @@ export default function SaveReview({
   const before = currentGroups.find(
     (g) => g.id === target?.GroupDefinition.UniqueID,
   );
-  useEffect(() => {
-    dialog.current.showModal();
-    return () => dialog.current?.close();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
       className="import-dialog web-review"
       aria-labelledby="review-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
+      onClose={onClose}
     >
       <button
         className="icon-button dialog-close"
@@ -122,6 +114,6 @@ export default function SaveReview({
           </button>
         </div>
       </div>
-    </dialog>
+    </Dialog>
   );
 }

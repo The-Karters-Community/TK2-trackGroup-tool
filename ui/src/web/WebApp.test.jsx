@@ -79,6 +79,7 @@ async function addOfficial() {
   );
 }
 beforeEach(() => {
+  vi.stubGlobal("PointerEvent", MouseEvent);
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
   };
@@ -92,6 +93,40 @@ beforeEach(() => {
     }),
   );
   vi.mocked(download).mockClear();
+});
+
+it("outside dismissal retains a dirty browser editor until discard is confirmed", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  render(<WebApp />);
+  await openSave();
+  await addOfficial();
+  fireEvent.click(screen.getByRole("button", { name: /Official 16-Track GP/ }));
+  const dialog = screen.getByRole("dialog");
+  vi.spyOn(dialog, "getBoundingClientRect").mockReturnValue({
+    left: 100,
+    right: 400,
+    top: 100,
+    bottom: 500,
+  });
+  fireEvent.change(
+    within(dialog).getByRole("textbox", { name: "Group name" }),
+    { target: { value: "Keep this draft" } },
+  );
+  function backdropClick() {
+    fireEvent.pointerDown(dialog, { button: 0, clientX: 50, clientY: 200 });
+    fireEvent.click(dialog, { clientX: 50, clientY: 200 });
+  }
+  backdropClick();
+  expect(confirm).toHaveBeenCalledWith(
+    "Discard the name or track order changes in this panel?",
+  );
+  expect(screen.getByRole("textbox", { name: "Group name" }).value).toBe(
+    "Keep this draft",
+  );
+  confirm.mockReturnValue(true);
+  backdropClick();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  confirm.mockRestore();
 });
 afterEach(() => {
   cleanup();

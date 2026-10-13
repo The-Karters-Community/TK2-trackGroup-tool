@@ -29,6 +29,62 @@ afterEach(() => {
   cleanup();
   sortableInstances.length = 0;
 });
+
+test("desktop details dismiss outside while keeping edits and inside interactions", () => {
+  const close = vi.fn();
+  const { rerender } = render(
+    <GroupDetails group={group} local connected onClose={close} />,
+  );
+  function outsideClick() {
+    fireEvent(
+      document.body,
+      new MouseEvent("pointerdown", { bubbles: true, button: 0 }),
+    );
+    fireEvent.click(document.body);
+  }
+  fireEvent(
+    screen.getByLabelText("Group name"),
+    new MouseEvent("pointerdown", { bubbles: true, button: 0 }),
+  );
+  fireEvent.click(document.body);
+  expect(close).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Group name"), {
+    target: { value: "Draft" },
+  });
+  outsideClick();
+  expect(close).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+  rerender(<GroupDetails group={group} local connected busy onClose={close} />);
+  outsideClick();
+  expect(close).not.toHaveBeenCalled();
+  rerender(<GroupDetails group={group} local connected onClose={close} />);
+  outsideClick();
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+test("an outside click on another desktop card selects that collection", () => {
+  render(
+    <Library
+      state={{
+        groups: [
+          { ...group, category: "speedrun" },
+          {
+            ...group,
+            id: "next",
+            name: "Next collection",
+            category: "speedrun",
+          },
+        ],
+        localGroups: [],
+      }}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /My ordered group/ }));
+  const next = screen.getByRole("button", { name: /Next collection/ });
+  fireEvent(next, new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+  fireEvent.click(next);
+  expect(screen.getByRole("heading", { name: "Next collection" })).toBeTruthy();
+});
 test("local name and racing order are saved together without a review page", () => {
   const onEdit = vi.fn();
   render(

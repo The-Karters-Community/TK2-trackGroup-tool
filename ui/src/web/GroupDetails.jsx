@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import { Cross2Icon, DownloadIcon, FilePlusIcon } from "@radix-ui/react-icons";
+import Dialog from "../components/Dialog.jsx";
 import { counts } from "../components/GroupList.jsx";
 import TrackList from "../components/TrackList.jsx";
 import EditGroup from "../components/EditGroup.jsx";
@@ -14,22 +14,12 @@ export default function GroupDetails({
   onSave,
   onDirty,
 }) {
-  const dialog = useRef();
-  useEffect(() => {
-    const element = dialog.current;
-    element.showModal();
-    return () => element.close();
-  }, []);
   const { official, workshop } = counts(group);
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
       className="import-dialog web-group-dialog"
       aria-labelledby="group-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
+      onClose={onClose}
     >
       <div className="details">
         <div className="list-heading">
@@ -89,6 +79,6 @@ export default function GroupDetails({
           />
         )}
       </div>
-    </dialog>
+    </Dialog>
   );
 }

@@ -6,7 +6,7 @@ import {
   ReloadIcon,
 } from "@radix-ui/react-icons";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { counts } from "./GroupList.jsx";
 
@@ -40,6 +40,36 @@ export default function GroupDetails({
   const count = counts(group);
 
   const [dirty, setDirty] = useState(false);
+  const panel = useRef();
+  useEffect(() => {
+    let outsidePress = false;
+    function outside(event) {
+      return (
+        !panel.current?.contains(event.target) &&
+        !event.target.closest?.("dialog[open]")
+      );
+    }
+    function press(event) {
+      outsidePress = event.button === 0 && outside(event);
+    }
+    function click(event) {
+      const dismiss = outsidePress && outside(event);
+      outsidePress = false;
+      if (dismiss && !busy && !dirty) onClose?.();
+    }
+    function cancel() {
+      outsidePress = false;
+    }
+    document.addEventListener("pointerdown", press);
+    document.addEventListener("pointercancel", cancel);
+    // Dismiss before a clicked library card selects the next group.
+    document.addEventListener("click", click, true);
+    return () => {
+      document.removeEventListener("pointerdown", press);
+      document.removeEventListener("pointercancel", cancel);
+      document.removeEventListener("click", click, true);
+    };
+  }, [busy, dirty, onClose]);
 
   function preview() {
     const { format, version, id, revision, name, description, tracks } = group;
@@ -62,7 +92,7 @@ export default function GroupDetails({
   }
 
   return (
-    <aside className="details" aria-label="Group details">
+    <aside ref={panel} className="details" aria-label="Group details">
       <div className="flex items-center justify-between">
         <span className="eyebrow label-with-icon">
           {local ? <PersonIcon /> : <StackIcon />}

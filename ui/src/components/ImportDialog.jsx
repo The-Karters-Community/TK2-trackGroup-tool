@@ -1,24 +1,15 @@
-import { useEffect, useRef } from "react";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import ImportReview from "./ImportReview.jsx";
+import Dialog from "./Dialog.jsx";
 
 export default function ImportDialog(props) {
-  const dialog = useRef();
   const running = props.confirmed && props.job?.state === "running";
-  useEffect(() => {
-    const element = dialog.current;
-    element.showModal();
-    return () => element.close();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
       className="import-dialog"
       aria-label={`Import ${props.preview.destinationName}`}
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!running) props.onBack();
-      }}
+      onClose={props.onBack}
+      dismissDisabled={running}
     >
       <button
         className="icon-button dialog-close"
@@ -29,6 +20,6 @@ export default function ImportDialog(props) {
         <Cross2Icon />
       </button>
       <ImportReview {...props} />
-    </dialog>
+    </Dialog>
   );
 }
