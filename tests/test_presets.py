@@ -83,6 +83,24 @@ class PresetTests(unittest.TestCase):
         with self.assertRaises(ValueError):apply(p,{'mode':'delete-group','groupId':'builtin'})
         with self.assertRaises(ValueError):apply(p,{'mode':'delete','presetId':100})
 
+    def test_group_order_preserves_native_positions_and_track_groups(self):
+        p=Profile(fixture()); original=view(p)['groups'][0]['id']; second='22222222-2222-2222-2222-222222222222'
+        raw,_=apply(p,{'mode':'group','groupId':second,'name':'Second','members':[100]})
+        q=Profile(raw); after=Profile(apply(q,{'mode':'group-order','order':[second,original]})[0])
+        self.assertEqual([g['id'] for g in view(after)['groups']],[second,original])
+        self.assertEqual(after.spans[:2],q.spans[:2]);self.assertEqual(after.groups[:2],q.groups[:2])
+
+    def test_local_inventory_excludes_tracks_and_never_reads_credentials(self):
+        from trackgroups.preset_assets import local_packages
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); mod=root/'Mods/Test'; (mod/'StandaloneWindows64').mkdir(parents=True)
+            catalog=mod/'StandaloneWindows64/catalog_config.json'
+            catalog.write_text(json.dumps({'m_InternalIds':['Assets/Workshop_Content/Characters/Sonic/Object.prefab']}))
+            (mod/'UploadPasswordNotShared.txt').write_text('DO NOT EXPORT')
+            result=local_packages(root); self.assertEqual(result,[{'name':'Test','kinds':['characters']}]);self.assertNotIn('DO NOT EXPORT',str(result))
+            catalog.write_text(json.dumps({'m_InternalIds':['Assets/Workshop_Content/Tracks/Test/Track.unity']}))
+            self.assertEqual(local_packages(root),[])
+
     def test_cloud_transaction_rolls_back_both_records_on_failed_write(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); file=root/'1009PTK_PlayerData_v19tpp0_bt0'; before=fixture();file.write_bytes(before); steam=FakeSteam(before)

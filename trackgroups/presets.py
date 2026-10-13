@@ -67,7 +67,7 @@ def view(profile):
             'groups': [{'id': g['GroupDefinition']['UniqueID'], 'name': g['GroupDefinition']['Name'],
                         'members': [i['iPresetID'] for i in g.get('groupItems', [])],
                         'editable': g['GroupDefinition'].get('CanBeModified', True)}
-                       for g in profile.groups if custom_group(g)]}
+                       for g in sorted(profile.groups, key=lambda g: g.get('GroupDefinition', {}).get('Index', 0)) if custom_group(g)]}
 
 
 def validate_pack(pack):
@@ -149,7 +149,8 @@ def save_group(containers, identity, name, members, *, update=False):
             raise ValueError('Protected groups cannot be edited.')
         if not update: raise ValueError('Confirm updating the existing preset group.')
         previous['GroupDefinition']['Name'] = name
-        previous['groupItems'] = [{'configID':-1,'modHashID':'','iPresetID':i} for i in members]
+        old = {i['iPresetID']:i for i in previous.get('groupItems', [])}
+        previous['groupItems'] = [old.get(i, {'configID':-1,'modHashID':'','iPresetID':i}) for i in members]
     else:
         used_names = {g['GroupDefinition']['Name'] for g in containers}
         original = name; suffix = 2
@@ -198,6 +199,16 @@ def apply(profile, change):
         if not isinstance(members,list) or not members or any(type(i) is not int for i in members) or len(set(members)) != len(members) or not set(members) <= {p['iPresetID'] for p in presets}: raise ValueError('Choose existing presets once each.')
         identity = change['groupId']; uuid.UUID(identity)
         save_group(groups, identity, change['name'], members, update=True)
+    elif mode == 'group-order':
+        custom = [g for g in groups if custom_group(g)]
+        order = change['order']
+        if not isinstance(order,list) or len(order) != len(custom) or any(not isinstance(i,str) for i in order) or set(order) != {g['GroupDefinition']['UniqueID'] for g in custom}: raise ValueError('Include each custom preset group exactly once.')
+        by_id = {g['GroupDefinition']['UniqueID']:g for g in custom}
+        indices = sorted(g['GroupDefinition']['Index'] for g in custom)
+        for identity, index in zip(order, indices):
+            definition = by_id[identity]['GroupDefinition']
+            if definition.get('CanBeModified') is False and definition['Index'] != index: raise ValueError('Protected groups cannot be reordered.')
+            definition['Index'] = index
     elif mode == 'delete-group':
         target = next((g for g in groups if g['GroupDefinition']['UniqueID'] == change['groupId']), None)
         if not target or not custom_group(target) or target['GroupDefinition'].get('CanBeRemoved') is False: raise ValueError('Group cannot be removed.')

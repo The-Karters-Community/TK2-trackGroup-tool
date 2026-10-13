@@ -29,6 +29,30 @@ Portable builds contain the runtime and compiled interface. Extract the ZIP into
 
 ![My groups gallery with missing-track status](docs/images/my-groups.png)
 
+### Presets (development version)
+
+The **Presets** page is available in the source app and browser edition; stable
+desktop 0.1.0 predates this feature. Select individual presets or several groups
+and **Export selected** to share a `.tk2presets.json` file. All original/modded
+selections and 20 sticker slots are included, without player data or mod assets.
+
+- Open a preset to edit character, vehicle, wheel and sticker configuration
+  choices from your saved setups. **Duplicate** creates a new preset as a template.
+- **Create group** selects existing presets. Open a group to rename, multi-select
+  members, drag them into order, or create a preset there from a template.
+  Group cards also have buttons to change their order in the game's group list.
+- **Import preset file** reviews its contents. Confirm updates to existing group
+  IDs; identical cosmetics are reused and conflicting preset IDs are remapped.
+- Desktop saves both local and Steam copies with recovery backups. The browser
+  changes only its in-memory save; download and apply it using the instructions
+  below. No Node/Python installation is needed by release users.
+
+**Current limits:** cosmetic names/previews and Workshop dependency resolution are
+not yet available. The editor shows configuration IDs. Matching local or Workshop
+assets must already be installed; the game may replace missing cosmetics. Local
+package inventory is informational, not verification of material IDs. Sticker
+placement stays unchanged and is edited in the game. [Format, evidence and limits](docs/PRESETS.md).
+
 ![Direct editing with conditional Save and Discard controls](docs/images/inline-edit.png)
 
 Both Browse groups and My groups offer Gallery and List views, remembered independently. Track previews appear in galleries, group details and import reviews. Steam success messages dismiss after five seconds.
@@ -106,6 +130,7 @@ To make a future release compatible with the updater:
 | `trackgroups/updates.py`, `tools/apply_update.ps1` | Verified portable release updates and rollback |
 | `ui/src/` | React pages, shared components, one stylesheet |
 | `ui/src/web/`, `.github/workflows/pages.yml` | Browser-local save editor and GitHub Pages deployment |
+| `trackgroups/presets.py`, `preset_assets.py`, `ui/src/presets/` | Preset format, local package inventory and shared desktop/browser management |
 | `tests/`, `tools/`, `.github/workflows/` | Checks, builds, catalog validation |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [format/evidence notes](docs/FORMAT.md). Tool code is MIT licensed; tracks, the game logo and game content retain their authors' rights. Branding uses the same supplied logo/icon as the community mod toolkit.

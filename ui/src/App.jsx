@@ -11,6 +11,8 @@ import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
 import ImportDialog from "./components/ImportDialog.jsx";
 import GroupEditor from "./components/GroupEditor.jsx";
+import PresetManager from "./presets/PresetManager.jsx";
+import { download as downloadFile } from "./web/download.js";
 
 export default function App() {
   const [state, setState] = useState(null);
@@ -22,6 +24,7 @@ export default function App() {
   const [confirmed, setConfirmed] = useState(false);
   const [focusId, setFocusId] = useState(null);
   const [seenJob, setSeenJob] = useState("");
+  const [presetDirty, setPresetDirty] = useState(false);
   const refresh = useCallback(async () => {
     try {
       setState(await api("state"));
@@ -81,6 +84,37 @@ export default function App() {
       setError(err.message);
     }
   }
+  async function changePresets(change) {
+    try {
+      await api("presets", { change, expectedHash: state.profileHash });
+      let current;
+      do {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        current = await api("state");
+        setState(current);
+      } while (current.job?.state === "running");
+      if (current.job?.state !== "completed")
+        throw new Error(current.job?.message || "Preset save failed.");
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  }
+  async function exportPresets(ids, groups) {
+    try {
+      const result = await api("export-presets", { ids, groups });
+      if (result.pack)
+        downloadFile(
+          "customizations.tk2presets.json",
+          JSON.stringify(result.pack, null, 2),
+          "application/json",
+        );
+      setMessage(result.message || "Preset pack exported.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
   if (!state)
     return (
       <div className="loading">
@@ -106,6 +140,7 @@ export default function App() {
   const nav = [
     ["browse", StackIcon, "Browse groups"],
     ["local", PersonIcon, "My groups"],
+    ["presets", PersonIcon, "Presets"],
     ["settings", GearIcon, "Settings"],
   ];
   return (
@@ -125,6 +160,11 @@ export default function App() {
               aria-current={page === id ? "page" : undefined}
               disabled={busy}
               onClick={() => {
+                if (
+                  presetDirty &&
+                  !window.confirm("Discard unsaved preset changes?")
+                )
+                  return;
                 setPage(id);
                 setPreview(null);
                 setEditor(null);
@@ -234,6 +274,16 @@ export default function App() {
             busy={busy}
             onCancel={() => setEditor(null)}
             onSubmit={prepare}
+          />
+        ) : page === "presets" ? (
+          <PresetManager
+            state={state.presetState}
+            busy={busy}
+            available={state.steamConnected && !state.syncError}
+            onChange={changePresets}
+            onExport={exportPresets}
+            onError={setError}
+            onDirty={setPresetDirty}
           />
         ) : page === "settings" ? (
           <Settings state={state} busy={busy} run={run} />

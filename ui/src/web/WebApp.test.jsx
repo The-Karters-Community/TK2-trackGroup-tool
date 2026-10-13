@@ -12,9 +12,50 @@ import WebApp from "./WebApp.jsx";
 import { catalog } from "./catalog.js";
 import { encodeLength, readProfile } from "./profile.js";
 import { download } from "./download.js";
+import { fixture as presetFixture } from "../presets/test-fixture.js";
+import { presetState } from "../presets/model.js";
 
 vi.mock("./download.js", () => ({ download: vi.fn() }));
 const filename = "1PTK_PlayerData_v19tpp0_bt0";
+
+it("uses the shared preset manager and includes changes in the guarded save download", async () => {
+  render(<WebApp />);
+  fireEvent.click(screen.getByRole("button", { name: "Presets", exact: true }));
+  const bytes = presetFixture();
+  fireEvent.change(screen.getByLabelText("Choose game save file"), {
+    target: {
+      files: [
+        {
+          name: filename,
+          size: bytes.length,
+          arrayBuffer: async () => bytes.buffer,
+        },
+      ],
+    },
+  });
+  await screen.findByRole("button", { name: /^Preset #100/ });
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Preset #100/ }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Duplicate", exact: true }),
+  );
+  await screen.findByRole("button", { name: /All presets · 2/ });
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Download original backup",
+      exact: true,
+    }),
+  );
+  fireEvent.click(screen.getByLabelText(/Game closed/));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Download edited save", exact: true }),
+  );
+  const result = download.mock.calls.findLast((call) => call[0] === filename);
+  const profile = readProfile(result[1]);
+  expect(presetState(profile).presets.map((p) => p.id)).toEqual([100, 102]);
+  expect(profile.spans.slice(1)).toEqual(readProfile(bytes).spans.slice(1));
+});
 const official = catalog.find((g) =>
   g.tracks.every((t) => t.kind === "official"),
 );

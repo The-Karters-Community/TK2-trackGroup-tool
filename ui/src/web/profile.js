@@ -1,6 +1,7 @@
 import { parse, stringify } from "lossless-json";
 
-// Only the third record is edited. LosslessNumber retains every unrelated
+// Track operations edit only the third record; presets explicitly edit the first.
+// LosslessNumber retains every unrelated
 // numeric token (including 64-bit account IDs) without JS rounding.
 export const MAX_SAVE = 32 * 1024 * 1024;
 export const SAVE_NAME = /^\d+PTK_PlayerData_v19tpp0_bt0$/;
@@ -179,7 +180,7 @@ export function readProfile(bytes, filename) {
       throw new Error("Save contains ambiguous duplicate group IDs.");
     identities.add(definition.UniqueID);
   }
-  return { original: bytes.slice(), spans, data, filename };
+  return { original: bytes.slice(), spans, records, data, filename };
 }
 
 function isCustom(container) {
@@ -299,13 +300,16 @@ export function reviewImport(profile, source) {
   };
 }
 
-export function serializeProfile(profile, data) {
+export function serializeProfile(profile, data, presets) {
   const third = encoder.encode(stringify(data));
+  const first =
+    presets === undefined ? null : encoder.encode(stringify(presets));
   const parts = [
-    profile.spans[0],
+    ...(first ? [encodeLength(first.length), first] : [profile.spans[0]]),
     profile.spans[1],
-    encodeLength(third.length),
-    third,
+    ...(stringify(data) === stringify(parse(profile.records[2]))
+      ? [profile.spans[2]]
+      : [encodeLength(third.length), third]),
   ];
   const result = new Uint8Array(
     parts.reduce((total, part) => total + part.length, 0),

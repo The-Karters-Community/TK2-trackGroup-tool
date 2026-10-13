@@ -25,6 +25,12 @@ import SaveDownloads from "./SaveDownloads.jsx";
 import HowTo from "./HowTo.jsx";
 import Library from "./Library.jsx";
 import GroupDetails from "./GroupDetails.jsx";
+import PresetManager from "../presets/PresetManager.jsx";
+import {
+  applyPresetChange,
+  presetState,
+  exportPresets,
+} from "../presets/model.js";
 
 export default function WebApp() {
   const [page, setPage] = useState("browse");
@@ -121,7 +127,7 @@ export default function WebApp() {
       setReview(nextReview);
       setPendingGroup(null);
       if (!nextReview) {
-        setPage("local");
+        setPage(page === "presets" ? "presets" : "local");
         setSelectedId(null);
         setQuery("");
       }
@@ -209,9 +215,43 @@ export default function WebApp() {
       setError(err.message);
     }
   }
+  const presets = useMemo(() => {
+    if (!profile) return null;
+    try {
+      return presetState(profile);
+    } catch (err) {
+      return { presets: [], groups: [], error: err.message };
+    }
+  }, [profile]);
+  async function changePresets(change) {
+    try {
+      const bytes = applyPresetChange(profile, change);
+      setProfile(readProfile(bytes, source.filename));
+      setDirty(true);
+      setMessage(
+        "Presets changed in this tab. Download the edited save to apply them.",
+      );
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  }
+  function sharePresets(ids, groups) {
+    try {
+      download(
+        "customizations.tk2presets.json",
+        JSON.stringify(exportPresets(presets, ids, groups), null, 2),
+        "application/json",
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
   const navigation = [
     ["browse", StackIcon, "Browse groups"],
     ["local", PersonIcon, "My groups"],
+    ["presets", PersonIcon, "Presets"],
     ["help", QuestionMarkCircledIcon, "How to import"],
   ];
   return (
@@ -305,7 +345,18 @@ export default function WebApp() {
             onHelp={() => navigate("help")}
           />
         )}
-        {page === "help" ? (
+        {page === "presets" ? (
+          <PresetManager
+            state={presets}
+            browser
+            available={Boolean(profile)}
+            onOpenSave={() => openSave()}
+            onChange={changePresets}
+            onExport={sharePresets}
+            onError={setError}
+            onDirty={setEditorDirty}
+          />
+        ) : page === "help" ? (
           <HowTo onOpen={() => openSave()} />
         ) : (
           <>

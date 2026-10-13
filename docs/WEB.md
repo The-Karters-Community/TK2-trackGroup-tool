@@ -16,6 +16,12 @@ All profile processing stays in browser memory. No profiles, account IDs or edit
 
 ## Apply an edited save
 
+**Presets:** open a save, then choose Presets in navigation. Export selections or
+groups, import `.tk2presets.json`, edit original/modded configurations, membership
+and order. These changes use the same backup/download controls and Cloud workflow
+below. Cosmetic asset installation is unverified; the website cannot inspect local
+Mods or subscribe cosmetic Workshop items. See [preset limitations](PRESETS.md).
+
 1. Close the game and let Steam finish syncing. Disable Steam Cloud **for this game** in Steam Library → game Properties → General. Keep it disabled throughout the import and first verification.
 2. Choose **Open game save**. Your local folder is `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2`; select the correct `<Steam ID>PTK_PlayerData_v19tpp0_bt0` file. The browser cannot determine which Steam account is active. Do not choose Steam's userdata/cache files or a backup extension.
 3. Select a library group and review the change, or open a shared group file in **My groups**. Confirm replacement explicitly when updating. Existing name/order changes use the inline editor and Save changes; these affect only the browser copy.

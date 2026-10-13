@@ -55,7 +55,8 @@ class Service:
             self.local_groups = Profile(raw).custom_groups()
             self.local_hash = digest(raw)
             from .presets import view
-            try: self.preset_state = {**view(Profile(raw)), 'error': ''}
+            from .preset_assets import local_packages
+            try: self.preset_state = {**view(Profile(raw)), 'localPackages':local_packages(self.game), 'error': ''}
             except (ValueError, KeyError, TypeError) as exc:
                 self.preset_state = {'presets': [], 'groups': [], 'error': str(exc)}
         except (OSError, ValueError, KeyError, TypeError) as exc:
