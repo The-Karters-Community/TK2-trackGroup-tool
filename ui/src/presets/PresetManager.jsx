@@ -1,19 +1,20 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DownloadIcon,
   UploadIcon,
   PlusIcon,
   PersonIcon,
   StackIcon,
-  Cross2Icon,
   ChevronUpIcon,
   ChevronDownIcon,
 } from "@radix-ui/react-icons";
-import Dialog from "../components/Dialog.jsx";
-import { moddedReferences, validatePack } from "./model.js";
+import PresetImportReview from "./PresetImportReview.jsx";
+import { validatePack } from "./model.js";
 import PresetEditor from "./PresetEditor.jsx";
 import PresetGroupEditor from "./PresetGroupEditor.jsx";
 import OrderedPresets from "./OrderedPresets.jsx";
+import PresetPreview from "./PresetPreview.jsx";
+import { setupTitle, setupDescription, setupMatches } from "./appearance.js";
 
 export default function PresetManager({
   state,
@@ -25,18 +26,73 @@ export default function PresetManager({
   onExport,
   onError,
   onDirty,
+  loadImage,
+  previewImages,
+  onPreviewImages,
 }) {
   const [tab, setTab] = useState("presets");
   const [ids, setIds] = useState([]);
   const [groupIds, setGroupIds] = useState([]);
   const [editor, setEditor] = useState(null);
   const [review, setReview] = useState(null);
-  const [acknowledged, setAcknowledged] = useState(false);
-  const [confirmUpdate, setConfirmUpdate] = useState(false);
   const [query, setQuery] = useState("");
   const fileInput = useRef();
+  const imageInput = useRef();
+  const [localImages, setImages] = useState({});
+  const images = previewImages || localImages;
+  const [layout, setLayout] = useState("gallery");
+  const [draftOrder, setDraftOrder] = useState(null);
+  const [editorDirty, setEditorDirty] = useState(false);
   const presets = state?.presets || [];
   const groups = state?.groups || [];
+  const appearance = browser
+    ? { ...state?.appearance, previews: images }
+    : state?.appearance;
+  const positions = Object.fromEntries(presets.map((p, i) => [p.id, i]));
+  const order = draftOrder || presets.map((p) => p.id);
+  const orderDirty =
+    JSON.stringify(order) !== JSON.stringify(presets.map((p) => p.id));
+  const ordered = order
+    .map((id) => presets.find((p) => p.id === id))
+    .filter(Boolean);
+  const filtered = ordered.filter((p) =>
+    setupMatches(p, appearance, positions[p.id], query),
+  );
+  useEffect(() => {
+    onDirty?.(orderDirty || editorDirty);
+    return () => onDirty?.(false);
+  }, [orderDirty, editorDirty, onDirty]);
+  useEffect(
+    () => () =>
+      !onPreviewImages &&
+      Object.values(images).forEach((modes) =>
+        Object.values(modes).forEach(URL.revokeObjectURL),
+      ),
+    [images, onPreviewImages],
+  );
+  function loadImages(e) {
+    const files = [...e.target.files];
+    e.target.value = "";
+    const next = {};
+    let total = 0;
+    for (const file of files) {
+      const match = /^Icon_PresetID_(-?\d+)(_Modded)?\.png$/.exec(file.name);
+      if (
+        !match ||
+        file.size > 4 * 1024 * 1024 ||
+        total + file.size > 128 * 1024 * 1024
+      )
+        continue;
+      total += file.size;
+      next[match[1]] ||= {};
+      next[match[1]][match[2] ? "modded" : "original"] =
+        URL.createObjectURL(file);
+    }
+    if (onPreviewImages) onPreviewImages(next);
+    else setImages(next);
+    if (!Object.keys(next).length)
+      onError?.("No preset PNGs found. Choose the game’s PresetIcons folder.");
+  }
   const editable = available && !busy && !state?.error;
   const selectedIds = ids.filter((id) => presets.some((p) => p.id === id));
   const selectedGroups = groupIds.filter((id) =>
@@ -50,8 +106,6 @@ export default function PresetManager({
       if (file.size > 1024 * 1024)
         throw new Error("Preset file exceeds the 1 MB limit.");
       setReview(validatePack(JSON.parse(await file.text())));
-      setAcknowledged(false);
-      setConfirmUpdate(false);
     } catch (err) {
       onError(err.message);
     }
@@ -69,10 +123,6 @@ export default function PresetManager({
     [order[i], order[i + step]] = [order[i + step], order[i]];
     onChange({ mode: "group-order", order });
   }
-  const conflicts =
-    review?.groups.filter((g) =>
-      groups.some((existing) => existing.id === g.id),
-    ) || [];
   return (
     <section className="library-page preset-page">
       <input
@@ -83,13 +133,20 @@ export default function PresetManager({
         aria-label="Choose preset pack"
         onChange={load}
       />
+      {browser && (
+        <input
+          hidden
+          ref={imageInput}
+          type="file"
+          webkitdirectory=""
+          multiple
+          aria-label="Choose preset images folder"
+          onChange={loadImages}
+        />
+      )}
       <header className="page-heading">
-        <span className="eyebrow">Your garage</span>
         <h1>Presets</h1>
-        <p>
-          Keep your original and modded setups together. Share a preset, a
-          selection, or whole groups.
-        </p>
+        <p>Browse your setups, arrange them, and share your favorites.</p>
       </header>
       {browser && !available ? (
         <div className="notice">
@@ -108,20 +165,31 @@ export default function PresetManager({
         <div className="tabs">
           <button
             className={tab === "presets" ? "active" : ""}
-            onClick={() => setTab("presets")}
+            onClick={() => {
+              setTab("presets");
+              setQuery("");
+            }}
           >
             <PersonIcon />
             All presets · {presets.length}
           </button>
           <button
             className={tab === "groups" ? "active" : ""}
-            onClick={() => setTab("groups")}
+            onClick={() => {
+              setTab("groups");
+              setQuery("");
+            }}
           >
             <StackIcon />
             Preset groups · {groups.length}
           </button>
         </div>
         <div className="preset-actions">
+          {browser && (
+            <button onClick={() => imageInput.current.click()}>
+              Add preset images
+            </button>
+          )}
           <button
             disabled={!editable}
             onClick={() => fileInput.current.click()}
@@ -156,11 +224,29 @@ export default function PresetManager({
           placeholder={
             tab === "groups"
               ? "Search group names"
-              : "Search preset or character IDs"
+              : "Search character, vehicle or appearance"
           }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        {tab === "presets" && (
+          <div className="view-switch" role="group" aria-label="Preset layout">
+            <button
+              className={layout === "gallery" ? "active" : ""}
+              aria-pressed={layout === "gallery"}
+              onClick={() => setLayout("gallery")}
+            >
+              Gallery
+            </button>
+            <button
+              className={layout === "list" ? "active" : ""}
+              aria-pressed={layout === "list"}
+              onClick={() => setLayout("list")}
+            >
+              List
+            </button>
+          </div>
+        )}
         <button
           disabled={busy || (!selectedIds.length && !selectedGroups.length)}
           onClick={() => onExport(selectedIds, selectedGroups)}
@@ -172,70 +258,86 @@ export default function PresetManager({
             : ""}
         </button>
       </div>
+      {appearance?.loading && (
+        <p className="hint" role="status">
+          Loading installed appearance names and variants… Your presets are
+          ready to browse.
+        </p>
+      )}
+      {appearance?.warning && <p className="notice">{appearance.warning}</p>}
       {tab === "presets" ? (
         <>
-          <p className="hint">
-            Select presets to export together or create a group. Drag the grip
-            to reorder; arrow buttons also work.
-          </p>
-          <div className="preset-selection">
+          <div className="preset-selection-bar">
             <button
-              disabled={!presets.length}
+              disabled={!filtered.length}
               onClick={() =>
                 setIds(
-                  selectedIds.length === presets.length
-                    ? []
-                    : presets.map((p) => p.id),
+                  filtered.every((p) => selectedIds.includes(p.id))
+                    ? selectedIds.filter(
+                        (id) => !filtered.some((p) => p.id === id),
+                      )
+                    : [
+                        ...new Set([
+                          ...selectedIds,
+                          ...filtered.map((p) => p.id),
+                        ]),
+                      ],
                 )
               }
             >
-              {selectedIds.length === presets.length && presets.length
+              {filtered.length &&
+              filtered.every((p) => selectedIds.includes(p.id))
                 ? "Clear selection"
-                : "Select all"}
+                : "Select all shown"}
             </button>
-            {presets
-              .filter((p) =>
-                `${p.id} ${p.data.iCharacterSkinMaterialID}`.includes(query),
-              )
-              .map((p) => (
-                <label className="check-label" key={p.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(p.id)}
-                    onChange={() => toggle(p.id, selectedIds, setIds)}
-                  />
-                  #{p.id}
-                </label>
-              ))}
-          </div>
-          {!query && (
-            <OrderedPresets
-              items={presets}
-              disabled={!editable}
-              onChange={(order) => onChange({ mode: "order", order })}
-              onOpen={(p) => setEditor({ kind: "preset", value: p })}
-            />
-          )}
-          {query && (
-            <div className="preset-cards">
-              {presets
-                .filter((p) =>
-                  `${p.id} ${p.data.iCharacterSkinMaterialID}`.includes(query),
-                )
-                .map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setEditor({ kind: "preset", value: p })}
-                  >
-                    <PersonIcon />
-                    <strong>Preset #{p.id}</strong>
-                    <small>Character {p.data.iCharacterSkinMaterialID}</small>
-                  </button>
-                ))}
+            <span className="hint">
+              {selectedIds.length
+                ? `${selectedIds.length} selected`
+                : `${filtered.length} setups - drag the grip to arrange`}
+            </span>
+            {query && (
+              <span className="hint">Clear search to reorder the library.</span>
+            )}
+            <div className="preset-save-slot library-save-slot">
+              <div
+                className={`edit-actions ${orderDirty ? "visible" : ""}`}
+                aria-hidden={!orderDirty}
+                inert={!orderDirty}
+              >
+                <span className="hint">Unsaved preset order</span>
+                <button disabled={busy} onClick={() => setDraftOrder(null)}>
+                  Discard
+                </button>
+                <button
+                  className="primary"
+                  disabled={!editable}
+                  onClick={async () => {
+                    if (await onChange({ mode: "order", order }))
+                      setDraftOrder(null);
+                  }}
+                >
+                  Save changes
+                </button>
+              </div>
             </div>
-          )}
+          </div>
+          <OrderedPresets
+            items={filtered}
+            disabled={!editable || Boolean(query)}
+            onChange={setDraftOrder}
+            onOpen={(p) => setEditor({ kind: "preset", value: p })}
+            appearance={appearance}
+            loadImage={loadImage}
+            selectedIds={selectedIds}
+            onSelect={(id) => toggle(id, selectedIds, setIds)}
+            layout={layout}
+            positions={positions}
+          />
           {!presets.length && (
             <p className="empty-state">Your saved presets will appear here.</p>
+          )}
+          {presets.length > 0 && !filtered.length && (
+            <p className="empty-state">No setups match that search.</p>
           )}
         </>
       ) : (
@@ -248,12 +350,22 @@ export default function PresetManager({
                   <input
                     type="checkbox"
                     checked={selectedGroups.includes(g.id)}
+                    aria-label={`Select ${g.name}`}
                     onChange={() => toggle(g.id, selectedGroups, setGroupIds)}
                   />
                   Select group
                 </label>
                 <button onClick={() => setEditor({ kind: "group", value: g })}>
-                  <StackIcon />
+                  <span className="preset-group-previews">
+                    {g.members.slice(0, 4).map((id) => (
+                      <PresetPreview
+                        key={id}
+                        source={appearance?.previews?.[id]?.modded}
+                        loadImage={loadImage}
+                        alt="Group setup preview"
+                      />
+                    ))}
+                  </span>
                   <strong>{g.name}</strong>
                   <small>
                     {g.members.length} presets · edit name, membership & order
@@ -287,8 +399,10 @@ export default function PresetManager({
         </div>
       )}
       <p className="hint">
-        Cosmetic names, thumbnails and Workshop installation status are not yet
-        resolved. Local-only mod files stay on your machine.{" "}
+        {browser
+          ? "Add the game's PresetIcons folder for pictures. Files stay in this browser. "
+          : "Previews come from the game's PresetIcons cache. Missing mods keep their saved picture when available. "}
+        Workshop installation status is unverified.{" "}
         {browser
           ? "Changes go into the edited save download."
           : "Close the game and refresh Steam before saving changes."}
@@ -317,9 +431,12 @@ export default function PresetManager({
           key={editor.value.id}
           preset={editor.value}
           presets={presets}
+          position={positions[editor.value.id]}
           busy={busy}
           canSave={editable}
-          onDirty={onDirty}
+          onDirty={setEditorDirty}
+          appearance={appearance}
+          loadImage={loadImage}
           onClose={() => setEditor(null)}
           onSave={(data) =>
             onChange({ mode: "preset", presetId: editor.value.id, data })
@@ -337,107 +454,25 @@ export default function PresetManager({
           }}
           presets={presets}
           busy={busy}
-          onDirty={onDirty}
+          onDirty={setEditorDirty}
+          appearance={appearance}
+          loadImage={loadImage}
           onClose={() => setEditor(null)}
           onChange={onChange}
           onExport={() => onExport([], [editor.value.id])}
         />
       )}
       {review && (
-        <Dialog
-          className="preset-dialog"
-          aria-label="Review preset import"
+        <PresetImportReview
+          review={review}
+          appearance={appearance}
+          groups={groups}
+          busy={busy}
+          editable={editable}
+          browser={browser}
+          onChange={onChange}
           onClose={() => setReview(null)}
-          dismissDisabled={busy}
-        >
-          <header className="detail-heading">
-            <div>
-              <span className="eyebrow">Review before importing</span>
-              <h2>
-                {review.presets.length} presets · {review.groups.length} groups
-              </h2>
-            </div>
-            <button
-              className="icon-button"
-              aria-label="Close preset import"
-              disabled={busy}
-              onClick={() => setReview(null)}
-            >
-              <Cross2Icon />
-            </button>
-          </header>
-          <p>
-            Identical setups are reused. New setups receive new IDs. Existing
-            group order in the library is preserved.
-          </p>
-          <ul className="preset-import-list">
-            {review.presets.map((p) => (
-              <li key={p.key}>
-                <PersonIcon />
-                <strong>{p.key}</strong>
-                <span>
-                  Character {p.data.iCharacterSkinMaterialID} · Vehicle{" "}
-                  {p.data.iVehicleMaterialID} · Wheels {p.data.iWheelMaterialID}
-                </span>
-                <small>
-                  {moddedReferences(p.data).length
-                    ? "Matching modded assets required · unverified"
-                    : "Original configurations"}
-                </small>
-              </li>
-            ))}
-          </ul>
-          {review.groups.map((g) => (
-            <p key={g.id}>
-              <StackIcon /> {g.name} · {g.presets.length} presets
-            </p>
-          ))}
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
-            />
-            I will ensure matching cosmetic assets are installed. This import
-            does not subscribe or bundle them; the game may replace missing
-            cosmetics.
-          </label>
-          {conflicts.length > 0 && (
-            <label className="check-label">
-              <input
-                type="checkbox"
-                checked={confirmUpdate}
-                onChange={(e) => setConfirmUpdate(e.target.checked)}
-              />
-              Update {conflicts.length} existing groups with the same ID
-            </label>
-          )}
-          <footer className="preset-actions">
-            <button disabled={busy} onClick={() => setReview(null)}>
-              Cancel
-            </button>
-            <button
-              className="primary"
-              disabled={
-                !editable ||
-                !acknowledged ||
-                (conflicts.length > 0 && !confirmUpdate)
-              }
-              onClick={async () => {
-                if (
-                  await onChange({
-                    mode: "import",
-                    pack: review,
-                    confirmUpdate,
-                  })
-                )
-                  setReview(null);
-              }}
-            >
-              {browser ? "Apply to edited save" : "Import presets"}
-            </button>
-          </footer>
-        </Dialog>
+        />
       )}
     </section>
   );

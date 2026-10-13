@@ -44,7 +44,7 @@ export default defineConfig(({ command, mode }) => {
                 .replace(
                   "</head>",
                   command === "build"
-                    ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://images.steamusercontent.com https://steamuserimages-a.akamaihd.net; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"></head>`
+                    ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: https://images.steamusercontent.com https://steamuserimages-a.akamaihd.net; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"></head>`
                     : "</head>",
                 )
             : session

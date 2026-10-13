@@ -14,12 +14,35 @@ existing, quick-creation and dangling referenced IDs. Multiple groups can share
 one preset. Existing group IDs require explicit update confirmation; different
 IDs with the same name create numbered copies.
 
-The game does not store a preset name. The tool displays its native ID; only
-groups can be renamed. Editing preserves unrecognized native extension fields.
+The game does not store a preset name. The library displays character names and
+setup numbers, with native IDs under Technical details; only groups can be renamed.
+Editing preserves unrecognized native extension fields.
 Deletion is refused for the last preset, a selected local-player preset or an
 unmapped quick-setup/history reference. Those should be deleted in the game.
 
-## Dependencies
+## Local previews and appearance labels
+
+The desktop reads both `PresetIcons/Icon_PresetID_<id>.png` and its `_Modded.png`
+counterpart. It reads installed official material config types 9/12/14/16,
+parent display names, and mod content variant IDs. Character UI names come from
+the referenced `CharacterInfo`; exact variant sprites come from `configSprite`
+or `thumbnailsForObjects`, not generic Workshop images. UnityPy parses the owner's
+installed bundles. Only allowlisted labels and small display PNGs are cached in
+`%LOCALAPPDATA%/TK2 Track Groups/appearance`; they are not shipped or exported.
+
+The scan runs in the background and caches by installed bundle path/size/mtime.
+Refresh Steam rechecks installed files. Preview reads require the current session
+token, enforce PNG filename/path/size limits and are loaded as rows enter view.
+Unreadable or missing appearances retain their saved selections with a fallback
+label. A saved full-preset render cannot be redrawn by this tool; the game updates
+it on loading, while individual item thumbnails reflect edited selections.
+
+The browser can use an explicitly selected PresetIcons folder via **Add preset
+images**. Those blob images stay in the tab; production CSP still blocks network
+connections. It cannot resolve names from installed bundles. Selection lives on
+the gallery/list rows, and drag changes require **Save changes** before writing.
+
+## Installation dependencies
 
 Cosmetic material IDs are **not Steam Workshop item IDs**. The first format
 preserves them without inventing a subscription mapping. A modded selection

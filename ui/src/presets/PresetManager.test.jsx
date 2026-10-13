@@ -24,9 +24,9 @@ const state = () => presetState(readProfile(fixture()));
 it("exports a selected preset and selected group in one batch", () => {
   const onExport = vi.fn();
   render(<PresetManager state={state()} onExport={onExport} />);
-  fireEvent.click(screen.getByLabelText("#100"));
+  fireEvent.click(screen.getByLabelText("Select Setup 1"));
   fireEvent.click(screen.getByRole("button", { name: /Preset groups/ }));
-  fireEvent.click(screen.getByLabelText("Select group"));
+  fireEvent.click(screen.getByLabelText("Select Sönic"));
   fireEvent.click(screen.getByRole("button", { name: /Export selected/ }));
   expect(onExport).toHaveBeenCalledWith([100], [state().groups[0].id]);
 });
@@ -51,10 +51,37 @@ it("edits inline membership and name without saving until confirmed", async () =
 });
 it("allows read-only details to close while Steam is unavailable", () => {
   render(<PresetManager state={state()} available={false} />);
-  fireEvent.click(screen.getByRole("button", { name: /Preset #100/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Setup 1/ }));
   expect(screen.getByRole("button", { name: "Duplicate" }).disabled).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Close preset" }));
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+it("opens the modded view with named variant choices and hides technical IDs", () => {
+  const data = state();
+  data.appearance = {
+    items: {
+      characters: {
+        "-2147483648": {
+          name: "Mephiles",
+          label: "Mephiles · Dark outfit",
+          source: "mod",
+        },
+      },
+    },
+  };
+  render(<PresetManager state={data} />);
+  fireEvent.click(screen.getByRole("button", { name: /^Mephiles · Setup 1/ }));
+  expect(
+    screen
+      .getByRole("button", { name: "Modded", exact: true })
+      .classList.contains("active"),
+  ).toBe(true);
+  expect(screen.getByLabelText("Character").value).toBe("-2147483648");
+  expect(
+    screen.getByRole("option", { name: "Mephiles · Dark outfit" }),
+  ).toBeTruthy();
+  expect(screen.getByText("Technical details")).toBeTruthy();
+  expect(screen.queryByText("Preset #100")).toBeNull();
 });
 it("requires dependency acknowledgement and existing-group update confirmation", async () => {
   const onChange = vi.fn().mockResolvedValue(true);

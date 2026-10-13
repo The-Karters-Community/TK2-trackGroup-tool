@@ -45,6 +45,14 @@ export default function WebApp() {
   const [pendingGroup, setPendingGroup] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
+  const [presetImages, setPresetImages] = useState({});
+  useEffect(
+    () => () =>
+      Object.values(presetImages).forEach((modes) =>
+        Object.values(modes).forEach(URL.revokeObjectURL),
+      ),
+    [presetImages],
+  );
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const saveInput = useRef();
@@ -355,6 +363,8 @@ export default function WebApp() {
             onExport={sharePresets}
             onError={setError}
             onDirty={setEditorDirty}
+            previewImages={presetImages}
+            onPreviewImages={setPresetImages}
           />
         ) : page === "help" ? (
           <HowTo onOpen={() => openSave()} />

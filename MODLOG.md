@@ -1,5 +1,24 @@
 # Implementation evidence
 
+## 2026-10-14 — pictured preset library and variant metadata
+
+- Verified `PresetIcons/Icon_PresetID_<id>.png` and `_Modded.png` against the
+  saved preset IDs. Read both views without changing the game cache.
+- Read official material config types 9/12/14/16 and parent display names from
+  the installed game config bundle. Read exact mod `iGeneratedTargetUniqueConfigID`
+  references, character UI names and `thumbnailsForObjects` variant sprites.
+  These sprites represent the appearance variant, not a Workshop page preview.
+- First local scan resolved 1,185 variants and 1,182 variant thumbnails. All
+  20 saved modded character references resolved on this installation. Display
+  metadata and derived PNGs stay under the owner's app cache; game assets,
+  upload credentials and raw bundle trees are excluded from Git/exports/builds.
+- Added background caching, authenticated/contained preview reads, selectable
+  gallery/list rows and buffered dragging using the Track Groups interaction.
+  A 200-preset test moves the first entry to the end and requires Save changes.
+- Real UI drag moved the first entry across multiple rows; Discard restored the
+  original order without writing the profile. Modded opened by default and the
+  exact Mephiles, vehicle and wheel variants were checked visually.
+
 ## 2026-10-13 — preset format and transactions
 
 - Confirmed first save record contains customization presets; third holds groups

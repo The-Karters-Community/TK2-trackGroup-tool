@@ -7,6 +7,8 @@ import {
 } from "@radix-ui/react-icons";
 import Dialog from "../components/Dialog.jsx";
 import OrderedPresets from "./OrderedPresets.jsx";
+import PresetPreview from "./PresetPreview.jsx";
+import { setupTitle, setupMatches } from "./appearance.js";
 
 export default function PresetGroupEditor({
   group,
@@ -16,6 +18,8 @@ export default function PresetGroupEditor({
   onChange,
   onExport,
   onDirty,
+  appearance,
+  loadImage,
 }) {
   const [name, setName] = useState(group.name);
   const [members, setMembers] = useState(group.members);
@@ -101,7 +105,7 @@ export default function PresetGroupEditor({
           </>
         )}
       </div>
-      <h3>Racing order · {members.length} presets</h3>
+      <h3>Preset order · {members.length} setups</h3>
       {missing.length > 0 && (
         <p className="notice">
           Missing preset references: {missing.join(", ")}. Remove them before
@@ -119,20 +123,23 @@ export default function PresetGroupEditor({
         items={selected}
         disabled={busy || !group.editable}
         onChange={setMembers}
+        appearance={appearance}
+        loadImage={loadImage}
+        positions={Object.fromEntries(presets.map((p, i) => [p.id, i]))}
       />
       <details open={group.new}>
         <summary>Add or remove presets</summary>
         <input
           type="search"
           aria-label="Find preset"
-          placeholder="Find by preset or character ID"
+          placeholder="Find a character or appearance"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <div className="membership-list">
           {presets
             .filter((p) =>
-              `${p.id} ${p.data.iCharacterSkinMaterialID}`.includes(query),
+              setupMatches(p, appearance, presets.indexOf(p), query),
             )
             .map((p) => (
               <label className="check-label" key={p.id}>
@@ -140,6 +147,7 @@ export default function PresetGroupEditor({
                   type="checkbox"
                   disabled={busy || !group.editable}
                   checked={members.includes(p.id)}
+                  aria-label={`Include ${setupTitle(p, appearance, presets.indexOf(p))}`}
                   onChange={(e) =>
                     setMembers(
                       e.target.checked
@@ -148,8 +156,12 @@ export default function PresetGroupEditor({
                     )
                   }
                 />
-                Preset #{p.id}
-                <small>Character {p.data.iCharacterSkinMaterialID}</small>
+                <PresetPreview
+                  source={appearance?.previews?.[p.id]?.modded}
+                  loadImage={loadImage}
+                  alt="Saved modded setup"
+                />
+                <span>{setupTitle(p, appearance, presets.indexOf(p))}</span>
               </label>
             ))}
         </div>
@@ -184,7 +196,7 @@ export default function PresetGroupEditor({
             >
               {presets.map((p) => (
                 <option value={p.id} key={p.id}>
-                  Preset #{p.id}
+                  {setupTitle(p, appearance, presets.indexOf(p))}
                 </option>
               ))}
             </select>

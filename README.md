@@ -36,8 +36,13 @@ desktop 0.1.0 predates this feature. Select individual presets or several groups
 and **Export selected** to share a `.tk2presets.json` file. All original/modded
 selections and 20 sticker slots are included, without player data or mod assets.
 
-- Open a preset to edit character, vehicle, wheel and sticker configuration
-  choices from your saved setups. **Duplicate** creates a new preset as a template.
+- Switch between pictured **Gallery** and **List** views. Select setups directly
+  on their cards/rows; there is no separate ID checkbox list. Drag grips across
+  rows or gallery cells, then **Save changes** to commit the new order.
+- Open a setup to see its saved in-game preview. **Modded** opens by default;
+  **Original** shows the setup visible to players without the mods. Desktop
+  choices use installed character/outfit/variant names and exact thumbnails.
+  **Duplicate** creates a new preset as a template.
 - **Create group** selects existing presets. Open a group to rename, multi-select
   members, drag them into order, or create a preset there from a template.
   Group cards also have buttons to change their order in the game's group list.
@@ -47,11 +52,19 @@ selections and 20 sticker slots are included, without player data or mod assets.
   changes only its in-memory save; download and apply it using the instructions
   below. No Node/Python installation is needed by release users.
 
-**Current limits:** cosmetic names/previews and Workshop dependency resolution are
-not yet available. The editor shows configuration IDs. Matching local or Workshop
-assets must already be installed; the game may replace missing cosmetics. Local
-package inventory is informational, not verification of material IDs. Sticker
-placement stays unchanged and is edited in the game. [Format, evidence and limits](docs/PRESETS.md).
+Desktop previews come from `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons`.
+Appearance metadata loads in the background from installed game and mod bundles
+and is cached locally. Pictures load as you scroll. In the browser edition, use
+**Add preset images** and choose that folder; images stay in the browser. Setup
+numbers describe the library entries; native IDs are tucked under Technical details.
+
+**Current limits:** the browser cannot inspect installed cosmetic bundles, so it
+uses generic setup/choice labels when local names are unavailable. Automatic
+cosmetic Workshop installation remains unavailable. Matching assets must already
+be installed; the game may replace missing cosmetics. The full saved preview is
+redrawn by the game, while appearance thumbnails show the selected variants.
+Sticker placement stays unchanged and is edited in the game.
+[Format, evidence and limits](docs/PRESETS.md).
 
 ![Direct editing with conditional Save and Discard controls](docs/images/inline-edit.png)
 

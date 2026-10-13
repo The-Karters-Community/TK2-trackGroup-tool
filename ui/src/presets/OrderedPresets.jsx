@@ -5,88 +5,138 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
 } from "@radix-ui/react-icons";
+import { reorder } from "../components/EditGroup.jsx";
+import PresetPreview from "./PresetPreview.jsx";
+import { setupTitle, setupDescription } from "./appearance.js";
 
 export default function OrderedPresets({
   items,
   onChange,
   disabled = false,
   onOpen,
+  appearance,
+  loadImage,
+  selectedIds,
+  onSelect,
+  layout = "list",
+  positions,
 }) {
   const list = useRef();
-  const update = useRef(onChange);
-  update.current = onChange;
+  const sortable = useRef();
+  const latest = useRef();
+  latest.current = { items, onChange };
   useEffect(() => {
-    const sortable = Sortable.create(list.current, {
+    const instance = new Sortable(list.current, {
       handle: ".preset-grip",
+      draggable: "li",
+      dataIdAttr: "data-id",
       animation: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
         ? 0
-        : 160,
-      disabled,
-      ghostClass: "sort-ghost",
+        : 180,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+      ghostClass: "sort-placeholder",
       chosenClass: "sort-chosen",
-      onEnd: () => {
-        const ids = [...list.current.children].map((node) =>
-          Number(node.dataset.id),
-        );
-        // Restore React's owned DOM before updating its ordered children.
-        items.forEach((p) =>
-          list.current.appendChild(
-            [...list.current.children].find(
-              (n) => Number(n.dataset.id) === p.id,
-            ),
-          ),
-        );
-        update.current(ids);
+      dragClass: "sort-drag",
+      scroll: true,
+      bubbleScroll: true,
+      scrollSensitivity: 80,
+      scrollSpeed: 14,
+      onEnd: ({ oldIndex, newIndex }) => {
+        const { items, onChange } = latest.current;
+        const ids = items.map((p) => p.id);
+        instance.sort(ids.map(String), false);
+        onChange(reorder(ids, oldIndex, newIndex));
       },
     });
-    return () => sortable.destroy();
-  }, [items, disabled]);
-  function move(index, step) {
-    const ids = items.map((p) => p.id);
-    [ids[index], ids[index + step]] = [ids[index + step], ids[index]];
-    onChange(ids);
-  }
+    sortable.current = instance;
+    return () => instance.destroy();
+  }, []);
+  useEffect(() => {
+    sortable.current?.option("disabled", disabled);
+  }, [disabled]);
   return (
-    <ol ref={list} className="preset-order" aria-label="Preset order">
-      {items.map((p, index) => (
-        <li key={p.id} data-id={p.id}>
-          <button
-            className="icon-button preset-grip"
-            disabled={disabled}
-            aria-label={`Drag preset ${p.id}`}
-          >
-            <DragHandleDots2Icon />
-          </button>
-          <span className="ordinal">{String(index + 1).padStart(2, "0")}</span>
-          <button
-            className="preset-row-label"
-            onClick={() => onOpen?.(p)}
-            disabled={!onOpen}
-          >
-            <strong>Preset #{p.id}</strong>
-            <small>
-              Character {p.data.iCharacterSkinMaterialID} ·{" "}
-              {p.data.bUsingModdedVersion ? "Modded" : "Original"}
-            </small>
-          </button>
-          <button
-            className="icon-button"
-            disabled={disabled || index === 0}
-            aria-label={`Move preset ${p.id} up`}
-            onClick={() => move(index, -1)}
-          >
-            <ChevronUpIcon />
-          </button>
-          <button
-            className="icon-button"
-            disabled={disabled || index === items.length - 1}
-            aria-label={`Move preset ${p.id} down`}
-            onClick={() => move(index, 1)}
-          >
-            <ChevronDownIcon />
-          </button>
-        </li>
-      ))}
+    <ol
+      ref={list}
+      className={`preset-order ${layout === "gallery" ? "preset-gallery" : ""}`}
+      aria-label="Preset order"
+    >
+      {items.map((p, index) => {
+        const position = positions?.[p.id] ?? index;
+        const title = setupTitle(p, appearance, position);
+        return (
+          <li key={p.id} data-id={p.id}>
+            <div className="preset-row-tools">
+              <button
+                className="icon-button preset-grip"
+                disabled={disabled}
+                aria-label={`Drag ${title} to reorder`}
+              >
+                <DragHandleDots2Icon />
+              </button>
+              <span className="ordinal">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              {onSelect && (
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${title}`}
+                  checked={selectedIds.includes(p.id)}
+                  onChange={() => onSelect(p.id)}
+                />
+              )}
+            </div>
+            <button
+              className="preset-row-label"
+              onClick={() => onOpen?.(p)}
+              disabled={!onOpen}
+            >
+              <PresetPreview
+                source={appearance?.previews?.[p.id]?.modded}
+                loadImage={loadImage}
+                alt={`${title}, saved modded preview`}
+              />
+              <span className="preset-copy">
+                <strong>{title}</strong>
+                <small>{setupDescription(p, appearance)}</small>
+              </span>
+            </button>
+            <div className="preset-move-actions">
+              <button
+                className="icon-button"
+                disabled={disabled || index === 0}
+                aria-label={`Move ${title} up`}
+                onClick={() =>
+                  onChange(
+                    reorder(
+                      items.map((p) => p.id),
+                      index,
+                      index - 1,
+                    ),
+                  )
+                }
+              >
+                <ChevronUpIcon />
+              </button>
+              <button
+                className="icon-button"
+                disabled={disabled || index === items.length - 1}
+                aria-label={`Move ${title} down`}
+                onClick={() =>
+                  onChange(
+                    reorder(
+                      items.map((p) => p.id),
+                      index,
+                      index + 1,
+                    ),
+                  )
+                }
+              >
+                <ChevronDownIcon />
+              </button>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

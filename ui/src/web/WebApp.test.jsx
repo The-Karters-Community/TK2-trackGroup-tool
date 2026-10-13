@@ -18,6 +18,56 @@ import { presetState } from "../presets/model.js";
 vi.mock("./download.js", () => ({ download: vi.fn() }));
 const filename = "1PTK_PlayerData_v19tpp0_bt0";
 
+it("keeps chosen local preset previews when switching navigation pages", async () => {
+  const oldCreate = URL.createObjectURL,
+    oldRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = vi.fn(() => "blob:local-preset");
+  URL.revokeObjectURL = vi.fn();
+  const app = render(<WebApp />);
+  try {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Presets", exact: true }),
+    );
+    const bytes = presetFixture();
+    fireEvent.change(screen.getByLabelText("Choose game save file"), {
+      target: {
+        files: [
+          {
+            name: filename,
+            size: bytes.length,
+            arrayBuffer: async () => bytes.buffer,
+          },
+        ],
+      },
+    });
+    await screen.findByRole("button", { name: "All presets · 1", exact: true });
+    fireEvent.change(screen.getByLabelText("Choose preset images folder"), {
+      target: { files: [{ name: "Icon_PresetID_100_Modded.png", size: 20 }] },
+    });
+    await screen.findByRole("img", { name: "Setup 1, saved modded preview" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Browse groups", exact: true }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Presets", exact: true }),
+    );
+    expect(
+      (
+        await screen.findByRole("img", {
+          name: "Setup 1, saved modded preview",
+        })
+      ).getAttribute("src"),
+    ).toBe("blob:local-preset");
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    app.unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalled();
+  } finally {
+    app.unmount();
+    URL.createObjectURL = oldCreate;
+    URL.revokeObjectURL = oldRevoke;
+  }
+});
+
 it("uses the shared preset manager and includes changes in the guarded save download", async () => {
   render(<WebApp />);
   fireEvent.click(screen.getByRole("button", { name: "Presets", exact: true }));
@@ -33,8 +83,8 @@ it("uses the shared preset manager and includes changes in the guarded save down
       ],
     },
   });
-  await screen.findByRole("button", { name: /^Preset #100/ });
-  fireEvent.click(screen.getByRole("button", { name: /^Preset #100/ }));
+  await screen.findByRole("button", { name: /^Setup 1/ });
+  fireEvent.click(screen.getByRole("button", { name: /^Setup 1/ }));
   fireEvent.click(
     screen.getByRole("button", { name: "Duplicate", exact: true }),
   );

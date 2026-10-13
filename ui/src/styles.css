@@ -2,7 +2,14 @@
 
 /* Presets share the app shell, tokens and buttons with track groups. */
 .preset-page {
-  padding: 28px;
+  padding: 22px 28px;
+}
+.preset-page .page-heading {
+  margin-bottom: 20px;
+}
+.preset-page .page-heading h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
 }
 .preset-toolbar,
 .preset-actions,
@@ -23,6 +30,7 @@
   max-width: 440px;
 }
 .preset-page .tabs button.active,
+.preset-toolbar .view-switch button[aria-pressed="true"],
 .preset-dialog .tabs button.active {
   background: var(--accent);
   color: #1c2119;
@@ -89,6 +97,24 @@
   justify-content: end;
   margin: 12px 0;
 }
+.library-save-slot {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+  margin: 0;
+  min-height: 40px;
+}
+.preset-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  background: #141713;
+  padding-block: 6px;
+  z-index: 3;
+}
 .preset-actions {
   margin: 12px 0;
 }
@@ -106,16 +132,124 @@
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--border);
-  padding: 10px 0;
+  padding: 10px;
+  background: #1c2119;
+  border-radius: 8px;
+}
+.preset-row-tools,
+.preset-move-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.preset-row-tools input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
 }
 .preset-row-label {
   flex: 1;
   min-width: 0;
-  flex-direction: column;
-  align-items: start;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-start;
   text-align: left;
   border: 0;
   background: transparent;
+}
+.preset-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.preset-copy small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.preset-preview {
+  width: 92px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #252d20;
+}
+.preset-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.preset-preview > svg {
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+}
+.preset-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+}
+.preset-gallery li {
+  flex-direction: column;
+  border: 1px solid var(--border);
+  gap: 4px;
+}
+.preset-gallery .preset-row-tools {
+  width: 100%;
+}
+.preset-gallery .preset-row-tools input {
+  margin-left: auto;
+}
+.preset-gallery .preset-row-label {
+  width: 100%;
+  padding: 4px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.preset-gallery .preset-preview {
+  width: 100%;
+  height: 156px;
+  aspect-ratio: auto;
+}
+.preset-gallery .preset-move-actions {
+  align-self: flex-end;
+}
+.preset-hero {
+  width: 100%;
+  height: 180px;
+  aspect-ratio: auto;
+}
+.appearance-choice {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+.appearance-choice .preset-preview {
+  width: 80px;
+}
+.appearance-choice select {
+  min-width: 0;
+}
+.preset-group-previews {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.preset-group-previews .preset-preview {
+  width: 100%;
+  height: 110px;
+  aspect-ratio: auto;
 }
 .preset-row-label:disabled {
   opacity: 1;
@@ -173,22 +307,32 @@
   accent-color: var(--accent);
 }
 .membership-list {
-  max-height: 300px;
+  max-height: 360px;
   overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+}
+.membership-list .check-label {
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.membership-list .preset-preview {
+  width: 60px;
+}
+.sticker-grid .appearance-choice {
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+}
+.sticker-grid .preset-preview {
+  width: 48px;
 }
 .membership-list small {
   margin-left: auto;
   color: var(--muted);
-}
-.preset-selection {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.preset-selection label {
-  margin: 0;
 }
 .preset-import-list {
   padding: 0;

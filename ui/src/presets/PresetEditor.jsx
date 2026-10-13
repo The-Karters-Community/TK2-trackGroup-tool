@@ -7,12 +7,9 @@ import {
 } from "@radix-ui/react-icons";
 import Dialog from "../components/Dialog.jsx";
 import { cosmetic, moddedReferences } from "./model.js";
-
-const slots = [
-  ["Character", "iCharacterSkinMaterialID"],
-  ["Vehicle", "iVehicleMaterialID"],
-  ["Wheels", "iWheelMaterialID"],
-];
+import { slots, setupTitle } from "./appearance.js";
+import AppearanceChoice from "./AppearanceChoice.jsx";
+import PresetPreview from "./PresetPreview.jsx";
 
 export default function PresetEditor({
   preset,
@@ -24,9 +21,12 @@ export default function PresetEditor({
   onExport,
   onChange,
   onDirty,
+  appearance,
+  loadImage,
+  position = 0,
 }) {
   const [value, setValue] = useState(() => cosmetic(preset.data));
-  const [version, setVersion] = useState("original");
+  const [version, setVersion] = useState("modded");
   const dirty = JSON.stringify(value) !== JSON.stringify(preset.data);
   useEffect(() => {
     onDirty?.(dirty);
@@ -41,31 +41,17 @@ export default function PresetEditor({
     )
       onClose();
   }
-  function options(key, current, sticker = false) {
-    const ids = new Set([current]);
-    presets.forEach((p) => {
-      if (sticker) p.data.stickersData.forEach((s) => ids.add(s[key]));
-      else ids.add(p.data[key]);
-    });
-    return [...ids]
-      .sort((a, b) => a - b)
-      .map((id) => (
-        <option key={id} value={id}>
-          Configuration {id}
-        </option>
-      ));
-  }
   return (
     <Dialog
       className="preset-dialog"
-      aria-label={`Edit preset ${preset.id}`}
+      aria-label={`Edit ${setupTitle(preset, appearance, position)}`}
       onClose={close}
       dismissDisabled={busy}
     >
       <header className="detail-heading">
         <div>
           <span className="eyebrow">Your customization</span>
-          <h2>Preset #{preset.id}</h2>
+          <h2>{setupTitle(preset, appearance, position)}</h2>
         </div>
         <button
           className="icon-button"
@@ -76,10 +62,16 @@ export default function PresetEditor({
           <Cross2Icon />
         </button>
       </header>
+      <PresetPreview
+        className="preset-hero"
+        source={appearance?.previews?.[preset.id]?.[version]}
+        loadImage={loadImage}
+        alt="Saved in-game setup preview"
+      />
       <p className="hint">
-        The game stores configuration IDs, without preset names. Choices below
-        come from your saved presets; item names and compatibility are not yet
-        resolved.
+        {dirty
+          ? "Saved preview - the game redraws the full setup after you load it. Appearance thumbnails below show your selected variants."
+          : "Your saved in-game preview. Choose an appearance below."}
       </p>
       <div className="tabs" aria-label="Customization version">
         <button
@@ -101,20 +93,20 @@ export default function PresetEditor({
           : "Players without your mods see these original selections."}
       </p>
       <fieldset disabled={busy || !canSave} className="preset-fields">
-        {slots.map(([label, field]) => {
+        {slots.map(([label, kind, field]) => {
           const key = modded ? `${field}_Modded` : field;
           return (
-            <label key={key}>
-              {label}
-              <select
-                value={value[key]}
-                onChange={(e) =>
-                  setValue({ ...value, [key]: Number(e.target.value) })
-                }
-              >
-                {options(key, value[key])}
-              </select>
-            </label>
+            <AppearanceChoice
+              key={key}
+              label={label}
+              kind={kind}
+              field={key}
+              data={value}
+              presets={presets}
+              appearance={appearance}
+              loadImage={loadImage}
+              onChange={(id) => setValue({ ...value, [key]: id })}
+            />
           );
         })}
         <label className="check-label">
@@ -135,22 +127,24 @@ export default function PresetEditor({
                 ? "iStickerMaterialID_Modded"
                 : "iStickerMaterialID";
               return (
-                <label key={i}>
-                  Slot {i + 1}
-                  <select
-                    value={s[key]}
-                    onChange={(e) =>
-                      setValue({
-                        ...value,
-                        stickersData: value.stickersData.map((v, j) =>
-                          j === i ? { ...v, [key]: Number(e.target.value) } : v,
-                        ),
-                      })
-                    }
-                  >
-                    {options(key, s[key], true)}
-                  </select>
-                </label>
+                <AppearanceChoice
+                  key={i}
+                  label={`Sticker slot ${i + 1}`}
+                  kind="stickers"
+                  field={key}
+                  data={s}
+                  presets={presets}
+                  appearance={appearance}
+                  loadImage={loadImage}
+                  onChange={(id) =>
+                    setValue({
+                      ...value,
+                      stickersData: value.stickersData.map((v, j) =>
+                        j === i ? { ...v, [key]: id } : v,
+                      ),
+                    })
+                  }
+                />
               );
             })}
           </div>
@@ -160,13 +154,14 @@ export default function PresetEditor({
           </p>
         </details>
       </fieldset>
-      {refs.length > 0 && (
-        <p className="notice">
-          This preset references {new Set(refs).size} distinct modded
-          configurations. Installation status is unverified; the tool does not
-          subscribe or bundle cosmetic assets.
+      <details className="preset-technical">
+        <summary>Technical details</summary>
+        <p className="hint">
+          Game preset ID: {preset.id}. IDs are internal references, not item
+          names. {new Set(refs).size} modded appearance references. Workshop
+          installation is unverified.
         </p>
-      )}
+      </details>
       <div className="preset-save-slot">
         {dirty && (
           <>
@@ -208,7 +203,7 @@ export default function PresetEditor({
           onClick={async () => {
             if (
               window.confirm(
-                `Delete preset #${preset.id} from the save and its groups?`,
+                "Delete this setup from the save and its groups?",
               ) &&
               (await onChange({ mode: "delete", presetId: preset.id }))
             )

@@ -55,7 +55,15 @@ python tools/check_web_build.py
 
 Web mode chooses `ui/src/web/WebApp.jsx`, skips desktop session discovery/proxying, uses `/TK2-trackGroup-tool/` as its asset base, and writes ignored `ui/web-dist/`. Desktop `npm run build` still writes `ui/dist/` and uses its authenticated local backend. Both editions reuse the track/gallery/editor components and the single stylesheet.
 
-`ui/src/web/profile.js` owns format validation and save transformations. It retains the first two binary records exactly and uses lossless-json for the third record, preserving unrelated 64-bit integers and decimal tokens. `catalog.js` imports only reviewed group data and allowlisted public thumbnail URLs. File inputs/downloads, review UI and import instructions are separated from the codec.
+`ui/src/web/profile.js` owns format validation and save transformations. Track-group operations retain the first two binary records exactly; explicit preset edits can update the first. It uses lossless-json to preserve unrelated 64-bit integers and decimal tokens. `catalog.js` imports only reviewed group data and allowlisted public thumbnail URLs. File inputs/downloads, review UI and import instructions are separated from the codec.
+
+In Presets, **Add preset images** opens a local folder picker. Choose
+`%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons` for both
+Original and Modded renders. PNGs stay in the tab and are not uploaded or bundled
+into exports. The browser cannot inspect installed cosmetic bundles for names;
+it uses pictured setup numbers and saved-choice labels instead. Network requests
+remain prohibited by the production CSP. Dragging stages an order locally;
+**Save changes** applies it to the in-memory save before the usual download flow.
 
 The Pages workflow runs frontend tests, formatting, catalog validation and the static-bundle check, then deploys **only** `ui/web-dist`. Repository Pages must use GitHub Actions as its source. Pushes to `main` affecting the website/catalog redeploy it; no desktop release or version bump is required. Visitors reload to get the latest catalog and interface. No service worker retains stale copies.
 

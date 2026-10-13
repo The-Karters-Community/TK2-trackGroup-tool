@@ -6,7 +6,7 @@ import {
   ReloadIcon,
   Cross2Icon,
 } from "@radix-ui/react-icons";
-import { api, download } from "./api.js";
+import { api, download, loadPreview } from "./api.js";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
 import ImportDialog from "./components/ImportDialog.jsx";
@@ -278,6 +278,7 @@ export default function App() {
         ) : page === "presets" ? (
           <PresetManager
             state={state.presetState}
+            loadImage={loadPreview}
             busy={busy}
             available={state.steamConnected && !state.syncError}
             onChange={changePresets}
