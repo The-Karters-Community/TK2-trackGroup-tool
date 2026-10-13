@@ -35,6 +35,7 @@ if __name__ == '__main__':
         '--add-data', str(ROOT / 'ui/dist') + ';ui/dist', '--add-data', str(ROOT / 'catalog') + ';catalog',
         '--add-data', str(ROOT / 'assets/app.ico') + ';assets',
         '--add-data', str(ROOT / 'tools/apply_update.ps1') + ';tools',
+        '--collect-data', 'UnityPy',
         '--exclude-module', 'PyQt5', '--exclude-module', 'PyQt6', '--exclude-module', 'PySide6',
         '--exclude-module', 'tkinter', 'launch.py')
     if output.exists():

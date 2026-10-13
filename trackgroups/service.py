@@ -43,6 +43,9 @@ class Service:
         self.previews = {}
         self.local_groups = []
         self.preset_state = {'presets': [], 'groups': [], 'error': ''}
+        from .appearance import Appearance
+        self.appearance = Appearance(DATA/'appearance', PROFILE_DIR)
+        self.appearance.refresh(self.game)
         self.load_local()
 
     def load_local(self):
@@ -80,6 +83,7 @@ class Service:
         self.account = ""; self.items = {}; self.previews.clear()
         self.sync_error = "Connect Steam to verify this selection."
         self.load_local()
+        self.appearance.refresh(self.game)
         return {"message": "Settings saved."}
 
     def summary(self, group):
@@ -115,7 +119,7 @@ class Service:
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
             return {"version": VERSION, "update":self.updates.snapshot(),
                 "groups": reviewed, "localGroups": local,
-                "presetState": copy.deepcopy(self.preset_state), "profileHash": getattr(self, 'local_hash', ''),
+                "presetState": copy.deepcopy({**self.preset_state, 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]))}), "profileHash": getattr(self, 'local_hash', ''),
                 "settings": {"game": self.game, "profile": self.profile, "profiles": self.profiles,
                     "profileDirectory": str(PROFILE_DIR), "dataDirectory": str(DATA)},
                 "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled, "trackStatus": copy.deepcopy(self.track_status),
@@ -213,6 +217,7 @@ class Service:
                 result = {"message": "Community library refreshed."}
             elif action == "refresh":
                 self.supported_game()
+                self.appearance.refresh(self.game)
                 self.progress({"message": "Connecting to Steam and reading public track metadata…"})
                 self.dependencies.remember(Dependencies(DATA / "dependencies.json").items, save=False)
                 self.dependencies.catalog(catalog.load())

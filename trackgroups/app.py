@@ -43,6 +43,17 @@ def make_server(service):
             if path == "/api/state":
                 if not self.authorized(): return self.reply(403, {"error": "Invalid session."})
                 return self.reply(200, service.state())
+            if path.startswith('/api/preset-image/'):
+                if not self.authorized(): return self.reply(403, {'error':'Invalid session.'})
+                try: raw = service.appearance.image(unquote(path.removeprefix('/api/preset-image/')))
+                except (OSError, ValueError): return self.reply(404, {'error':'Preview not found.'})
+                self.send_response(200)
+                self.send_header('Content-Type','image/png')
+                self.send_header('Content-Length',str(len(raw)))
+                self.send_header('Cache-Control','private, max-age=60')
+                self.send_header('X-Content-Type-Options','nosniff')
+                self.end_headers(); self.wfile.write(raw)
+                return
             root = (ROOT / "ui/dist").resolve()
             file = (root / ("index.html" if path == "/" else unquote(path).lstrip("/"))).resolve()
             if not file.is_relative_to(root) or not file.is_file(): return self.reply(404, {"error": "Not found."})
