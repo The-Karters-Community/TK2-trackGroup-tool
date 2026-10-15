@@ -509,6 +509,8 @@ export default function PresetManager({
       {review && (
         <PresetImportReview
           review={review}
+          presets={presets}
+          loadImage={loadImage}
           appearance={appearance}
           groups={groups}
           busy={busy}

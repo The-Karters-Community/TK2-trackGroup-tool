@@ -209,3 +209,29 @@ it("keeps actions in footer and displays save errors inside the editor without l
     onChange.mock.calls[0][1].baseline.data.iVehicleMaterialID_Modded,
   ).toBe(2);
 });
+
+it("keeps a failed preset import visible with an inline error and pinned commands", async () => {
+  const data = state(),
+    pack = exportPresets(data, [100], []);
+  render(
+    <PresetManager
+      state={data}
+      onChange={vi.fn().mockRejectedValue(new Error("Steam save conflict"))}
+      onError={vi.fn()}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Choose preset pack"), {
+    target: { files: [{ size: 4000, text: async () => JSON.stringify(pack) }] },
+  });
+  const dialog = await screen.findByRole("dialog", {
+    name: "Review preset import",
+  });
+  fireEvent.click(within(dialog).getByLabelText(/I will ensure/));
+  const button = within(dialog).getByRole("button", { name: "Import presets" });
+  expect(button.closest("footer")).toBeTruthy();
+  fireEvent.click(button);
+  expect(await within(dialog).findByRole("alert")).toHaveProperty(
+    "textContent",
+    "Steam save conflict",
+  );
+});
