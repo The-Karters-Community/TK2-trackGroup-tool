@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import threading
+import tempfile
 
 from .runtime import write_json
 
@@ -47,6 +48,11 @@ class Appearance:
     def __init__(self, folder, profiles):
         self.folder = Path(folder)
         self.folder.mkdir(parents=True, exist_ok=True)
+        # Windows packaged hosts can redirect file handles while resolve() on
+        # the directory itself still returns the unredirected path. Resolve an
+        # exclusively created file to establish the actual app-owned cache root.
+        with tempfile.NamedTemporaryFile(dir=self.folder, prefix="path-", suffix=".tmp") as probe:
+            self.folder = Path(probe.name).resolve().parent
         self.profiles = Path(profiles)
         self.lock = threading.RLock()
         self.loading = False
@@ -135,7 +141,7 @@ class Appearance:
             try:
                 saved = json.loads(cache.read_text(encoding="utf-8"))
                 if (
-                    saved.get("version") == 3
+                    saved.get("version") == 4
                     and saved.get("signature") == signature
                     and not saved.get("previewError")
                 ):
@@ -212,6 +218,9 @@ class Appearance:
                                 "name": base,
                                 "label": " · ".join(parts),
                                 "source": "official",
+                                "entity": base,
+                                "skin": "Skin " + str(int(skin[1])) if skin else "Default",
+                                "variant": "Variant " + str(int(skin[2]) + 1) if skin else "Default",
                             }
                             entry["image"] = self._sprite(
                                 file, objects, tree.get("configSprite", {}), identity
@@ -237,6 +246,9 @@ class Appearance:
                                     "name": parts[0] if parts else "Custom appearance",
                                     "label": " · ".join(parts),
                                     "source": "mod",
+                                    "entity": parts[0] if parts else "Custom appearance",
+                                    "skin": parts[1] if len(parts) > 1 else "Default",
+                                    "variant": parts[2] if len(parts) > 2 else "Default",
                                 }
                                 entry["image"] = self._sprite(
                                     file,
@@ -255,7 +267,7 @@ class Appearance:
             write_json(
                 cache,
                 {
-                    "version": 3,
+                    "version": 4,
                     "signature": signature,
                     "items": result,
                     "previewError": self.preview_error,
@@ -338,6 +350,17 @@ class Appearance:
                             + "?v="
                             + str(path.stat().st_mtime_ns)
                         )
+            stale = []
+            fields = ("iCharacterSkinMaterialID", "iVehicleMaterialID", "iWheelMaterialID", "iCharacterSkinMaterialID_Modded", "iVehicleMaterialID_Modded", "iWheelMaterialID_Modded")
+            for p in presets:
+                marker = self.profiles / "PresetIcons" / f'Icon_PresetID_{p["id"]}.hash'
+                try:
+                    saved = marker.read_text(encoding="utf-8").strip().split("_")[:6]
+                    if saved != [str(p["data"][key]) for key in fields]:
+                        stale.append(p["id"])
+                except (OSError, KeyError):
+                    pass
+            result["stalePreviews"] = stale
             result["previews"] = images
             return result
 

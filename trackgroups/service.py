@@ -119,7 +119,7 @@ class Service:
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
             return {"version": VERSION, "update":self.updates.snapshot(),
                 "groups": reviewed, "localGroups": local,
-                "presetState": copy.deepcopy({**self.preset_state, 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]))}), "profileHash": getattr(self, 'local_hash', ''),
+                "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]))}), "profileHash": getattr(self, 'local_hash', ''),
                 "settings": {"game": self.game, "profile": self.profile, "profiles": self.profiles,
                     "profileDirectory": str(PROFILE_DIR), "dataDirectory": str(DATA)},
                 "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled, "trackStatus": copy.deepcopy(self.track_status),
@@ -241,12 +241,14 @@ class Service:
                 self.previews[result['preview']['token']]['mode'] = 'repair'
                 result['preview'].update(mode='repair', outcome='unchanged')
             elif action == 'presets':
-                from .presets import apply
+                from .presets import apply, verify_edit_base
                 self.supported_game()
                 if game_running(): raise ValueError('Close The Karters 2 before editing presets.')
                 if not self.profile or not self.account or self.sync_error: raise ValueError('Refresh Steam and resolve the profile status first.')
                 local = (PROFILE_DIR / self.profile).read_bytes()
-                if digest(local) != body['expectedHash']: raise ValueError('Profile changed while editing. Refresh and review again.')
+                if digest(local) != body['expectedHash']:
+                    with self.lock: self.load_local()
+                    verify_edit_base(Profile(local), body['change'], body.get('baseline'))
                 apply(Profile(local), body['change'])
                 result = Worker(self.game).request('presets', {'group':body['change'], 'expectedHash':digest(local), 'account':self.account, 'profile':self.profile}, self.progress, self.cancel.is_set)
                 with self.lock: self.load_local()

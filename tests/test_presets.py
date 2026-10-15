@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from trackgroups.profile import Profile, encode_length
-from trackgroups.presets import apply, export, read, validate_pack, view
+from trackgroups.presets import apply, export, read, validate_pack, view, verify_edit_base
 from trackgroups.transaction import commit, digest
 from test_transaction import FakeSteam
 
@@ -31,6 +31,35 @@ def fixture():
 
 
 class PresetTests(unittest.TestCase):
+    def test_rebase_accepts_unrelated_progress_but_refuses_changed_target(self):
+        p = Profile(fixture())
+        base = view(p)['presets'][0]
+        change = {'mode':'preset', 'presetId':100, 'data':base['data']}
+        p.data['progress'] = 999
+        verify_edit_base(p, change, base)
+        changed = copy.deepcopy(base['data'])
+        changed['iVehicleMaterialID_Modded'] = 17
+        after = Profile(apply(p, {**change, 'data':changed})[0])
+        with self.assertRaisesRegex(ValueError, 'changed in the game'):
+            verify_edit_base(after, change, base)
+        with self.assertRaises(ValueError):
+            verify_edit_base(p, change, None)
+        with self.assertRaises(ValueError):
+            verify_edit_base(p, {'mode':'delete','presetId':100}, base)
+
+    def test_group_removal_preserves_every_preset_and_other_save_records(self):
+        p = Profile(apply(Profile(fixture()), {'mode':'duplicate', 'presetId':100})[0])
+        group = view(p)['groups'][0]
+        raw, _ = apply(p, {'mode':'group','groupId':group['id'],'name':group['name'],'members':[102]})
+        q = Profile(raw)
+        self.assertEqual(q.spans[:2], p.spans[:2])
+        self.assertEqual(read(q), read(p))
+        self.assertEqual(view(q)['groups'][0]['members'], [102])
+        self.assertEqual(q.data['private'], p.data['private'])
+        verify_edit_base(p, {'mode':'group','groupId':group['id']}, group)
+        with self.assertRaises(ValueError):
+            verify_edit_base(q, {'mode':'group','groupId':group['id']}, group)
+
     def test_noop_export_has_no_private_or_native_extensions(self):
         p = Profile(fixture()); pack = export(p, [], [view(p)['groups'][0]['id']])
         self.assertEqual(p.unchanged(), fixture())

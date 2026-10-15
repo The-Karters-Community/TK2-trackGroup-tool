@@ -70,6 +70,20 @@ def view(profile):
                        for g in sorted(profile.groups, key=lambda g: g.get('GroupDefinition', {}).get('Index', 0)) if custom_group(g)]}
 
 
+def verify_edit_base(profile, change, baseline):
+    """Allow unrelated save changes only when this exact edit target is unchanged."""
+    state = view(profile)
+    mode = change.get('mode')
+    if mode == 'preset':
+        current = next((p for p in state['presets'] if p['id'] == change.get('presetId')), None)
+    elif mode == 'group':
+        current = next((g for g in state['groups'] if g['id'] == change.get('groupId')), None)
+    else:
+        current = None
+    if current is None or baseline != current:
+        raise ValueError('This preset or group changed in the game. Close this editor and reopen it to review the latest saved version. Your draft has not been written.')
+
+
 def validate_pack(pack):
     if not isinstance(pack, dict) or set(pack) != {'format','version','gameBuild','presets','groups'} or pack.get('format') != 'tk2-presets' or type(pack.get('version')) is not int or pack['version'] != 1 or pack.get('gameBuild') != '0.1.4.18':
         raise ValueError('Expected tk2-presets version 1 for game 0.1.4.18.')

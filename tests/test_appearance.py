@@ -82,6 +82,21 @@ class AppearanceTests(unittest.TestCase):
             clean_name("NewMephiles_TwilightRed"), "New Mephiles Twilight Red"
         )
 
+    def test_saved_render_is_marked_stale_after_material_changes(self):
+        from test_presets import fixture
+        from trackgroups.presets import view
+        from trackgroups.profile import Profile
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            icons = root / 'profile/PresetIcons'
+            icons.mkdir(parents=True)
+            (icons / 'Icon_PresetID_100.hash').write_text('1_2_3_-2147483648_2_3_123', encoding='utf-8')
+            art = Appearance(root / 'cache', root / 'profile')
+            presets = view(Profile(fixture()))['presets']
+            self.assertEqual(art.snapshot(presets)['stalePreviews'], [])
+            presets[0]['data']['iWheelMaterialID_Modded'] = 88
+            self.assertEqual(art.snapshot(presets)['stalePreviews'], [100])
+
     def test_preview_keys_are_bounded_and_contained(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -125,7 +140,7 @@ class AppearanceTests(unittest.TestCase):
                 "stickers": {},
             }
             (art.folder / "index.json").write_text(
-                json.dumps({"version": 3, "signature": signature, "items": items})
+                json.dumps({"version": 4, "signature": signature, "items": items})
             )
             with patch.object(art, "sources", return_value=[]):
                 art._build("fake-game")

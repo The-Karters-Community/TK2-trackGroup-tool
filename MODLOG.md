@@ -67,3 +67,26 @@
   its shutdown API. Its folder could be renamed afterward; automated deletion
   of the disposable test copy was blocked by approval review. Native WebView
   window close and modified-preset loading in the game remain unverified.
+
+
+## 2026-10-15: preset editor evidence and save conflicts
+
+- Inspected the supplied eight-second customization video. Character selection,
+  skin and variant are separate visual stages; vehicle/wheel choices have two.
+- Native `PTK_MainMenuPresetsManager.SetCurrentlySelectedPreset` at
+  `0x1807ca5c0` overwrites `bUsingModdedVersion` from
+  `iTopButtons_ItemModsEnabled_UseAndShowWithModdedContent_ButtonID == 1`.
+  The app must not advertise that persisted bit as a global in-game toggle.
+  Preserve the stored bit while editing original/modded material fields.
+- Full preset PNGs are game-generated cached renders. Their `.hash` begins with
+  the six material IDs. Detect stale material renders rather than claim to
+  regenerate a 3D setup offline; current component thumbnails update immediately.
+- Save rebasing is limited to unchanged preset/group targets. Recompare the exact
+  original cosmetic or group snapshot against a freshly read local profile;
+  retain the local/Cloud equality and transaction hash checks. Concurrent edits
+  to the same target remain conflicts. Group removal edits references only.
+- Real launcher verification exposed Windows packaged-host file redirection:
+  resolving a cache file reached LocalCache while resolving its parent directory
+  did not. An exclusively created temporary file establishes the physical cache
+  root, keeping filename/containment validation intact. An exact installed variant
+  PNG was readable after this correction. No game asset is added to the repo.
