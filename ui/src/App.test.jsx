@@ -148,6 +148,6 @@ test("success messages expire after five seconds and credits have no repository 
           "Steam refreshed. Known Workshop tracks are installed.",
         ),
       ).toBeNull(),
-    { timeout: 6500 },
+    { timeout: 11500 },
   );
-}, 8000);
+}, 13000);

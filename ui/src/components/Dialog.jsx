@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { dialogMotion } from "./inputMode.js";
 
 // Keep native focus trapping, Escape handling and focus restoration. Only a
 // primary press that starts and ends on the backdrop can dismiss the dialog.
@@ -9,6 +10,7 @@ export default function Dialog({
   ...props
 }) {
   const dialog = useRef();
+  const motion = useRef(dialogMotion());
   const backdropPress = useRef(false);
   useEffect(() => {
     const element = dialog.current;
@@ -32,6 +34,7 @@ export default function Dialog({
     <dialog
       {...props}
       ref={dialog}
+      data-motion={motion.current}
       onCancel={(event) => {
         event.preventDefault();
         if (!dismissDisabled) onClose();

@@ -78,7 +78,7 @@ export default function WebApp() {
   );
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(() => setMessage(""), 5000);
+    const timer = setTimeout(() => setMessage(""), 10000);
     return () => clearTimeout(timer);
   }, [message]);
   useEffect(() => {
