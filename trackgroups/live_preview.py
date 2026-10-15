@@ -1,6 +1,7 @@
-"""Optional, current-user Windows pipe to the game's read-only preview companion.
+"""Optional, current-user Windows pipe for game previews and one-preset saves.
 
-No game-memory injection, remote listener, save writes, or executable commands.
+Only explicit cosmetic preset edits are sent to the game's loaded profile.
+There is no remote listener, generic memory access, or executable command API.
 """
 import base64
 import ctypes
@@ -57,14 +58,27 @@ def install(game):
     expected = hashlib.sha256(source.read_bytes()).digest()
     if hashlib.sha256(temporary.read_bytes()).digest() != expected: raise ValueError("Companion copy verification failed.")
     os.replace(temporary, target)
-    return {"message":"Preview companion installed. Start the game and leave it at the main menu. Regular save editing still requires the game closed."}
+    return {"message":"Garage companion installed. Start the game and leave it at the main menu. Single-preset edits can save live; imports and group edits still require the game closed."}
 
 
 def validate_request(body):
-    if not isinstance(body, dict) or set(body) - {"data", "view", "rotation", "operation"}:
+    if not isinstance(body, dict) or set(body) - {"data", "view", "rotation", "operation", "baseline", "profile", "presetId"}:
         raise ValueError("Unsupported preview fields.")
     operation = body.get("operation", "render")
     if operation == "status": return {"operation": "status"}
+    if operation == "save-preset":
+        from .profile import SAVE_NAME
+        profile = body.get("profile")
+        preset_id = body.get("presetId")
+        baseline = body.get("baseline")
+        if not isinstance(profile, str) or not SAVE_NAME.fullmatch(profile):
+            raise ValueError("Choose a valid active game profile.")
+        if type(preset_id) is not int or preset_id <= 0:
+            raise ValueError("Invalid preset ID.")
+        if not isinstance(baseline, dict) or set(baseline) != {"id", "data"} or baseline["id"] != preset_id:
+            raise ValueError("The preset baseline is invalid. Reopen the preset and try again.")
+        return {"operation": "save-preset", "profile": profile, "presetId": preset_id,
+                "baseline": cosmetic(baseline["data"], strict=True), "data": cosmetic(body.get("data"), strict=True)}
     if operation != "render" or body.get("view") not in ("original", "modded"):
         raise ValueError("Unsupported preview operation or version.")
     rotation = body.get("rotation", 0)
@@ -118,3 +132,22 @@ def render(body):
     except (OSError,TimeoutError) as exc:
         return {"ready":False,"message":str(exc)}
     finally: busy.release()
+
+
+def save_preset(body):
+    payload = validate_request(body)
+    if payload["operation"] != "save-preset":
+        raise ValueError("Unsupported live save operation.")
+    if os.name != "nt": return {"ready": False, "message": "Live preset saving requires Windows and the optional game companion."}
+    if not busy.acquire(blocking=False): return {"ready": False, "message": "Finishing the previous game operation…"}
+    try:
+        result = _exchange(payload, 12)
+        if not isinstance(result, dict): raise ValueError("Invalid game save response.")
+        if result.get("ready") and (result.get("operation") != "save-preset" or
+                result.get("profile") != payload["profile"] or result.get("presetId") != payload["presetId"]):
+            raise ValueError("The game returned a mismatched preset save confirmation.")
+        return result
+    except (OSError, TimeoutError) as exc:
+        return {"ready": False, "message": str(exc)}
+    finally:
+        busy.release()

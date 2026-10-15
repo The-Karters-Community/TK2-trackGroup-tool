@@ -13,6 +13,8 @@ from trackgroups import live_preview as preview
 from trackgroups.app import make_server
 from trackgroups.presets import view
 from trackgroups.profile import Profile
+from trackgroups.service import Service
+from trackgroups.presets import apply
 from test_presets import fixture
 
 
@@ -33,6 +35,35 @@ class PreviewTests(unittest.TestCase):
                 with self.assertRaises(ValueError): preview.validate_request(changed)
         body['data']['account'] = 123
         with self.assertRaises(ValueError): preview.validate_request(body)
+
+    def test_live_save_is_single_preset_and_validates_profile_baseline(self):
+        state = view(Profile(fixture()))
+        preset = state['presets'][0]
+        payload = {'operation':'save-preset', 'profile':'1009PTK_PlayerData_v19tpp0_bt0',
+                   'presetId':preset['id'], 'baseline':preset, 'data':preset['data']}
+        parsed = preview.validate_request(payload)
+        self.assertEqual(parsed['operation'], 'save-preset')
+        self.assertEqual(parsed['baseline'], preset['data'])
+        for changed in ({**payload, 'profile':'../outside'}, {**payload, 'presetId':True},
+                        {**payload, 'baseline':{'id':preset['id']+1,'data':preset['data']}},
+                        {**payload, 'shell':'anything'}):
+            with self.subTest(changed=changed):
+                with self.assertRaises(ValueError): preview.validate_request(changed)
+
+    def test_live_save_transport_accepts_only_matching_game_confirmation(self):
+        state = view(Profile(fixture()))
+        preset = state['presets'][0]
+        payload = {'operation':'save-preset', 'profile':'1009PTK_PlayerData_v19tpp0_bt0',
+                   'presetId':preset['id'], 'baseline':preset, 'data':preset['data']}
+        with patch.object(preview.os, 'name', 'nt'), patch.object(preview, '_exchange', return_value={
+                'ready':True,'operation':'save-preset','profile':payload['profile'],'presetId':payload['presetId']}) as exchange:
+            result = preview.save_preset(payload)
+            self.assertTrue(result['ready'])
+            self.assertEqual(exchange.call_args.args[0]['baseline'], preset['data'])
+        with patch.object(preview.os, 'name', 'nt'), patch.object(preview, '_exchange', return_value={
+                'ready':True,'operation':'render','profile':payload['profile'],'presetId':payload['presetId']}):
+            with self.assertRaisesRegex(ValueError, 'mismatched'):
+                preview.save_preset(payload)
 
     def test_busy_offline_and_invalid_images_never_reach_save_apis(self):
         with patch.object(preview.os, 'name', 'nt'), patch.object(preview, '_exchange') as exchange:
@@ -81,3 +112,39 @@ class PreviewTests(unittest.TestCase):
                 render.assert_called_once_with({'operation':'status'})
         finally:
             server.shutdown(); server.server_close(); thread.join()
+
+    def test_live_save_uses_game_bridge_and_keeps_a_safety_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profiles = root / 'profiles'; profiles.mkdir()
+            profile_name = '1009PTK_PlayerData_v19tpp0_bt0'
+            path = profiles / profile_name
+            original = fixture(); path.write_bytes(original)
+            baseline = view(Profile(original))['presets'][0]
+            data = copy.deepcopy(baseline['data'])
+            data['iWheelMaterialID_Modded'] = 88
+            change = {'mode':'preset', 'presetId': baseline['id'], 'data':data}
+            service = Service.__new__(Service)
+            service.profile = profile_name; service.account = 'steam-account'
+            service.cloud_enabled = True; service.sync_error = ''
+            service.job = None
+            service.lock = threading.RLock(); service.supported_game = lambda: None
+            service.load_local = lambda: None
+            calls = []
+            def game_save(request):
+                calls.append(request)
+                payload = preview.validate_request(request)
+                self.assertEqual(payload['baseline'], baseline['data'])
+                self.assertEqual(payload['data'], data)
+                updated, _ = apply(Profile(path.read_bytes()), change)
+                path.write_bytes(updated)
+                return {'ready':True, 'operation':'save-preset', 'profile':profile_name, 'presetId':baseline['id']}
+            from trackgroups import service as module
+            with patch.object(module, 'PROFILE_DIR', profiles), patch.object(module, 'DATA', root / 'data'), \
+                 patch.object(module, 'game_running', return_value=True), patch.object(preview, 'save_preset', side_effect=game_save):
+                outcome = service.save_live_preset({'profile':profile_name, 'baseline':baseline, 'change':change})
+            self.assertIn('verified', outcome['message'])
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0]['baseline'], baseline)
+            self.assertEqual(Path(outcome['backup']).read_bytes(), original)
+            self.assertEqual(view(Profile(path.read_bytes()))['presets'][0]['data'], data)

@@ -84,6 +84,19 @@ def make_server(service):
                         import base64
                         service.appearance.cache_render(body, base64.b64decode(result['png'], validate=True))
                     return self.reply(200, result)
+                if action == "live-save-preset":
+                    return self.reply(200, service.save_live_preset(body))
+                if action == "preset-model":
+                    from .models import model
+                    raw = model(service.appearance, body.get("kind"), body.get("id"))
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.send_header("Content-Encoding", "gzip")
+                    self.send_header("Content-Length", str(len(raw)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.end_headers(); self.wfile.write(raw)
+                    return
                 if action == "install-preview-companion":
                     service.supported_game()
                     from .live_preview import install

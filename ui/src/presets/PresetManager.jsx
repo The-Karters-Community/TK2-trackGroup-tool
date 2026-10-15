@@ -21,6 +21,8 @@ export default function PresetManager({
   busy,
   browser = false,
   available = true,
+  gameRunning = false,
+  liveSaveAvailable = false,
   onOpenSave,
   onChange,
   onExport,
@@ -28,6 +30,7 @@ export default function PresetManager({
   onDirty,
   loadImage,
   renderPreview,
+  loadModel,
   previewImages,
   onPreviewImages,
   onConnectFolder,
@@ -427,11 +430,15 @@ export default function PresetManager({
       <p className="hint">
         {browser
           ? "Connect TheKarters2 once to open your save and PresetIcons together. Files stay on this device. "
-          : "Open a preset for live game rendering with the optional companion. Saved previews stay available without the game. "}
+          : "Inspect installed appearances in 3D, or use the game's full setup renderer at its main menu with the optional companion. "}
         Workshop installation status is unverified.{" "}
         {browser
           ? "Changes go into the edited save download."
-          : "Close the game and refresh Steam before saving changes."}
+          : liveSaveAvailable
+            ? "A single preset can be saved through the running game. Close it for group and collection changes."
+            : gameRunning
+              ? "Install the optional companion with the game closed to enable live preset saving."
+              : "Refresh Steam before saving changes."}
       </p>
       {state?.localPackages?.length > 0 && (
         <details className="notice">
@@ -490,7 +497,11 @@ export default function PresetManager({
               busy={busy}
               browser={browser}
               renderPreview={renderPreview}
+              loadModel={loadModel}
               canSave={editable}
+              canSavePreset={editable || liveSaveAvailable}
+              saveToRunningGame={gameRunning && liveSaveAvailable}
+              gameRunning={gameRunning}
               onDirty={memberEditor ? setMemberDirty : setEditorDirty}
               appearance={appearance}
               loadImage={loadImage}

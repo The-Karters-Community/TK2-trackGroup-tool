@@ -17,6 +17,9 @@ export default function PresetEditor({
   presets,
   busy,
   canSave = true,
+  canSavePreset = canSave,
+  saveToRunningGame = false,
+  gameRunning = false,
   onClose,
   onSave,
   onExport,
@@ -25,6 +28,7 @@ export default function PresetEditor({
   appearance,
   loadImage,
   renderPreview,
+  loadModel,
   position = 0,
   browser = false,
 }) {
@@ -75,6 +79,9 @@ export default function PresetEditor({
     "iStickerMaterialID",
   ];
   const field = modded ? `${baseField}_Modded` : baseField;
+  const modelId = category < 3 ? value[field] : null;
+  const modelAvailable =
+    category < 3 && appearance?.models?.[kind]?.includes(modelId);
   return (
     <Dialog
       className="preset-dialog editor-shell customization-dialog"
@@ -105,6 +112,10 @@ export default function PresetEditor({
             changed={changed}
             loadImage={loadImage}
             renderPreview={renderPreview}
+            loadModel={loadModel}
+            modelKind={kind}
+            modelId={modelId}
+            modelAvailable={modelAvailable}
           />
           <div className="tabs" aria-label="Customization version">
             {["modded", "original"].map((view) => (
@@ -193,9 +204,11 @@ export default function PresetEditor({
           )}
           {!canSave && !busy && (
             <p className="notice">
-              Connect Steam and resolve the profile status to save changes. You
-              can still preview unsaved selections. Close the game before
-              saving.
+              {gameRunning && saveToRunningGame
+                ? "You can save this preset through the running game. Group and collection changes still need the game closed."
+                : gameRunning
+                  ? "Install and enable the optional Garage companion to save one preset while the game is running. Other changes need the game closed."
+                  : "Connect Steam and resolve the profile status to save changes. You can still preview unsaved selections."}
             </p>
           )}
           <fieldset disabled={busy} className="preset-fields">
@@ -273,10 +286,14 @@ export default function PresetEditor({
             </button>
             <button
               className="primary"
-              disabled={busy || !canSave || !dirty}
+              disabled={busy || !canSavePreset || !dirty}
               onClick={() => act(() => onSave(value))}
             >
-              {browser ? "Apply to edited save" : "Save changes"}
+              {browser
+                ? "Apply to edited save"
+                : saveToRunningGame
+                  ? "Save to running game"
+                  : "Save changes"}
             </button>
           </div>
         </div>

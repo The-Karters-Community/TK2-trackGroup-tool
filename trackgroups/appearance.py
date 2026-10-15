@@ -7,6 +7,7 @@ account data or raw bundle trees enter application state or portable exports.
 import hashlib
 import json
 import os
+from functools import lru_cache
 from pathlib import Path
 import re
 import threading
@@ -40,14 +41,50 @@ def mod_variants(content, character_names=None):
                     name or char.get("strCharacterDirName", ""),
                     outfit.get("strOutfitDirName", ""),
                     variant.get("strOutfitMaterialDirName", ""),
-                ]
+                ], [char.get("strCharacterDirName", ""), outfit.get("strOutfitDirName", ""), variant.get("strOutfitMaterialDirName", "")]
     for kind in ("vehicles", "wheels", "stickers"):
         for item in content.get(kind, []):
             for variant in item.get("colorVariants", []):
                 yield kind, variant, [
                     item.get("strItemDirName", ""),
                     variant.get("strVariantDirName", ""),
-                ]
+                ], [item.get("strItemDirName", ""), variant.get("strVariantDirName", "")]
+
+
+def model_prefab(directory, kind, raw_parts):
+    directory = Path(directory)
+    try:
+        stat = (directory / "catalog_config.json").stat()
+    except OSError:
+        return None
+    return _model_prefab(directory, kind, tuple(raw_parts), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=4096)
+def _model_prefab(directory, kind, raw_parts, _modified, _size):
+    """Match a config variant to its exact local prefab; never guess by label."""
+    try:
+        ids = json.loads((directory / "catalog_config.json").read_text(encoding="utf-8"))["m_InternalIds"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    prefix = {"characters": "Characters", "vehicles": "Vehicles", "wheels": "Wheels"}.get(kind)
+    if not prefix or any(not isinstance(p, str) or not p for p in raw_parts):
+        return None
+    expected = ([prefix, raw_parts[0], "Outfits", raw_parts[1], "Color Variations", raw_parts[2]]
+                if kind == "characters" else [prefix, raw_parts[0], "Color Variations", raw_parts[1]])
+    def normal(part):
+        return re.sub(r"[^a-z0-9]", "", part.casefold())
+    normalized = [normal(part) for part in expected]
+    matches = []
+    for path in ids:
+        if not isinstance(path, str) or not path.lower().endswith(".prefab"):
+            continue
+        parts = path.replace("\\", "/").split("/")
+        for start in range(len(parts) - len(expected) + 1):
+            if [normal(p) for p in parts[start:start + len(expected)]] == normalized:
+                matches.append(path)
+                break
+    return sorted(set(matches))[0] if len(set(matches)) == 1 else None
 
 
 class Appearance:
@@ -65,6 +102,7 @@ class Appearance:
         self.game = None
         self.requested_game = None
         self.items = {kind: {} for kind in KINDS.values()}
+        self.model_refs = {}
         self.warning = ""
         self.signature = ""
         self.files = {}
@@ -136,7 +174,9 @@ class Appearance:
             signature = hashlib.sha256(
                 json.dumps(
                     [
-                        (str(p.resolve()), p.stat().st_size, p.stat().st_mtime_ns)
+                        (str(p.resolve()), p.stat().st_size, p.stat().st_mtime_ns,
+                         (p.parent / "catalog_config.json").stat().st_mtime_ns
+                         if (p.parent / "catalog_config.json").is_file() else 0)
                         for p, _ in sources
                     ]
                 ).encode()
@@ -147,11 +187,12 @@ class Appearance:
             try:
                 saved = json.loads(cache.read_text(encoding="utf-8"))
                 if (
-                    saved.get("version") == 4
+                    saved.get("version") == 5
                     and saved.get("signature") == signature
                     and not saved.get("previewError")
                 ):
                     self.items = saved["items"]
+                    self.model_refs = saved.get("modelRefs", {})
                     self.signature = signature
                     self.game = game
                     return
@@ -160,8 +201,10 @@ class Appearance:
             import UnityPy
 
             self.preview_error = ""
+            _model_prefab.cache_clear()
 
             result = {kind: {} for kind in KINDS.values()}
+            model_refs = {}
             finished = set()
             names = {}
             for file, source in sources:
@@ -239,7 +282,7 @@ class Appearance:
                                 )
                                 for t in tree.get("thumbnailsForObjects", [])
                             }
-                            for kind, variant, parts in mod_variants(
+                            for kind, variant, parts, raw_parts in mod_variants(
                                 tree["modContentInfo"], names.get(file.parent)
                             ):
                                 identity = variant.get("iGeneratedTargetUniqueConfigID")
@@ -266,6 +309,9 @@ class Appearance:
                                     identity,
                                 )
                                 result[kind][str(identity)] = entry
+                                prefab = model_prefab(file.parent, kind, raw_parts)
+                                if prefab:
+                                    model_refs[f"{kind}:{identity}"] = {"directory": str(file.parent), "prefab": prefab}
                             finished.add(file.parent)
                 except Exception:
                     # One damaged/unavailable package must not hide the library.
@@ -273,14 +319,16 @@ class Appearance:
             write_json(
                 cache,
                 {
-                    "version": 4,
+                    "version": 5,
                     "signature": signature,
                     "items": result,
+                    "modelRefs": model_refs,
                     "previewError": self.preview_error,
                 },
             )
             with self.lock:
                 self.items = result
+                self.model_refs = model_refs
                 self.signature = signature if not self.preview_error else ""
                 self.game = game
                 self.warning = (
@@ -352,6 +400,8 @@ class Appearance:
                 "items": self.items,
                 "loading": self.loading,
                 "warning": self.warning,
+                "models": {kind: [int(key.split(":", 1)[1]) for key in self.model_refs if key.startswith(kind + ":")]
+                           for kind in ("characters", "vehicles", "wheels")},
             }
             images = {}
             rendered_views = {}

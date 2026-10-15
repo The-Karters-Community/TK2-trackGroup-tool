@@ -14,6 +14,6 @@ public sealed class Plugin : BasePlugin
         if (!File.Exists(info) || !File.ReadAllText(info).Replace("\r\n", "\n").Contains("Version: 0.1.4.18\n"))
             throw new NotSupportedException("Preview companion supports TK2 0.1.4.18 only.");
         AddComponent<PreviewHost>();
-        Log.LogInfo("Garage preview companion ready. Local current-user pipe; main menu only; no preset/save writes.");
+        Log.LogInfo("Garage companion ready. Local current-user pipe; main-menu preview and single-preset game-owned saving.");
     }
 }

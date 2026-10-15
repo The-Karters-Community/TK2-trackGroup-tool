@@ -57,9 +57,14 @@ selections and 20 sticker slots are included, without player data or mod assets.
   changes only its in-memory save; download and apply it using the instructions
   below. No Node/Python installation is needed by release users.
 
-Desktop previews come from `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons`.
+Desktop saved previews come from `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons`.
 Appearance metadata loads in the background from installed game and mod bundles
-and is cached locally. Pictures load as you scroll. In the browser edition, use
+and is cached locally. In the editor, **3D appearance** lets you orbit an
+installed character, vehicle or wheel independently; **Full setup** shows the
+game's accurate assembled render when the optional companion is running. The
+same companion can save one existing preset through the running game's own
+save method after Steam/profile verification. Other save edits need the game
+closed. Pictures load as you scroll. In the browser edition, use
 **Connect game folder** and choose `TheKarters2` to load the save and pictures together.
 Edge/Chrome can remember the granted folder. Setup numbers describe library entries.
 

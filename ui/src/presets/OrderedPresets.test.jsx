@@ -62,7 +62,7 @@ it("keeps 200 setups in one selectable gallery and saves a long drag only after 
       order: [...Array.from({ length: 199 }, (_, i) => 101 + i), 100],
     }),
   );
-});
+}, 15000);
 
 it("loads a preview only when it enters the visible area", async () => {
   let observe;

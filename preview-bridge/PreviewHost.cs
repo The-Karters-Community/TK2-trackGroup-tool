@@ -9,8 +9,9 @@ using UObject = UnityEngine.Object;
 
 namespace TK2.Garage.Preview;
 
-// Unity work stays on its main thread. Never call RenderIcon, EnsurePresetIcon,
-// profile mutators or the game's PNG saver: they are not a preview-only API.
+// Unity work stays on its main thread. The render operation never mutates
+// profiles or calls RenderIcon, EnsurePresetIcon, or the game's PNG saver.
+// SavePreset has a separate, guarded path for one existing preset.
 public sealed class PreviewHost : MonoBehaviour
 {
     public PreviewHost(IntPtr pointer) : base(pointer) { }
@@ -57,6 +58,15 @@ public sealed class PreviewHost : MonoBehaviour
                 request.Result.TrySetResult(new { ready = blocked == null, protocol = 1, message = blocked ?? "Game renderer connected." });
                 return;
             }
+            if (request.Operation == "save-preset")
+            {
+                try { request.Result.TrySetResult(SavePreset(request)); }
+                catch (Exception ex)
+                {
+                    request.Result.TrySetResult(new { ready = false, message = "Game save failed: " + ex.Message });
+                }
+                return;
+            }
             var renderer = PTK_MenuIconRenderManager.Instance;
             if (renderer._isRendering || renderer.currentPresetIdsToRender.Count > 0)
             {
@@ -86,6 +96,94 @@ public sealed class PreviewHost : MonoBehaviour
         catch (Exception ex)
         {
             if (active != null) Finish(new { ready = false, message = "Game preview failed: " + ex.Message });
+        }
+    }
+    [HideFromIl2Cpp]
+    private static object SavePreset(Request request)
+    {
+        var profile = PTK_PlayerProfile.Instance;
+        if (profile == null || profile.customizationPresets == null)
+            return new { ready = false, message = "The game profile is not loaded." };
+        if (string.IsNullOrWhiteSpace(request.Profile) || request.Profile != profile.strLocalSaveFileName)
+            return new { ready = false, message = "The active game profile changed. Refresh the app and reopen this preset." };
+        if (request.PresetId <= 0)
+            return new { ready = false, message = "Invalid preset ID." };
+        var preset = profile.customizationPresets.GetPresetFromPresetID(request.PresetId);
+        if (preset == null)
+            return new { ready = false, message = "That preset is no longer in the active profile." };
+        if (!SamePreset(preset, request.Baseline))
+            return new { ready = false, message = "This preset changed in the game. Reopen it to review the latest version; nothing was saved." };
+        // Validate every field before mutating the live object. The game remains the
+        // sole owner of serialization, local-file writes and Steam Cloud sync.
+        ApplyPreset(preset, request.Data);
+        try
+        {
+            profile.SaveProfileLocalData();
+        }
+        catch
+        {
+            ApplyPreset(preset, request.Baseline);
+            try { profile.SaveProfileLocalData(); } catch { }
+            throw;
+        }
+        return new { ready = true, operation = "save-preset", saved = true, profile = profile.strLocalSaveFileName, presetId = request.PresetId };
+    }
+    [HideFromIl2Cpp]
+    private static bool SamePreset(Preset preset, JsonElement data)
+    {
+        try
+        {
+            if (preset.iCharacterSkinMaterialID != data.GetProperty("iCharacterSkinMaterialID").GetInt32() ||
+                preset.iVehicleMaterialID != data.GetProperty("iVehicleMaterialID").GetInt32() ||
+                preset.iWheelMaterialID != data.GetProperty("iWheelMaterialID").GetInt32() ||
+                preset.iCharacterSkinMaterialID_Modded != data.GetProperty("iCharacterSkinMaterialID_Modded").GetInt32() ||
+                preset.iVehicleMaterialID_Modded != data.GetProperty("iVehicleMaterialID_Modded").GetInt32() ||
+                preset.iWheelMaterialID_Modded != data.GetProperty("iWheelMaterialID_Modded").GetInt32() ||
+                preset.bUsingModdedVersion != data.GetProperty("bUsingModdedVersion").GetBoolean()) return false;
+            var stickers = data.GetProperty("stickersData");
+            if (stickers.GetArrayLength() != 20 || preset.stickersData == null || preset.stickersData.Length != 20) return false;
+            for (int i = 0; i < 20; i++)
+            {
+                var item = stickers[i]; var current = preset.stickersData[i];
+                if (current == null || current.iStickerMaterialID != item.GetProperty("iStickerMaterialID").GetInt32() ||
+                    current.iStickerMaterialID_SettingsPacked != item.GetProperty("iStickerMaterialID_SettingsPacked").GetInt32() ||
+                    current.iStickerMaterialID_Modded != item.GetProperty("iStickerMaterialID_Modded").GetInt32() ||
+                    current.iStickerMaterialID_Modded_SettingsPacked != item.GetProperty("iStickerMaterialID_Modded_SettingsPacked").GetInt32()) return false;
+            }
+            return true;
+        }
+        catch { return false; }
+    }
+    [HideFromIl2Cpp]
+    private static void ApplyPreset(Preset preset, JsonElement data)
+    {
+        int character = data.GetProperty("iCharacterSkinMaterialID").GetInt32();
+        int vehicle = data.GetProperty("iVehicleMaterialID").GetInt32();
+        int wheels = data.GetProperty("iWheelMaterialID").GetInt32();
+        int characterMod = data.GetProperty("iCharacterSkinMaterialID_Modded").GetInt32();
+        int vehicleMod = data.GetProperty("iVehicleMaterialID_Modded").GetInt32();
+        int wheelsMod = data.GetProperty("iWheelMaterialID_Modded").GetInt32();
+        bool modded = data.GetProperty("bUsingModdedVersion").GetBoolean();
+        var stickers = data.GetProperty("stickersData");
+        if (stickers.GetArrayLength() != 20 || preset.stickersData == null || preset.stickersData.Length != 20)
+            throw new InvalidOperationException("The preset sticker data is incomplete.");
+        var stickerValues = new int[20, 4];
+        for (int i = 0; i < 20; i++)
+        {
+            var item = stickers[i];
+            stickerValues[i, 0] = item.GetProperty("iStickerMaterialID").GetInt32();
+            stickerValues[i, 1] = item.GetProperty("iStickerMaterialID_SettingsPacked").GetInt32();
+            stickerValues[i, 2] = item.GetProperty("iStickerMaterialID_Modded").GetInt32();
+            stickerValues[i, 3] = item.GetProperty("iStickerMaterialID_Modded_SettingsPacked").GetInt32();
+        }
+        preset.iCharacterSkinMaterialID = character; preset.iVehicleMaterialID = vehicle; preset.iWheelMaterialID = wheels;
+        preset.iCharacterSkinMaterialID_Modded = characterMod; preset.iVehicleMaterialID_Modded = vehicleMod; preset.iWheelMaterialID_Modded = wheelsMod;
+        preset.bUsingModdedVersion = modded;
+        for (int i = 0; i < 20; i++)
+        {
+            var target = preset.stickersData[i];
+            target.iStickerMaterialID = stickerValues[i, 0]; target.iStickerMaterialID_SettingsPacked = stickerValues[i, 1];
+            target.iStickerMaterialID_Modded = stickerValues[i, 2]; target.iStickerMaterialID_Modded_SettingsPacked = stickerValues[i, 3];
         }
     }
     public void LateUpdate()

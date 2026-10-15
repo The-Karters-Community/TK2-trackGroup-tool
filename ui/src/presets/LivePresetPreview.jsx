@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import PresetPreview from "./PresetPreview.jsx";
+
+const ModelViewer = lazy(() => import("./ModelViewer.jsx"));
 
 // One native render after a settled edit, never a per-frame screenshot stream.
 export default function LivePresetPreview({
@@ -9,11 +11,17 @@ export default function LivePresetPreview({
   changed,
   loadImage,
   renderPreview,
+  loadModel,
+  modelKind,
+  modelId,
+  modelAvailable = false,
 }) {
+  const [mode, setMode] = useState("model");
   const [rotation, setRotation] = useState(0);
   const [frame, setFrame] = useState(null);
   const [message, setMessage] = useState("");
   const key = JSON.stringify({ data, view, rotation });
+  const showModel = Boolean(loadModel && modelAvailable && mode === "model");
   useEffect(
     () => () => {
       if (frame?.url) URL.revokeObjectURL(frame.url);
@@ -21,7 +29,7 @@ export default function LivePresetPreview({
     [frame?.url],
   );
   useEffect(() => {
-    if (!renderPreview) return;
+    if (!renderPreview || showModel) return;
     const abort = new AbortController();
     let timer;
     async function render() {
@@ -52,11 +60,33 @@ export default function LivePresetPreview({
       abort.abort();
       clearTimeout(timer);
     };
-  }, [key, renderPreview]);
+  }, [key, renderPreview, showModel]);
   const current = frame?.key === key;
   return (
     <div className="live-preview">
-      {frame ? (
+      {modelAvailable && loadModel && (
+        <div className="preview-mode" aria-label="Preview mode">
+          <button
+            className={showModel ? "active" : ""}
+            aria-pressed={showModel}
+            onClick={() => setMode("model")}
+          >
+            3D appearance
+          </button>
+          <button
+            className={!showModel ? "active" : ""}
+            aria-pressed={!showModel}
+            onClick={() => setMode("full")}
+          >
+            Full setup
+          </button>
+        </div>
+      )}
+      {showModel ? (
+        <Suspense fallback={<p className="hint">Opening 3D viewer…</p>}>
+          <ModelViewer kind={modelKind} id={modelId} loadModel={loadModel} />
+        </Suspense>
+      ) : frame ? (
         <span className="preset-preview preset-hero">
           <img
             src={frame.url}
@@ -76,15 +106,17 @@ export default function LivePresetPreview({
         />
       )}
       <p className="hint" role="status">
-        {current
-          ? "Live game render · unsaved preview"
-          : frame
-            ? "Previous game render · updating selection"
-            : changed
-              ? "Saved image · your current selections differ"
-              : "Saved in-game render"}
+        {showModel
+          ? "Installed appearance mesh · unsaved selection"
+          : current
+            ? "Live game render · unsaved preview"
+            : frame
+              ? "Previous game render · updating selection"
+              : changed
+                ? "Saved image · your current selections differ"
+                : "Saved in-game render"}
       </p>
-      {renderPreview && (
+      {renderPreview && !showModel && (
         <>
           <label className="preview-rotation">
             Rotate preview
@@ -104,7 +136,8 @@ export default function LivePresetPreview({
           )}
           <p className="hint">
             Keep the game at its main menu. Previewing never creates or saves a
-            preset. Close the game before saving edits.
+            preset. With the optional companion, changes to one preset can be
+            saved through the running game.
           </p>
         </>
       )}

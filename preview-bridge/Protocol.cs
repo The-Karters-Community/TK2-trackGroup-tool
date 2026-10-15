@@ -15,6 +15,9 @@ internal sealed class Request
     [JsonPropertyName("operation")] public string Operation { get; set; } = "render";
     [JsonPropertyName("view")] public string View { get; set; } = "modded";
     [JsonPropertyName("data")] public JsonElement Data { get; set; }
+    [JsonPropertyName("baseline")] public JsonElement Baseline { get; set; }
+    [JsonPropertyName("profile")] public string Profile { get; set; } = "";
+    [JsonPropertyName("presetId")] public int PresetId { get; set; }
     [JsonPropertyName("rotation")] public float Rotation { get; set; }
     [JsonIgnore] public TaskCompletionSource<object> Result { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     [JsonIgnore] public DateTime Deadline { get; } = DateTime.UtcNow.AddSeconds(25);
@@ -47,7 +50,7 @@ internal sealed class PreviewPipe : IDisposable
                 if (count >= 32768) throw new InvalidDataException("Preview request too large.");
                 var request = JsonSerializer.Deserialize<Request>(Encoding.UTF8.GetString(bytes, 0, count))
                     ?? throw new InvalidDataException("Missing request.");
-                if (request.Operation != "status" && request.Operation != "render")
+                if (request.Operation != "status" && request.Operation != "render" && request.Operation != "save-preset")
                     throw new InvalidDataException("Unsupported operation.");
                 Queue.Enqueue(request);
                 var result = await request.Result.Task.WaitAsync(timeout.Token);

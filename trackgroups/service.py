@@ -6,6 +6,7 @@ from pathlib import Path
 import threading
 import time
 import uuid
+import shutil
 
 from . import VERSION
 from . import catalog
@@ -134,6 +135,93 @@ class Service:
             self.job = {"id": str(uuid.uuid4()), "action": action, "state": "running", "message": "Starting…", "phase": "starting"}
             threading.Thread(target=self.perform, args=(action, body), daemon=False).start()
             return {"message": "Operation started."}
+
+    def save_live_preset(self, body):
+        """Save exactly one unchanged-target preset through the running game's API."""
+        self.supported_game()
+        if not game_running(): raise ValueError("The game is not running. Use the regular save flow instead.")
+        if not isinstance(body, dict): raise ValueError("Invalid live preset request.")
+        with self.lock:
+            if self.job and self.job.get("state") == "running":
+                raise ValueError("Finish the current Steam operation before saving a preset.")
+        if not self.profile or not self.account or not self.cloud_enabled or self.sync_error:
+            raise ValueError("Refresh Steam and resolve the active profile and Cloud status before saving.")
+        from .live_preview import save_preset
+        from .presets import verify_edit_base, cosmetic, view
+        from .profile import SAVE_NAME
+        profile_name = body.get("profile")
+        if profile_name != self.profile or not SAVE_NAME.fullmatch(str(profile_name or "")):
+            raise ValueError("The selected profile changed. Refresh Steam and reopen this preset.")
+        change = body.get("change")
+        if not isinstance(change, dict) or change.get("mode") != "preset" or type(change.get("presetId")) is not int:
+            raise ValueError("Only a single existing preset can be saved while the game is running.")
+        # Validate the on-disk target too. The bridge repeats this check against
+        # the live object, covering changes made in-game since the last disk save.
+        path = PROFILE_DIR / profile_name
+        if not path.is_file() or not path.resolve().is_relative_to(PROFILE_DIR.resolve()):
+            raise ValueError("The selected profile file is unavailable.")
+        before = path.read_bytes()
+        profile = Profile(before)
+        baseline = body.get("baseline")
+        if not isinstance(baseline, dict) or set(baseline) != {"id", "data"}:
+            raise ValueError("Preset baseline is invalid. Reopen the editor and try again.")
+        verify_edit_base(profile, change, baseline)
+        target_data = cosmetic(change.get("data"), strict=True)
+        request = {"operation": "save-preset", "profile": profile_name,
+                   "presetId": change["presetId"], "baseline": baseline,
+                   "data": target_data}
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        backup_dir = DATA / "backups" / "live-presets"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup = backup_dir / f"{stamp}-{uuid.uuid4().hex[:8]}-{profile_name}.bak"
+        shutil.copy2(path, backup)
+        if backup.read_bytes() != before or path.read_bytes() != before:
+            raise ValueError("The profile changed while preparing the live save. Nothing was written.")
+        result = save_preset(request)
+        if not result.get("ready"):
+            # A lost pipe response does not prove that the game's write failed.
+            # Check the file once before telling the user to retry.
+            current = view(Profile(path.read_bytes()))["presets"]
+            if not any(p["id"] == change["presetId"] and p["data"] == target_data for p in current):
+                raise ValueError((result.get("message") or "The game did not confirm this save.") +
+                                 " Refresh the preset before retrying. Safety copy: " + str(backup))
+        deadline = time.monotonic() + 5
+        saved = None
+        while time.monotonic() < deadline:
+            try:
+                current = Profile(path.read_bytes())
+                current_preset = next((p for p in view(current)["presets"] if p["id"] == change["presetId"]), None)
+                if current_preset and current_preset["data"] == target_data:
+                    saved = current
+                    break
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+            time.sleep(.1)
+        if saved is None:
+            # If the game's local write did not land, request restoration of the
+            # exact previous preset. The full pre-save profile remains backed up.
+            rollback = {**request, "baseline": target_data, "data": baseline["data"]}
+            restored = save_preset(rollback)
+            restored_on_disk = False
+            if restored.get("ready"):
+                until = time.monotonic() + 3
+                while time.monotonic() < until:
+                    try:
+                        current = Profile(path.read_bytes())
+                        p = next((p for p in view(current)["presets"] if p["id"] == change["presetId"]), None)
+                        if p and p["data"] == baseline["data"]:
+                            restored_on_disk = True
+                            break
+                    except (OSError, ValueError, KeyError, TypeError):
+                        pass
+                    time.sleep(.1)
+            if restored_on_disk:
+                raise ValueError(f"The game did not confirm the save; the original preset was restored. Safety copy: {backup}")
+            raise ValueError(f"The game accepted the change but local persistence could not be verified. Do not close the game yet. Safety copy: {backup}")
+        with self.lock:
+            self.load_local()
+        return {"message": "Preset saved by the running game and verified on disk. Steam Cloud sync is handled by the game.",
+                "profile": profile_name, "presetId": change["presetId"], "backup": str(backup)}
 
     def progress(self, value):
         with self.lock: self.job.update(value)

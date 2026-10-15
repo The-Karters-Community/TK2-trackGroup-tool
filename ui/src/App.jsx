@@ -29,6 +29,10 @@ export default function App() {
     (body, signal) => api("live-preview", body, signal),
     [],
   );
+  const loadModel = useCallback(
+    (body, signal) => api("preset-model", body, signal),
+    [],
+  );
   const refresh = useCallback(async () => {
     try {
       setState(await api("state"));
@@ -97,6 +101,16 @@ export default function App() {
   }
   async function changePresets(change, edit = {}) {
     try {
+      if (change.mode === "preset" && state?.gameRunning) {
+        const result = await api("live-save-preset", {
+          profile: state.settings?.profile,
+          change,
+          baseline: edit.baseline,
+        });
+        setMessage(result.message || "Preset saved by the running game.");
+        await refresh();
+        return true;
+      }
       await api("presets", {
         change,
         expectedHash: edit.expectedHash || state.profileHash,
@@ -295,9 +309,18 @@ export default function App() {
             state={state.presetState}
             loadImage={loadPreview}
             renderPreview={renderPreview}
+            loadModel={loadModel}
             busy={busy}
             available={
               state.steamConnected && !state.syncError && !state.gameRunning
+            }
+            gameRunning={state.gameRunning}
+            liveSaveAvailable={
+              state.gameRunning &&
+              state.steamConnected &&
+              !state.syncError &&
+              state.cloudEnabled &&
+              state.previewCompanion?.installed
             }
             onChange={changePresets}
             onExport={exportPresets}

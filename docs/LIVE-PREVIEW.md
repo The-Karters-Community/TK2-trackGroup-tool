@@ -1,8 +1,13 @@
-# Optional live game previews
+# Garage previews and live preset saving
 
-Garage itself needs no BepInEx. Its optional companion reuses the game's real
-cosmetic renderer, so modded models, seating poses and materials match the game.
-It renders detached temporary copies; it never creates a saved preset.
+Garage itself needs no BepInEx. For installed Workshop and local cosmetic
+prefabs, the desktop app can extract a real mesh and reduced textures into its
+private cache and show that selected **character, vehicle or wheel** in Three.js.
+Drag to orbit and scroll to zoom. No game assets ship with the app. This mesh
+viewer does not yet assemble the full kart, apply skeleton animation or reproduce
+Unity shaders; **Full setup** uses the game's own renderer for an accurate pose.
+Its optional companion renders detached temporary copies without creating a
+saved preset. The same companion can ask the running game to save one preset.
 
 ## Setup (current development source)
 
@@ -15,8 +20,14 @@ It renders detached temporary copies; it never creates a saved preset.
    preview companion**. This writes only
    `BepInEx/plugins/TK2-Garage-Preview/TK2.Garage.Preview.dll`.
 4. Open the game yourself and leave it at its main menu. Open a preset in Garage.
-   Change appearances or rotate; the image refreshes after a short debounce.
-5. Close the game before saving edits. Previewing while it runs is read-only.
+   **3D appearance** works independently from installed assets; **Full setup**
+   uses the native game renderer and refreshes after a short debounce.
+5. Connect Steam and resolve any profile/Cloud conflict. You can save changes to
+   one existing preset while the game remains at its main menu. The companion
+   checks the selected profile and exact previous cosmetic values, updates that
+   preset in memory, and calls the game's own `SaveProfileLocalData`. Garage
+   keeps a safety copy and verifies the local result. Imports, group edits,
+   deletions, duplicates and reordering still require the game closed.
 
 Use **Remove preview companion** with the game closed to remove only this DLL.
 The companion is optional and disabled by removing it; it has no persistent
@@ -31,8 +42,12 @@ config or background process outside the game.
   current SDK source. Older Toolkit releases may flag unknown plugins until the
   Toolkit is updated. Gameplay changes and every other plugin remain protected.
 - Requests pass through the authenticated Garage API and a bounded Windows pipe
-  restricted to the current Windows user. Only status and cosmetic render
-  requests are accepted. No paths, profile IDs, scripts or arbitrary calls.
+  restricted to the current Windows user. Only status, cosmetic render and
+  single-preset save requests are accepted. No arbitrary paths, scripts or calls.
+- Live saving checks the selected save filename and target against both the
+  current local save and the game's in-memory preset. A stale target is refused.
+  The game owns serialization and Steam sync. Garage never writes its save while
+  the game is running. Backups are in Garage's `backups/live-presets` directory.
 - Unity operations run on the main thread. The companion leases the native icon
   renderer only when its own queue is idle, then restores its camera/item flags,
   rotation and queue. It restores `runInBackground` on companion teardown.
@@ -48,6 +63,10 @@ config or background process outside the game.
   the user changes selection; stale responses never replace the current image.
 - Static websites cannot access named pipes or silently access game directories.
   They retain saved images and appearance thumbnails with explicit stale labels.
+- Three.js geometry is extracted only on request, from the owner's installed
+  `Mods` or Steam Workshop bundles. The app caches it locally. Unsupported or
+  missing prefabs fall back to the full saved/game-rendered image. Character
+  skinning and exact full-setup composition remain future work.
 
 ## Evidence
 
@@ -55,7 +74,9 @@ For 0.1.4.18, inspected native Ghidra pseudocode:
 `PTK_PlayerPreviewItem.LoadForIconRender` (0x18076edc0) makes a detached preset copy;
 `PTK_MenuIconRenderManager.TryProcessNextJob` (0x18076b620) uses the same preview
 item/camera. The game's `RenderAndAssignPresetIcon` (0x18076abe0) writes the cache;
-Garage deliberately does not call that method, RenderIcon, or profile mutators.
+Garage's render operation does not call that method, RenderIcon, or profile
+mutators. Its separate single-preset save operation calls the game's
+`SaveProfileLocalData` after checking the active profile and prior values.
 Current interop confirms signatures; these declarations are not original source.
 Generated native evidence and game assets stay local, outside Git/releases.
 
@@ -64,6 +85,15 @@ a different unsaved vehicle, its original version and a 60-degree rotation. Firs
 capture: 1.28 seconds; subsequent captures: 0.13–0.70 seconds. The save bytes and
 all cached preset-icon hashes stayed unchanged. These timings are observations
 on one setup, not a general performance guarantee or online-lobby validation.
+The independent viewer was checked with installed Crash & Aku Aku, Land Smasher
+vehicle and Arsene Wheels prefabs: configuration IDs resolved to exact local
+prefabs and generated model data. A browser inspection showed the textured Crash
+mesh loading and responding to mouse rotation. A separate live test on the
+running game changed one preset's original/modded selection, verified that the
+game wrote it to the local save, then restored the original selection through
+the same path. The final preset and group data matched the initial snapshot;
+a subsequent Steam refresh found local and Cloud saves in agreement. This does
+not yet validate visual changes in a race or every cosmetic combination.
 
 ## Portable packaging
 

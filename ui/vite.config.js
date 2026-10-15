@@ -23,9 +23,22 @@ export default defineConfig(({ command, mode }) => {
     root: "ui",
     base: web ? "/TK2-trackGroup-tool/" : "./",
     resolve: {
-      alias: {
-        "@entry-app": resolve(web ? "ui/src/web/WebApp.jsx" : "ui/src/App.jsx"),
-      },
+      alias: [
+        {
+          find: "@entry-app",
+          replacement: resolve(
+            web ? "ui/src/web/WebApp.jsx" : "ui/src/App.jsx",
+          ),
+        },
+        ...(web
+          ? [
+              {
+                find: "./ModelViewer.jsx",
+                replacement: resolve("ui/src/presets/NoModelViewer.jsx"),
+              },
+            ]
+          : []),
+      ],
     },
     cacheDir: "../local/vite-cache",
     plugins: [

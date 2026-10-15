@@ -54,18 +54,26 @@ The Original/Modded tabs choose which cosmetic fields to edit; selecting a prese
 in the game sets `bUsingModdedVersion` from the game's own display control, so the
 app preserves that flag rather than offering a misleading global switch.
 
-The optional **live game preview** companion renders unsaved selections with the
-actual game camera. Leave the game at its main menu, then edit a preset in Garage.
-Changes settle for 300 ms before requesting a new frame; rotate with the slider.
-A temporary detached preset supplies the renderer and is discarded afterward.
-No new preset, profile write, or PresetIcons write is made. Successful default-angle images are cached by exact selections in Garage, so saved edits can show the matching render without asking the game to create a preset. Saving still requires
-the game closed and the existing verified local/Steam transaction.
+For installed modded appearances, **3D appearance** displays a selected
+character, vehicle or wheel as an orbitable Three.js mesh extracted from local
+bundles. It does not yet pose a character or assemble all parts into a kart.
+**Full setup** uses the optional companion and the actual game camera. Leave the
+game at its main menu, then edit a preset in Garage. Changes settle for 300 ms
+before requesting a new frame; rotate with the slider. A temporary detached
+preset supplies the renderer and is discarded afterward. Successful default-angle
+images are cached by exact selections in Garage, so they do not require a
+game-generated preset icon.
+
+With Steam/profile checks passing, the rebuilt companion can save **one existing
+preset** through the running game's own save method. Garage checks the exact
+previous target, keeps a safety copy, and verifies the local result. Other
+changes still require the game closed and the verified local/Steam transaction.
 
 Without the companion, Garage keeps the saved full image visible and labels it
 when it differs from the draft. Component thumbnails still show exact selections.
-The hosted website uses this fallback; browser sandboxing prevents direct access
-to the game's Windows pipe. This is a refreshed 3D **render**, not a standalone
-WebGL scene or continuous video stream. See [LIVE-PREVIEW.md](LIVE-PREVIEW.md).
+The hosted website uses the saved-image fallback; browser sandboxing prevents
+direct access to the game's Windows pipe or installed Unity bundles. See
+[LIVE-PREVIEW.md](LIVE-PREVIEW.md) for the distinct preview and save paths.
 
 ## Installation dependencies
 
@@ -78,8 +86,10 @@ Workshop resolution is not yet implemented; existing track subscription support
 does not prove cosmetic dependencies are installed. Import requires acknowledging
 this limitation. The game itself may replace missing cosmetics on loading.
 
-Desktop changes use the existing backed-up local/Steam transaction, with the game
-closed. Browser changes remain in memory and use the same backup/download flow
+Desktop imports and group edits use the existing backed-up local/Steam transaction,
+with the game closed. A single existing preset can also be changed through the
+running game's own save method after Steam/profile checks. Browser changes remain
+in memory and use the same backup/download flow
 as track groups; follow the website's Steam Cloud instructions before replacing a
 save. A browser cannot inspect the local Mods folder or contact the Steam client.
 
@@ -96,5 +106,6 @@ C# source. No decompiled files or user save data are shipped.
 Tests cover export privacy, signed IDs, Unicode groups, shared membership,
 collision remapping, duplicate import, unknown native fields, protected groups,
 reserved IDs, order, unchanged records and cloud rollback. Actual in-game loading
-of changed preset data still needs a dedicated smoke test before claiming runtime
-compatibility.
+of imported preset packs still needs a dedicated smoke test. A reversible
+single-preset live edit passed against the running game and was restored; Steam
+refresh then found the local and Cloud saves in agreement.

@@ -7,12 +7,22 @@ import urllib.error
 import unittest
 from unittest.mock import patch
 
-from trackgroups.appearance import Appearance, clean_name, mod_variants
+from trackgroups.appearance import Appearance, clean_name, mod_variants, model_prefab
 
 PNG = b"\x89PNG\r\n\x1a\nfixture"
 
 
 class AppearanceTests(unittest.TestCase):
+    def test_model_prefab_requires_exact_variant_and_rejects_ambiguous_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            prefab = 'Assets/Workshop_Content/Vehicles/Test Car/Color Variations/Blue/Vehicle Variant.prefab'
+            (root / 'catalog_config.json').write_text(json.dumps({'m_InternalIds':[prefab]}))
+            self.assertEqual(model_prefab(root, 'vehicles', ['Test Car', 'Blue']), prefab)
+            self.assertIsNone(model_prefab(root, 'vehicles', ['Test Car', 'Red']))
+            (root / 'catalog_config.json').write_text(json.dumps({'m_InternalIds':[prefab, prefab.replace('Vehicle Variant', 'Other Variant')]}))
+            self.assertIsNone(model_prefab(root, 'vehicles', ['Test Car', 'Blue']))
+
     def test_live_render_cache_matches_exact_unsaved_data_without_touching_game_icons(self):
         from test_presets import fixture
         from trackgroups.presets import view
@@ -165,7 +175,7 @@ class AppearanceTests(unittest.TestCase):
                 "stickers": {},
             }
             (art.folder / "index.json").write_text(
-                json.dumps({"version": 4, "signature": signature, "items": items})
+                json.dumps({"version": 5, "signature": signature, "items": items, "modelRefs": {}})
             )
             with patch.object(art, "sources", return_value=[]):
                 art._build("fake-game")
