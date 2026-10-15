@@ -133,7 +133,7 @@ def main():
         if not mutex: raise OSError("Could not create the application lock.")
         if ctypes.get_last_error() == 183:
             if "--no-window" not in sys.argv:
-                ctypes.windll.user32.MessageBoxW(None, "TK2 Track Groups is already open.", "TK2 Track Groups", 0)
+                ctypes.windll.user32.MessageBoxW(None, "TK2 Garage is already open.", "TK2 Garage", 0)
             return
     service = Service()
     service.updates.start()
@@ -149,7 +149,7 @@ def main():
     import webview
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    window = webview.create_window("TK2 Track Groups", server.origin, width=1180, height=820, min_size=(760, 560))
+    window = webview.create_window("TK2 Garage", server.origin, width=1180, height=820, min_size=(760, 560))
     server.window = window
     def apply_update(folder):
         service.updates.apply(folder)

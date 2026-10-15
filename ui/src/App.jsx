@@ -84,9 +84,13 @@ export default function App() {
       setError(err.message);
     }
   }
-  async function changePresets(change) {
+  async function changePresets(change, edit = {}) {
     try {
-      await api("presets", { change, expectedHash: state.profileHash });
+      await api("presets", {
+        change,
+        expectedHash: edit.expectedHash || state.profileHash,
+        baseline: edit.baseline,
+      });
       let current;
       do {
         await new Promise((resolve) => setTimeout(resolve, 250));
@@ -98,7 +102,7 @@ export default function App() {
       return true;
     } catch (err) {
       setError(err.message);
-      return false;
+      throw err;
     }
   }
   async function exportPresets(ids, groups) {
@@ -118,7 +122,7 @@ export default function App() {
   if (!state)
     return (
       <div className="loading">
-        <h1>TK2 Track Groups</h1>
+        <h1>TK2 Garage</h1>
         <p role="status">{error || "Opening your group library…"}</p>
       </div>
     );
@@ -149,7 +153,7 @@ export default function App() {
         <div className="brand">
           <img className="brand-logo" src="/logo.png" alt="The Karters 2" />
           <strong>
-            TK2<span>TRACK GROUPS</span>
+            TK2<span>GARAGE</span>
           </strong>
         </div>
         <div className="nav-items">

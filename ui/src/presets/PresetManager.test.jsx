@@ -41,12 +41,15 @@ it("edits inline membership and name without saving until confirmed", async () =
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
-    expect(onChange).toHaveBeenCalledWith({
-      mode: "group",
-      groupId: state().groups[0].id,
-      name: "New name",
-      members: [100],
-    }),
+    expect(onChange).toHaveBeenCalledWith(
+      {
+        mode: "group",
+        groupId: state().groups[0].id,
+        name: "New name",
+        members: [100],
+      },
+      expect.objectContaining({ baseline: state().groups[0] }),
+    ),
   );
 });
 it("allows read-only details to close while Steam is unavailable", () => {
@@ -76,11 +79,15 @@ it("opens the modded view with named variant choices and hides technical IDs", (
       .getByRole("button", { name: "Modded", exact: true })
       .classList.contains("active"),
   ).toBe(true);
-  expect(screen.getByLabelText("Character").value).toBe("-2147483648");
+  expect(screen.queryByRole("combobox")).toBeNull();
   expect(
-    screen.getByRole("option", { name: "Mephiles · Dark outfit" }),
+    screen
+      .getByRole("button", { name: "Character", exact: true })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(
+    screen.getAllByRole("button", { name: /Mephiles/, pressed: true })[0],
   ).toBeTruthy();
-  expect(screen.getByText("Technical details")).toBeTruthy();
   expect(screen.queryByText("Preset #100")).toBeNull();
 });
 it("requires dependency acknowledgement and existing-group update confirmation", async () => {
@@ -107,4 +114,98 @@ it("requires dependency acknowledgement and existing-group update confirmation",
       confirmUpdate: true,
     }),
   );
+});
+
+it("removes membership without deleting a preset and keeps group draft while editing its member", async () => {
+  const data = state();
+  data.presets.push({ ...data.presets[0], id: 200 });
+  data.groups[0].members.push(200);
+  const onChange = vi.fn().mockResolvedValue(true);
+  render(<PresetManager state={data} onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: /Preset groups/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Sönic/ }));
+  fireEvent.change(screen.getByLabelText("Group name"), {
+    target: { value: "Keep this draft" },
+  });
+  const group = screen.getByRole("dialog", { name: "Edit preset group" });
+  fireEvent.click(within(group).getByRole("button", { name: /^Setup 1/ }));
+  expect(
+    screen.getByRole("button", { name: "Close preset", exact: true }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Close preset", exact: true }),
+  );
+  expect(screen.getByLabelText("Group name").value).toBe("Keep this draft");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Remove Setup 1 from group" }),
+  );
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(within(group).getByRole("button", { name: "Save changes" }));
+  await waitFor(() =>
+    expect(onChange).toHaveBeenCalledWith(
+      {
+        mode: "group",
+        groupId: data.groups[0].id,
+        name: "Keep this draft",
+        members: [200],
+      },
+      expect.any(Object),
+    ),
+  );
+  expect(data.presets).toHaveLength(2);
+});
+it("keeps actions in footer and displays save errors inside the editor without losing edits", async () => {
+  const data = state();
+  data.appearance = {
+    items: {
+      vehicles: {
+        2: {
+          name: "Kart",
+          label: "Kart · Red",
+          source: "official",
+          entity: "Kart",
+          skin: "Red",
+        },
+        5: {
+          name: "Kart",
+          label: "Kart · Blue",
+          source: "official",
+          entity: "Kart",
+          skin: "Blue",
+        },
+      },
+    },
+  };
+  const onChange = vi
+    .fn()
+    .mockRejectedValue(new Error("This preset changed in the game."));
+  render(<PresetManager state={data} onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: /^Setup 1/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Vehicle", exact: true }));
+  fireEvent.change(screen.getByLabelText("Search vehicle"), {
+    target: { value: "Blue" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Kart · Blue/ }));
+  const save = screen.getByRole("button", {
+    name: "Save changes",
+    exact: true,
+  });
+  expect(save.closest("footer")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Export preset" }).closest("footer"),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("checkbox", { name: "Use modded view in the game" }),
+  ).toBeNull();
+  expect(screen.queryByAltText("Saved in-game setup preview")).toBeNull();
+  fireEvent.click(save);
+  expect(await screen.findByRole("alert")).toHaveProperty(
+    "textContent",
+    "This preset changed in the game.",
+  );
+  expect(save.disabled).toBe(false);
+  expect(onChange.mock.calls[0][0].data.iVehicleMaterialID_Modded).toBe(5);
+  expect(
+    onChange.mock.calls[0][1].baseline.data.iVehicleMaterialID_Modded,
+  ).toBe(2);
 });

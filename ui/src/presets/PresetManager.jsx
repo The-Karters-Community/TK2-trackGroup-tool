@@ -29,11 +29,14 @@ export default function PresetManager({
   loadImage,
   previewImages,
   onPreviewImages,
+  onConnectFolder,
 }) {
   const [tab, setTab] = useState("presets");
   const [ids, setIds] = useState([]);
   const [groupIds, setGroupIds] = useState([]);
   const [editor, setEditor] = useState(null);
+  const [memberEditor, setMemberEditor] = useState(null);
+  const [memberDirty, setMemberDirty] = useState(false);
   const [review, setReview] = useState(null);
   const [query, setQuery] = useState("");
   const fileInput = useRef();
@@ -59,9 +62,9 @@ export default function PresetManager({
     setupMatches(p, appearance, positions[p.id], query),
   );
   useEffect(() => {
-    onDirty?.(orderDirty || editorDirty);
+    onDirty?.(orderDirty || editorDirty || memberDirty);
     return () => onDirty?.(false);
-  }, [orderDirty, editorDirty, onDirty]);
+  }, [orderDirty, editorDirty, memberDirty, onDirty]);
   useEffect(
     () => () =>
       !onPreviewImages &&
@@ -117,11 +120,19 @@ export default function PresetManager({
         : [...selected, id],
     );
   }
+  async function changeOutside(change) {
+    try {
+      return await onChange(change);
+    } catch (err) {
+      onError?.(err.message);
+      return false;
+    }
+  }
   function moveGroup(id, step) {
     const order = groups.map((g) => g.id);
     const i = order.indexOf(id);
     [order[i], order[i + step]] = [order[i + step], order[i]];
-    onChange({ mode: "group-order", order });
+    changeOutside({ mode: "group-order", order });
   }
   return (
     <section className="library-page preset-page">
@@ -186,8 +197,12 @@ export default function PresetManager({
         </div>
         <div className="preset-actions">
           {browser && (
-            <button onClick={() => imageInput.current.click()}>
-              Add preset images
+            <button
+              onClick={() =>
+                onConnectFolder ? onConnectFolder() : imageInput.current.click()
+              }
+            >
+              Connect game folder
             </button>
           )}
           <button
@@ -312,7 +327,7 @@ export default function PresetManager({
                   className="primary"
                   disabled={!editable}
                   onClick={async () => {
-                    if (await onChange({ mode: "order", order }))
+                    if (await changeOutside({ mode: "order", order }))
                       setDraftOrder(null);
                   }}
                 >
@@ -325,7 +340,9 @@ export default function PresetManager({
             items={filtered}
             disabled={!editable || Boolean(query)}
             onChange={setDraftOrder}
-            onOpen={(p) => setEditor({ kind: "preset", value: p })}
+            onOpen={(p) =>
+              setEditor({ kind: "preset", value: p, hash: state?.profileHash })
+            }
             appearance={appearance}
             loadImage={loadImage}
             selectedIds={selectedIds}
@@ -355,7 +372,15 @@ export default function PresetManager({
                   />
                   Select group
                 </label>
-                <button onClick={() => setEditor({ kind: "group", value: g })}>
+                <button
+                  onClick={() =>
+                    setEditor({
+                      kind: "group",
+                      value: g,
+                      hash: state?.profileHash,
+                    })
+                  }
+                >
                   <span className="preset-group-previews">
                     {g.members.slice(0, 4).map((id) => (
                       <PresetPreview
@@ -400,7 +425,7 @@ export default function PresetManager({
       )}
       <p className="hint">
         {browser
-          ? "Add the game's PresetIcons folder for pictures. Files stay in this browser. "
+          ? "Connect TheKarters2 once to open your save and PresetIcons together. Files stay on this device. "
           : "Previews come from the game's PresetIcons cache. Missing mods keep their saved picture when available. "}
         Workshop installation status is unverified.{" "}
         {browser
@@ -426,28 +451,13 @@ export default function PresetManager({
           </p>
         </details>
       )}
-      {editor?.kind === "preset" && (
-        <PresetEditor
-          key={editor.value.id}
-          preset={editor.value}
-          presets={presets}
-          position={positions[editor.value.id]}
-          busy={busy}
-          canSave={editable}
-          onDirty={setEditorDirty}
-          appearance={appearance}
-          loadImage={loadImage}
-          onClose={() => setEditor(null)}
-          onSave={(data) =>
-            onChange({ mode: "preset", presetId: editor.value.id, data })
-          }
-          onChange={onChange}
-          onExport={() => onExport([editor.value.id], [])}
-        />
-      )}
       {editor?.kind === "group" && (
         <PresetGroupEditor
           key={editor.value.id}
+          browser={browser}
+          onOpenPreset={(p) =>
+            setMemberEditor({ value: p, hash: state?.profileHash })
+          }
           group={{
             ...editor.value,
             editable: editor.value.editable && editable,
@@ -458,10 +468,44 @@ export default function PresetManager({
           appearance={appearance}
           loadImage={loadImage}
           onClose={() => setEditor(null)}
-          onChange={onChange}
+          onChange={(change) =>
+            onChange(change, {
+              expectedHash: editor.hash,
+              baseline: editor.value,
+            })
+          }
           onExport={() => onExport([], [editor.value.id])}
         />
       )}
+      {(memberEditor || editor?.kind === "preset") &&
+        (() => {
+          const target = memberEditor || editor;
+          return (
+            <PresetEditor
+              key={target.value.id}
+              preset={target.value}
+              presets={presets}
+              position={positions[target.value.id]}
+              busy={busy}
+              browser={browser}
+              canSave={editable}
+              onDirty={memberEditor ? setMemberDirty : setEditorDirty}
+              appearance={appearance}
+              loadImage={loadImage}
+              onClose={() =>
+                memberEditor ? setMemberEditor(null) : setEditor(null)
+              }
+              onSave={(data) =>
+                onChange(
+                  { mode: "preset", presetId: target.value.id, data },
+                  { expectedHash: target.hash, baseline: target.value },
+                )
+              }
+              onChange={onChange}
+              onExport={() => onExport([target.value.id], [])}
+            />
+          );
+        })()}
       {review && (
         <PresetImportReview
           review={review}

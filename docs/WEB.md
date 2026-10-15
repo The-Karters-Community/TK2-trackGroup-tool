@@ -1,6 +1,6 @@
 # Browser edition
 
-Use [TK2 Track Groups online](https://the-karters-community.github.io/TK2-trackGroup-tool/). No executable, account login, Node.js or local server is required. The website supports the verified **0.1.4.18** save format.
+Use [TK2 Garage online](https://the-karters-community.github.io/TK2-trackGroup-tool/). No executable, account login, Node.js or local server is required. The website supports the verified **0.1.4.18** save format.
 
 ![Hosted Speedrun library](images/web-library.jpg)
 
@@ -12,7 +12,7 @@ Use [TK2 Track Groups online](https://the-karters-community.github.io/TK2-trackG
 - Select a local game save, inspect its custom groups, rename/reorder them, and prepare an edited save download.
 - Update a matching stable group ID. If the same name has a different ID, explicitly select the existing group or add a numbered copy. Updates preserve its position and local ID.
 
-All profile processing stays in browser memory. No profiles, account IDs or edits are uploaded or stored in browser storage. Refreshing/closing the tab discards edits not downloaded. The production Content Security Policy prohibits fetch/XHR/WebSocket connections and form submissions. Static site requests go to GitHub Pages; public Workshop thumbnail requests go to Steam image hosts. The browser edition has no Python/Steam helper or desktop API.
+All profile processing stays in browser memory. No profiles, account IDs or edits are uploaded or stored in browser storage. An optional directory handle is stored in IndexedDB only after you connect a folder; it remains subject to browser permission. Refreshing/closing the tab discards edits not downloaded. The production Content Security Policy prohibits fetch/XHR/WebSocket connections and form submissions. Static site requests go to GitHub Pages; public Workshop thumbnail requests go to Steam image hosts. The browser edition has no Python/Steam helper or desktop API.
 
 ## Apply an edited save
 
@@ -23,7 +23,7 @@ below. Cosmetic asset installation is unverified; the website cannot inspect loc
 Mods or subscribe cosmetic Workshop items. See [preset limitations](PRESETS.md).
 
 1. Close the game and let Steam finish syncing. Disable Steam Cloud **for this game** in Steam Library → game Properties → General. Keep it disabled throughout the import and first verification.
-2. Choose **Open game save**. Your local folder is `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2`; select the correct `<Steam ID>PTK_PlayerData_v19tpp0_bt0` file. The browser cannot determine which Steam account is active. Do not choose Steam's userdata/cache files or a backup extension.
+2. Choose **Connect game folder** to open the save and `PresetIcons` together (supported browsers remember the granted folder), or **Open game save** for a single file. Your local folder is `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2`; select the correct `<Steam ID>PTK_PlayerData_v19tpp0_bt0` file. The browser cannot determine which Steam account is active. Do not choose Steam's userdata/cache files or a backup extension.
 3. Select a library group and review the change, or open a shared group file in **My groups**. Confirm replacement explicitly when updating. Existing name/order changes use the inline editor and Save changes; these affect only the browser copy.
 4. For Workshop tracks, use each Steam link to subscribe through your Steam account. Let Steam finish downloading. The website cannot query subscriptions, validate downloaded track content or detect deleted/private items. Unknown Workshop identifiers remain intact in existing groups but cannot be exported without a resolved group file.
 5. Download the original backup, acknowledge that the game is closed and its Cloud setting is disabled, then download the edited save. These checkboxes are user confirmations, not machine checks.
@@ -57,13 +57,14 @@ Web mode chooses `ui/src/web/WebApp.jsx`, skips desktop session discovery/proxyi
 
 `ui/src/web/profile.js` owns format validation and save transformations. Track-group operations retain the first two binary records exactly; explicit preset edits can update the first. It uses lossless-json to preserve unrelated 64-bit integers and decimal tokens. `catalog.js` imports only reviewed group data and allowlisted public thumbnail URLs. File inputs/downloads, review UI and import instructions are separated from the codec.
 
-In Presets, **Add preset images** opens a local folder picker. Choose
-`%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons` for both
-Original and Modded renders. PNGs stay in the tab and are not uploaded or bundled
-into exports. The browser cannot inspect installed cosmetic bundles for names;
-it uses pictured setup numbers and saved-choice labels instead. Network requests
-remain prohibited by the production CSP. Dragging stages an order locally;
-**Save changes** applies it to the in-memory save before the usual download flow.
+In Presets, **Connect game folder** reads the save and both Original/Modded
+renders from `TheKarters2/PresetIcons` together. Files stay on the device. The
+browser cannot decode installed Unity cosmetic bundles; it offers pictured
+saved choices, while desktop can list the complete installed library. A remembered
+directory is read again only while browser permission remains granted. Reconnect
+requires a click if access expires. Multiple profiles require explicit selection.
+Dragging stages order locally; **Apply to edited save** in an editor (or **Save
+changes** for library order) applies it to memory before the usual download flow.
 
 The Pages workflow runs frontend tests, formatting, catalog validation and the static-bundle check, then deploys **only** `ui/web-dist`. Repository Pages must use GitHub Actions as its source. Pushes to `main` affecting the website/catalog redeploy it; no desktop release or version bump is required. Visitors reload to get the latest catalog and interface. No service worker retains stale copies.
 

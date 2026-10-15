@@ -20,11 +20,13 @@ export default function PresetGroupEditor({
   onDirty,
   appearance,
   loadImage,
+  onOpenPreset,
+  browser = false,
 }) {
   const [name, setName] = useState(group.name);
   const [members, setMembers] = useState(group.members);
-  const [template, setTemplate] = useState(String(presets[0]?.id || ""));
   const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
   const dirty =
     name !== group.name ||
     JSON.stringify(members) !== JSON.stringify(group.members);
@@ -43,18 +45,23 @@ export default function PresetGroupEditor({
     )
       onClose();
   }
-  async function save() {
-    if (await onChange({ mode: "group", groupId: group.id, name, members }))
-      onClose();
+  async function act(change) {
+    setError("");
+    try {
+      if (await onChange(change)) onClose();
+      else setError("Group was not saved. Your changes are still here.");
+    } catch (err) {
+      setError(err.message);
+    }
   }
   return (
     <Dialog
-      className="preset-dialog"
+      className="preset-dialog editor-shell"
       aria-label={group.new ? "Create preset group" : "Edit preset group"}
       onClose={close}
       dismissDisabled={busy}
     >
-      <header className="detail-heading">
+      <header className="detail-heading editor-header">
         <div>
           <span className="eyebrow">Preset group</span>
           <h2>{group.new ? "Create a group" : group.name}</h2>
@@ -62,29 +69,128 @@ export default function PresetGroupEditor({
         <button
           className="icon-button"
           aria-label="Close preset group"
-          onClick={close}
           disabled={busy}
+          onClick={close}
         >
           <Cross2Icon />
         </button>
       </header>
-      <label>
-        Group name
-        <input
-          maxLength={200}
-          value={name}
-          disabled={busy || !group.editable}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </label>
-      <div className="preset-save-slot">
-        {(dirty || group.new) && (
-          <>
+      <div className="editor-body">
+        <label>
+          Group name
+          <input
+            maxLength={200}
+            value={name}
+            disabled={busy || !group.editable}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+        <h3>Racing order · {members.length} setups</h3>
+        <p className="hint">
+          Click a setup to edit it. Remove only takes it out of this group; it
+          stays in All presets.
+        </p>
+        {missing.length > 0 && (
+          <p className="notice">
+            Some presets no longer exist.
             <button
-              disabled={busy}
+              onClick={() =>
+                setMembers(members.filter((id) => !missing.includes(id)))
+              }
+            >
+              Remove missing references
+            </button>
+          </p>
+        )}
+        <OrderedPresets
+          items={selected}
+          disabled={busy || !group.editable}
+          onChange={setMembers}
+          onOpen={onOpenPreset}
+          onRemove={(id) =>
+            setMembers(members.filter((member) => member !== id))
+          }
+          appearance={appearance}
+          loadImage={loadImage}
+          positions={Object.fromEntries(presets.map((p, i) => [p.id, i]))}
+        />
+        {!members.length && (
+          <p className="empty-state">
+            Add at least one preset to save this group.
+          </p>
+        )}
+        <details open={group.new}>
+          <summary>
+            <PlusIcon /> Add presets from your library
+          </summary>
+          <input
+            type="search"
+            aria-label="Find preset"
+            placeholder="Find a character or appearance"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="membership-list">
+            {presets
+              .filter(
+                (p) =>
+                  !members.includes(p.id) &&
+                  setupMatches(p, appearance, presets.indexOf(p), query),
+              )
+              .map((p) => (
+                <button
+                  className="membership-add"
+                  key={p.id}
+                  disabled={busy || !group.editable}
+                  onClick={() => setMembers([...members, p.id])}
+                >
+                  <PresetPreview
+                    source={appearance?.previews?.[p.id]?.modded}
+                    loadImage={loadImage}
+                    alt="Saved modded setup"
+                  />
+                  <span>{setupTitle(p, appearance, presets.indexOf(p))}</span>
+                  <PlusIcon />
+                </button>
+              ))}
+          </div>
+        </details>
+      </div>
+      <footer className="editor-footer">
+        {error && (
+          <p className="editor-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="editor-footer-actions">
+          <div className="preset-actions">
+            {!group.new && (
+              <>
+                <button disabled={busy || dirty} onClick={onExport}>
+                  <DownloadIcon />
+                  Export group
+                </button>
+                <button
+                  disabled={busy || dirty || !group.editable}
+                  onClick={() =>
+                    window.confirm(
+                      "Delete this group? Its presets will stay in your library.",
+                    ) && act({ mode: "delete-group", groupId: group.id })
+                  }
+                >
+                  <TrashIcon />
+                  Delete group
+                </button>
+              </>
+            )}
+          </div>
+          <div className="preset-actions">
+            <button
+              disabled={busy || !dirty}
               onClick={() => {
                 setName(group.name);
                 setMembers(group.members);
+                setError("");
               }}
             >
               Discard
@@ -94,131 +200,24 @@ export default function PresetGroupEditor({
               disabled={
                 busy ||
                 !group.editable ||
+                (!dirty && !group.new) ||
                 !name.trim() ||
                 !members.length ||
                 missing.length > 0
               }
-              onClick={save}
+              onClick={() =>
+                act({ mode: "group", groupId: group.id, name, members })
+              }
             >
-              {group.new ? "Create group" : "Save changes"}
+              {group.new
+                ? "Create group"
+                : browser
+                  ? "Apply to edited save"
+                  : "Save changes"}
             </button>
-          </>
-        )}
-      </div>
-      <h3>Preset order · {members.length} setups</h3>
-      {missing.length > 0 && (
-        <p className="notice">
-          Missing preset references: {missing.join(", ")}. Remove them before
-          saving.
-          <button
-            onClick={() =>
-              setMembers(members.filter((id) => !missing.includes(id)))
-            }
-          >
-            Remove missing references
-          </button>
-        </p>
-      )}
-      <OrderedPresets
-        items={selected}
-        disabled={busy || !group.editable}
-        onChange={setMembers}
-        appearance={appearance}
-        loadImage={loadImage}
-        positions={Object.fromEntries(presets.map((p, i) => [p.id, i]))}
-      />
-      <details open={group.new}>
-        <summary>Add or remove presets</summary>
-        <input
-          type="search"
-          aria-label="Find preset"
-          placeholder="Find a character or appearance"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <div className="membership-list">
-          {presets
-            .filter((p) =>
-              setupMatches(p, appearance, presets.indexOf(p), query),
-            )
-            .map((p) => (
-              <label className="check-label" key={p.id}>
-                <input
-                  type="checkbox"
-                  disabled={busy || !group.editable}
-                  checked={members.includes(p.id)}
-                  aria-label={`Include ${setupTitle(p, appearance, presets.indexOf(p))}`}
-                  onChange={(e) =>
-                    setMembers(
-                      e.target.checked
-                        ? [...members, p.id]
-                        : members.filter((id) => id !== p.id),
-                    )
-                  }
-                />
-                <PresetPreview
-                  source={appearance?.previews?.[p.id]?.modded}
-                  loadImage={loadImage}
-                  alt="Saved modded setup"
-                />
-                <span>{setupTitle(p, appearance, presets.indexOf(p))}</span>
-              </label>
-            ))}
+          </div>
         </div>
-      </details>
-      {!group.new && (
-        <footer className="preset-actions">
-          <button disabled={busy || dirty} onClick={onExport}>
-            <DownloadIcon />
-            Export group
-          </button>
-          <button
-            disabled={busy || dirty || !group.editable}
-            onClick={async () => {
-              if (
-                window.confirm(
-                  "Delete this group? Its presets will stay in your library.",
-                ) &&
-                (await onChange({ mode: "delete-group", groupId: group.id }))
-              )
-                onClose();
-            }}
-          >
-            <TrashIcon />
-            Delete group
-          </button>
-          <label>
-            Template
-            <select
-              value={template}
-              disabled={busy || dirty}
-              onChange={(e) => setTemplate(e.target.value)}
-            >
-              {presets.map((p) => (
-                <option value={p.id} key={p.id}>
-                  {setupTitle(p, appearance, presets.indexOf(p))}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            disabled={busy || dirty || !template || !group.editable}
-            onClick={async () => {
-              if (
-                await onChange({
-                  mode: "duplicate",
-                  presetId: Number(template),
-                  groupId: group.id,
-                })
-              )
-                onClose();
-            }}
-          >
-            <PlusIcon />
-            Create preset here
-          </button>
-        </footer>
-      )}
+      </footer>
     </Dialog>
   );
 }

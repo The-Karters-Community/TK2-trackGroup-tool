@@ -38,8 +38,8 @@ export default defineConfig(({ command, mode }) => {
             ? html
                 .replace(/\s*<meta name="tk2-session"[^>]*>/, "")
                 .replace(
-                  "<title>TK2 Track Groups</title>",
-                  '<title>TK2 Track Groups · Speedrun library & save editor</title><meta name="description" content="Browse The Karters 2 Speedrun groups and edit track groups locally in your browser. No executable or profile upload required." />',
+                  "<title>TK2 Garage</title>",
+                  '<title>TK2 Garage · Track groups & presets</title><meta name="description" content="Manage The Karters 2 track groups and customization presets locally in your browser. No executable or profile upload required." />',
                 )
                 .replace(
                   "</head>",

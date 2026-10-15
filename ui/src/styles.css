@@ -1602,3 +1602,260 @@ progress {
   margin-block: 4px 10px;
   font-size: 11px;
 }
+
+/* Fixed editor chrome surrounds one scrolling body. */
+.preset-dialog.editor-shell {
+  padding: 0;
+  width: min(780px, calc(100vw - 28px));
+  height: min(850px, calc(100dvh - 28px));
+  max-height: calc(100dvh - 28px);
+  overflow: hidden;
+}
+.preset-dialog.editor-shell[open] {
+  display: flex;
+  flex-direction: column;
+}
+.preset-dialog.customization-dialog {
+  width: min(1160px, calc(100vw - 28px));
+}
+.editor-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.editor-header h2 {
+  font-size: 21px;
+  margin: 5px 0 0;
+}
+.editor-header .icon-button {
+  flex-shrink: 0;
+}
+.editor-body {
+  padding: 20px 24px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+}
+.preset-dialog .editor-footer {
+  padding: 12px 20px;
+  flex-shrink: 0;
+  background: #20271c;
+}
+.editor-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+.editor-footer .preset-actions {
+  margin: 0;
+  gap: 8px;
+}
+.editor-footer button {
+  min-height: 38px;
+}
+.editor-error {
+  color: #ffd4bc;
+  background: #3b271f;
+  border: 1px solid #966347;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+}
+.customization-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: start;
+  gap: 26px;
+}
+.setup-inspector {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+.setup-inspector .preset-hero {
+  width: 100%;
+  height: 210px;
+}
+.setup-inspector .hint {
+  font-size: 12px;
+}
+.setup-components {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.setup-components > button {
+  display: flex;
+  gap: 12px;
+  text-align: left;
+  align-items: center;
+  padding: 8px;
+}
+.setup-components .preset-preview {
+  width: 62px;
+}
+.setup-components > button > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.setup-components small {
+  color: var(--muted);
+}
+.setup-components strong {
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.customization-picker {
+  min-width: 0;
+}
+.customization-picker .category-tabs {
+  margin-top: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.customization-picker .preset-fields {
+  margin-top: 14px;
+}
+.appearance-picker > input {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.appearance-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.appearance-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.appearance-section > summary::before {
+  content: "\25be";
+  color: var(--muted);
+}
+.appearance-section:not([open]) > summary::before {
+  content: "\25b8";
+}
+.appearance-section > summary > span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.appearance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 8px;
+}
+.appearance-grid .appearance-tile {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  align-items: stretch;
+  justify-content: start;
+  gap: 6px;
+  min-width: 0;
+  text-align: center;
+}
+.appearance-tile .preset-preview {
+  width: 100%;
+  aspect-ratio: 1.2;
+  border-radius: 4px;
+}
+.appearance-tile > span {
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.appearance-tile > small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.appearance-tile.selected,
+.setup-components .selected,
+.sticker-slots .selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: #303c25;
+}
+.appearance-tile:hover {
+  background: #30382a;
+}
+.sticker-slots {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.sticker-slots button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 4px;
+}
+.membership-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+.membership-add .preset-preview {
+  width: 60px;
+}
+.membership-add > span {
+  flex: 1;
+}
+@media (max-width: 760px) {
+  .customization-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .setup-inspector {
+    position: static;
+  }
+  .setup-inspector .preset-hero {
+    height: 140px;
+  }
+  .setup-components {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 12px;
+  }
+  .setup-components > button {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .editor-header,
+  .editor-body {
+    padding: 14px;
+  }
+  .editor-footer-actions > .preset-actions {
+    flex: 1;
+    justify-content: end;
+  }
+  .editor-footer-actions > .preset-actions:first-child {
+    justify-content: start;
+  }
+  .editor-footer .hint {
+    display: none;
+  }
+}
+
+.folder-guide {
+  margin: 20px 28px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #1c2119;
+}
+.folder-guide p {
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.folder-guide code {
+  overflow-wrap: anywhere;
+}

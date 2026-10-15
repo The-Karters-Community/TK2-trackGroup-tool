@@ -1,4 +1,4 @@
-# TK2 Track Groups
+# TK2 Garage
 
 A standalone Windows app for sharing ordered track groups in **The Karters 2: Turbo Charged**. Browse a reviewed community library, export custom groups, and import groups with their Steam Workshop subscriptions.
 
@@ -9,6 +9,8 @@ A standalone Windows app for sharing ordered track groups in **The Karters 2: Tu
 ![Speedrun and Community library with ordered Workshop tracks](docs/images/library.png)
 
 ## Use the app
+
+TK2 Garage manages track groups and customization presets in one app. The repository URL, portable asset names, executable filename (`TK2 Track Groups.exe`), updater manifest identity and data folder keep their previous names so installed updaters remain compatible. The window title and website use TK2 Garage.
 
 Portable builds contain the runtime and compiled interface. Extract the ZIP into one chosen folder and run **TK2 Track Groups.exe**. Users do **not** install Python, Node.js, or npm. Requires Windows x64, Microsoft Edge WebView2 Runtime, the installed supported game, and the running Steam client. Steam Cloud must be enabled for imports.
 
@@ -42,9 +44,12 @@ selections and 20 sticker slots are included, without player data or mod assets.
 - Open a setup to see its saved in-game preview. **Modded** opens by default;
   **Original** shows the setup visible to players without the mods. Desktop
   choices use installed character/outfit/variant names and exact thumbnails.
+  Visual Character/Skin/Variant grids and Vehicle/Wheels/Sticker tabs replace long
+  dropdowns. Close and all action buttons stay visible in fixed editor bars.
   **Duplicate** creates a new preset as a template.
-- **Create group** selects existing presets. Open a group to rename, multi-select
-  members, drag them into order, or create a preset there from a template.
+- **Create group** selects existing presets. Open a group to rename, add
+  members, drag them into order, or remove one with its row icon. Click a member
+  to edit it without losing the group draft. Removing membership keeps the preset.
   Group cards also have buttons to change their order in the game's group list.
 - **Import preset file** reviews its contents. Confirm updates to existing group
   IDs; identical cosmetics are reused and conflicting preset IDs are remapped.
@@ -55,8 +60,8 @@ selections and 20 sticker slots are included, without player data or mod assets.
 Desktop previews come from `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons`.
 Appearance metadata loads in the background from installed game and mod bundles
 and is cached locally. Pictures load as you scroll. In the browser edition, use
-**Add preset images** and choose that folder; images stay in the browser. Setup
-numbers describe the library entries; native IDs are tucked under Technical details.
+**Connect game folder** and choose `TheKarters2` to load the save and pictures together.
+Edge/Chrome can remember the granted folder. Setup numbers describe library entries.
 
 **Current limits:** the browser cannot inspect installed cosmetic bundles, so it
 uses generic setup/choice labels when local names are unavailable. Automatic

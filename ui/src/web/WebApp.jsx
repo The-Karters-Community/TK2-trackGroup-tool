@@ -20,6 +20,7 @@ import {
   validateGroup,
 } from "./profile.js";
 import { download } from "./download.js";
+import useGameFolder from "./useGameFolder.js";
 import SaveReview from "./SaveReview.jsx";
 import SaveDownloads from "./SaveDownloads.jsx";
 import HowTo from "./HowTo.jsx";
@@ -90,6 +91,34 @@ export default function WebApp() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, editorDirty]);
 
+  const {
+    folder,
+    needsPermission,
+    profileChoices,
+    pendingFolder,
+    folderInput,
+    connectFolder,
+    applyFolder,
+  } = useGameFolder({
+    dirty: dirty || editorDirty,
+    hasProfile: Boolean(profile),
+    onError: setError,
+    onConnected({ images, bytes, file, next }) {
+      setPresetImages(images);
+      if (next) {
+        setSource({ bytes, filename: file.name });
+        setProfile(next);
+        setDirty(false);
+        setEditorDirty(false);
+        setSelectedId(null);
+        setReview(null);
+      }
+      setError("");
+      setMessage(
+        `Local folder connected. ${Object.values(images).reduce((sum, modes) => sum + Object.keys(modes).length, 0)} preset pictures loaded. Nothing was uploaded.`,
+      );
+    },
+  });
   function leaveEditor() {
     if (
       editorDirty &&
@@ -128,6 +157,7 @@ export default function WebApp() {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const next = readProfile(bytes, file.name);
       const nextReview = pendingGroup ? reviewImport(next, pendingGroup) : null;
+      setPresetImages({});
       setSource({ bytes, filename: file.name });
       setProfile(next);
       setDirty(false);
@@ -226,11 +256,24 @@ export default function WebApp() {
   const presets = useMemo(() => {
     if (!profile) return null;
     try {
-      return presetState(profile);
+      const current = presetState(profile);
+      const saved = source ? presetState(readProfile(source.bytes)) : null;
+      current.appearance = {
+        stalePreviews: current.presets
+          .filter((p) => {
+            const original = saved?.presets.find((entry) => entry.id === p.id);
+            return (
+              !original ||
+              JSON.stringify(original.data) !== JSON.stringify(p.data)
+            );
+          })
+          .map((p) => p.id),
+      };
+      return current;
     } catch (err) {
       return { presets: [], groups: [], error: err.message };
     }
-  }, [profile]);
+  }, [profile, source]);
   async function changePresets(change) {
     try {
       const bytes = applyPresetChange(profile, change);
@@ -242,7 +285,7 @@ export default function WebApp() {
       return true;
     } catch (err) {
       setError(err.message);
-      return false;
+      throw err;
     }
   }
   function sharePresets(ids, groups) {
@@ -264,6 +307,24 @@ export default function WebApp() {
   ];
   return (
     <div className="app-shell web-shell">
+      <input
+        ref={folderInput}
+        type="file"
+        hidden
+        webkitdirectory=""
+        multiple
+        aria-label="Choose game data folder"
+        onChange={async (e) => {
+          const files = [...e.target.files];
+          e.target.value = "";
+          if (!files.length) return;
+          try {
+            await applyFolder(files);
+          } catch (err) {
+            setError(err.message);
+          }
+        }}
+      />
       <input
         ref={saveInput}
         type="file"
@@ -287,7 +348,7 @@ export default function WebApp() {
             alt="The Karters 2"
           />
           <strong>
-            TK2<span>TRACK GROUPS</span>
+            TK2<span>GARAGE</span>
           </strong>
         </div>
         <div className="nav-items">
@@ -316,11 +377,68 @@ export default function WebApp() {
               ? "Save opened locally · never uploaded"
               : "Works in your browser · no executable"}
           </span>
-          <button onClick={() => openSave()}>
-            <FilePlusIcon />
-            {profile ? "Open another save" : "Open game save"}
-          </button>
+          <div className="preset-actions">
+            <button onClick={() => connectFolder(Boolean(folder))}>
+              {needsPermission
+                ? "Reconnect game folder"
+                : folder
+                  ? "Refresh local folder"
+                  : "Connect game folder"}
+            </button>
+            <button onClick={() => openSave()}>
+              <FilePlusIcon />
+              {profile ? "Open another save" : "Open game save"}
+            </button>
+          </div>
         </div>
+        {!profile && page === "presets" && (
+          <div className="folder-guide">
+            <strong>
+              Connect once, keep your pictures and presets together.
+            </strong>
+            <p>
+              Choose{" "}
+              <code>
+                %USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2
+              </code>
+              . The browser needs your permission before it can read local
+              files. Supported browsers remember this folder; no files are
+              uploaded.
+            </p>
+            <button onClick={() => connectFolder(Boolean(folder))}>
+              Connect game folder
+            </button>
+          </div>
+        )}
+        {profileChoices.length > 0 && (
+          <section className="notice" aria-label="Choose game profile">
+            <h2>Choose your game profile</h2>
+            <p>More than one save was found. Select the one you play with.</p>
+            {profileChoices.map((file) => (
+              <button
+                key={file.name}
+                onClick={async () => {
+                  const { files, handle } = pendingFolder.current;
+                  try {
+                    await applyFolder(
+                      files.filter(
+                        (f) => !profileChoices.includes(f) || f === file,
+                      ),
+                      handle,
+                    );
+                  } catch (err) {
+                    setError(err.message);
+                  }
+                }}
+              >
+                {file.name}
+              </button>
+            ))}
+            <button onClick={() => pendingFolder.current.cancel()}>
+              Cancel
+            </button>
+          </section>
+        )}
         {error && (
           <div className="feedback error" role="alert">
             {error}
@@ -363,6 +481,7 @@ export default function WebApp() {
             onExport={sharePresets}
             onError={setError}
             onDirty={setEditorDirty}
+            onConnectFolder={() => connectFolder(Boolean(folder))}
             previewImages={presetImages}
             onPreviewImages={setPresetImages}
           />

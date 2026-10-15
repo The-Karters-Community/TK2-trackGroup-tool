@@ -90,3 +90,26 @@
   did not. An exclusively created temporary file establishes the physical cache
   root, keeping filename/containment validation intact. An exact installed variant
   PNG was readable after this correction. No game asset is added to the repo.
+
+
+### TK2 Garage interface and browser connection
+
+- Kept the existing olive/lime theme, component library and one stylesheet.
+  Added searchable visual hierarchy, per-category tabs, native dialog focus
+  trapping, fixed header/footer and an independently scrolling content area.
+- Verified real installed images through the authenticated image endpoint and
+  the browser UI. Changing a vehicle immediately changed its component picture;
+  the stale full-render image disappeared. No profile write was triggered.
+- A nested group member editor returned to the unsaved group name unchanged.
+  At 760x560 the header top was 15px and footer bottom 545px; both remained in
+  view while the content could scroll. All 20 native presets remain untouched.
+- Read-only real-profile transformations preserved separator/profile records for
+  one material change, and preserved both preset/separator records for a group
+  membership removal. These checks did not replace the live save or Cloud save.
+- Browser connection now separates permission/handle lifecycle from WebApp.
+  Remembered read-only handles reload only with granted permission; revoked
+  permission requires a user click. Ambiguous profiles require selection. There
+  is no promise of silent first-visit local access or browser Unity rendering.
+- Display branding is TK2 Garage. Repository URLs, updater asset/manifest identity,
+  executable filename and application-data path remain stable for existing users.
+  Version remains 0.1.1-dev; no release was requested for this change.

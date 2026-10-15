@@ -4,6 +4,7 @@ import {
   DragHandleDots2Icon,
   ChevronUpIcon,
   ChevronDownIcon,
+  MinusCircledIcon,
 } from "@radix-ui/react-icons";
 import { reorder } from "../components/EditGroup.jsx";
 import PresetPreview from "./PresetPreview.jsx";
@@ -14,6 +15,7 @@ export default function OrderedPresets({
   onChange,
   disabled = false,
   onOpen,
+  onRemove,
   appearance,
   loadImage,
   selectedIds,
@@ -63,6 +65,11 @@ export default function OrderedPresets({
       {items.map((p, index) => {
         const position = positions?.[p.id] ?? index;
         const title = setupTitle(p, appearance, position);
+        const stale = appearance?.stalePreviews?.includes(p.id);
+        const character =
+          appearance?.items?.characters?.[
+            p.data.iCharacterSkinMaterialID_Modded
+          ];
         return (
           <li key={p.id} data-id={p.id}>
             <div className="preset-row-tools">
@@ -91,16 +98,40 @@ export default function OrderedPresets({
               disabled={!onOpen}
             >
               <PresetPreview
-                source={appearance?.previews?.[p.id]?.modded}
+                source={
+                  stale
+                    ? character?.image
+                    : appearance?.previews?.[p.id]?.modded
+                }
                 loadImage={loadImage}
-                alt={`${title}, saved modded preview`}
+                alt={
+                  stale
+                    ? `${title}, current character`
+                    : `${title}, saved modded preview`
+                }
               />
               <span className="preset-copy">
                 <strong>{title}</strong>
                 <small>{setupDescription(p, appearance)}</small>
+                {stale && (
+                  <small className="hint">
+                    Selections updated · game render pending
+                  </small>
+                )}
               </span>
             </button>
             <div className="preset-move-actions">
+              {onRemove && (
+                <button
+                  className="icon-button"
+                  disabled={disabled}
+                  aria-label={`Remove ${title} from group`}
+                  title="Remove from group, keep in library"
+                  onClick={() => onRemove(p.id)}
+                >
+                  <MinusCircledIcon />
+                </button>
+              )}
               <button
                 className="icon-button"
                 disabled={disabled || index === 0}
