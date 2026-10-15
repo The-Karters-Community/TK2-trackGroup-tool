@@ -27,6 +27,7 @@ export default function PresetManager({
   onError,
   onDirty,
   loadImage,
+  renderPreview,
   previewImages,
   onPreviewImages,
   onConnectFolder,
@@ -426,7 +427,7 @@ export default function PresetManager({
       <p className="hint">
         {browser
           ? "Connect TheKarters2 once to open your save and PresetIcons together. Files stay on this device. "
-          : "Previews come from the game's PresetIcons cache. Missing mods keep their saved picture when available. "}
+          : "Open a preset for live game rendering with the optional companion. Saved previews stay available without the game. "}
         Workshop installation status is unverified.{" "}
         {browser
           ? "Changes go into the edited save download."
@@ -488,6 +489,7 @@ export default function PresetManager({
               position={positions[target.value.id]}
               busy={busy}
               browser={browser}
+              renderPreview={renderPreview}
               canSave={editable}
               onDirty={memberEditor ? setMemberDirty : setEditorDirty}
               appearance={appearance}

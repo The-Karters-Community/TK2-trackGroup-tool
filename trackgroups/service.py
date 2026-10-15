@@ -94,6 +94,7 @@ class Service:
         return {**group, "importState": state}
 
     def state(self):
+        from .live_preview import companion_state
         # The public state deliberately excludes save contents and full Steam account IDs.
         with self.lock:
             mapping = self.dependencies.mapping()
@@ -117,13 +118,13 @@ class Service:
                 workshop = [t for t in group['tracks'] if t['kind'] == 'workshop']
                 group['missingTracks'] = sum(not self.track_status.get(t.get('workshopId'), {}).get('ready', False) or not self.track_status.get(t.get('workshopId'), {}).get('subscribed', False) for t in workshop) if self.account else None
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
-            return {"version": VERSION, "update":self.updates.snapshot(),
+            return {"version": VERSION, "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
                 "groups": reviewed, "localGroups": local,
                 "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]))}), "profileHash": getattr(self, 'local_hash', ''),
                 "settings": {"game": self.game, "profile": self.profile, "profiles": self.profiles,
                     "profileDirectory": str(PROFILE_DIR), "dataDirectory": str(DATA)},
                 "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled, "trackStatus": copy.deepcopy(self.track_status),
-                "syncError": self.sync_error, "job": copy.deepcopy(self.job)}
+                "gameRunning": game_running(), "syncError": self.sync_error, "job": copy.deepcopy(self.job)}
 
     def start_job(self, action, body):
         with self.lock:

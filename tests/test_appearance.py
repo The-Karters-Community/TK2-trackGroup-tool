@@ -13,6 +13,31 @@ PNG = b"\x89PNG\r\n\x1a\nfixture"
 
 
 class AppearanceTests(unittest.TestCase):
+    def test_live_render_cache_matches_exact_unsaved_data_without_touching_game_icons(self):
+        from test_presets import fixture
+        from trackgroups.presets import view
+        from trackgroups.profile import Profile
+        import copy
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            icons = root/'profiles/PresetIcons'; icons.mkdir(parents=True)
+            game_icon = icons/'Icon_PresetID_100_Modded.png'; game_icon.write_bytes(PNG+b'original')
+            art = Appearance(root/'cache', root/'profiles')
+            preset = view(Profile(fixture()))['presets'][0]
+            draft = copy.deepcopy(preset); draft['data']['iVehicleMaterialID_Modded'] = 88
+            art.cache_render({'data':draft['data'], 'view':'modded'}, PNG+b'new')
+            old = art.snapshot([preset])['previews']['100']['modded']
+            self.assertIn('Icon_PresetID_', old)
+            updated = art.snapshot([draft])['previews']['100']['modded']
+            self.assertIn('live-', updated)
+            key = updated.split('/')[-1].split('?')[0]
+            self.assertEqual(art.image(key), PNG+b'new')
+            self.assertEqual(game_icon.read_bytes(), PNG+b'original')
+            art.cache_render({'data':draft['data'], 'view':'modded', 'rotation':60}, PNG+b'rotated')
+            self.assertEqual(art.image(key), PNG+b'new')
+            reopened = Appearance(root/'cache', root/'profiles')
+            self.assertIn('live-', reopened.snapshot([draft])['previews']['100']['modded'])
+
     def test_preview_http_requires_token_and_rejects_traversal(self):
         from trackgroups.app import make_server
 

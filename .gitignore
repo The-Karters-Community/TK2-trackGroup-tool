@@ -7,3 +7,6 @@ ui/web-dist/
 local/
 artifacts/
 *.spec
+
+preview-bridge/bin/
+preview-bridge/obj/

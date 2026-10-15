@@ -9,6 +9,7 @@ import Dialog from "../components/Dialog.jsx";
 import { cosmetic } from "./model.js";
 import { slots, setupTitle } from "./appearance.js";
 import AppearanceChoice from "./AppearanceChoice.jsx";
+import LivePresetPreview from "./LivePresetPreview.jsx";
 import PresetPreview from "./PresetPreview.jsx";
 
 export default function PresetEditor({
@@ -23,6 +24,7 @@ export default function PresetEditor({
   onDirty,
   appearance,
   loadImage,
+  renderPreview,
   position = 0,
   browser = false,
 }) {
@@ -45,7 +47,9 @@ export default function PresetEditor({
     ) ||
     JSON.stringify(value.stickersData) !==
       JSON.stringify(preset.data.stickersData) ||
-    appearance?.stalePreviews?.includes(preset.id);
+    (appearance?.staleViews
+      ? appearance.staleViews[preset.id]?.includes(version)
+      : appearance?.stalePreviews?.includes(preset.id));
   function close() {
     if (
       !busy &&
@@ -94,23 +98,14 @@ export default function PresetEditor({
       </header>
       <div className="editor-body customization-layout">
         <aside className="setup-inspector">
-          {!changed && (
-            <>
-              <PresetPreview
-                className="preset-hero"
-                source={appearance?.previews?.[preset.id]?.[version]}
-                loadImage={loadImage}
-                alt="Saved in-game setup preview"
-              />
-              <p className="hint">Saved in-game render</p>
-            </>
-          )}
-          {changed && (
-            <p className="notice">
-              Current selections below. The game creates a new full setup image
-              when it loads this preset.
-            </p>
-          )}
+          <LivePresetPreview
+            data={value}
+            view={version}
+            source={appearance?.previews?.[preset.id]?.[version]}
+            changed={changed}
+            loadImage={loadImage}
+            renderPreview={renderPreview}
+          />
           <div className="tabs" aria-label="Customization version">
             {["modded", "original"].map((view) => (
               <button
@@ -199,10 +194,11 @@ export default function PresetEditor({
           {!canSave && !busy && (
             <p className="notice">
               Connect Steam and resolve the profile status to save changes. You
-              can still inspect this preset.
+              can still preview unsaved selections. Close the game before
+              saving.
             </p>
           )}
-          <fieldset disabled={busy || !canSave} className="preset-fields">
+          <fieldset disabled={busy} className="preset-fields">
             <AppearanceChoice
               key={`${field}-${category === 3 ? sticker : category}`}
               label={label}

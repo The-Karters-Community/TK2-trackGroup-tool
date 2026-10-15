@@ -1,5 +1,6 @@
-export async function api(action, body) {
+export async function api(action, body, signal) {
   const response = await fetch(`/api/${action}`, {
+    signal,
     method: body === undefined ? "GET" : "POST",
     headers: {
       "Content-Type": "application/json",

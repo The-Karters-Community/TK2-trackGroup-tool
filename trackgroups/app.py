@@ -77,6 +77,20 @@ def make_server(service):
                 if not 0 < length <= 1024 * 1024: raise ValueError("Request size is invalid.")
                 body = json.loads(self.rfile.read(length))
                 action = urlsplit(self.path).path.removeprefix("/api/")
+                if action == "live-preview":
+                    from .live_preview import render
+                    result = render(body)
+                    if result.get('ready') and result.get('png'):
+                        import base64
+                        service.appearance.cache_render(body, base64.b64decode(result['png'], validate=True))
+                    return self.reply(200, result)
+                if action == "install-preview-companion":
+                    service.supported_game()
+                    from .live_preview import install
+                    return self.reply(200, install(service.game))
+                if action == "remove-preview-companion":
+                    from .live_preview import remove
+                    return self.reply(200, remove(service.game))
                 if action in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import", "presets"):
                     result = service.start_job(action, body)
                 elif action == "cancel":

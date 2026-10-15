@@ -113,3 +113,32 @@
 - Display branding is TK2 Garage. Repository URLs, updater asset/manifest identity,
   executable filename and application-data path remain stable for existing users.
   Version remains 0.1.1-dev; no release was requested for this change.
+
+
+## 2026-10-15 — live cosmetic renderer and motion
+
+- Native evidence: LoadForIconRender 0x18076edc0 uses a detached temporary preset;
+  TryProcessNextJob 0x18076b620 uses the icon preview item/camera. Avoided the game's
+  cache-writing RenderAndAssignPresetIcon 0x18076abe0 and all profile mutators.
+- Added optional authored BepInEx companion with current-user-only bounded pipe,
+  main-thread Unity work, finite timeout and native renderer lease/cleanup. Menu
+  scene only, including lobbies; no online-room prohibition. Missing selected
+  character/vehicle/wheel IDs fail explicitly. No gameplay hooks or item changes.
+- Compiled against current installed interop: 0 warnings, 0 errors. User opened
+  the game after installation. Final companion renders succeeded for Modded,
+  Original and 45-degree rotation in 0.90/0.14/0.80 seconds. Invalid vehicle ID
+  returned an error. Save bytes and all PresetIcons hashes stayed unchanged.
+- Real Garage UI selection changed Crash to Mephiles on the same vehicle, showing
+  a new full render with Save disabled while the game runs. Preview drafts remain
+  editable without a verified save connection. Save writes retain existing gates.
+- Default-angle frames are cached in Garage by exact cosmetic data, never in the
+  game's cache. Matching saved edits use the image immediately; arbitrary drafts
+  cannot change an existing preset's picture. Native images remain a fallback.
+- Pointer-opened dialogs enter over 180ms; backdrop/toast fade subtly. Keyboard
+  dialog actions and reduced-motion preferences skip the animation. Desktop and
+  website transient notifications now last 10 seconds.
+- Exact preview GUID approved in sibling Toolkit policy at the user's request;
+  31 assertions preserve physics/unknown-plugin blocking. Rebuilt Toolkit installed
+  with standard backup. Actual online-lobby rendering and upload/join behavior
+  have not been exercised. See docs/LIVE-PREVIEW.md for limits and build steps.
+- App stays 0.1.1-dev. No release, portable EXE or ZIP built for this change.

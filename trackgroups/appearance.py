@@ -17,6 +17,12 @@ from .runtime import write_json
 KINDS = {9: "characters", 12: "vehicles", 14: "wheels", 16: "stickers"}
 
 
+def live_render_key(data, mode):
+    from .presets import cosmetic
+    payload = json.dumps([cosmetic(data, strict=True), mode], sort_keys=True, separators=(',', ':'))
+    return 'live-' + hashlib.sha256(payload.encode()).hexdigest() + '.png'
+
+
 def clean_name(value):
     value = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", str(value))
     return re.sub(r"\s+", " ", re.sub(r"[_\\/]+", " ", value)).strip()[:160]
@@ -321,6 +327,25 @@ class Appearance:
                 write_json(self.folder / "preview-error.json", {"message": str(exc)})
             return ""
 
+    def cache_render(self, request, raw):
+        """Keep successful default-angle renders in Garage's cache, never PresetIcons."""
+        if request.get('rotation', 0) != 0: return
+        if not raw.startswith(b'\x89PNG\r\n\x1a\n') or len(raw) > 4 * 1024 * 1024:
+            raise ValueError('Invalid game preview image.')
+        name = live_render_key(request['data'], request['view'])
+        with self.lock:
+            with tempfile.NamedTemporaryFile(dir=self.folder, suffix='.tmp', delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(raw)
+            try: os.replace(temporary, self.folder / name)
+            finally: temporary.unlink(missing_ok=True)
+            # Bound only authored live frames; leave variant thumbnails intact.
+            files = sorted(self.folder.glob('live-*.png'), key=lambda p: p.stat().st_mtime, reverse=True)
+            total = 0
+            for index, path in enumerate(files):
+                total += path.stat().st_size
+                if index >= 128 or total > 32 * 1024 * 1024: path.unlink(missing_ok=True)
+
     def snapshot(self, presets):
         with self.lock:
             result = {
@@ -329,8 +354,15 @@ class Appearance:
                 "warning": self.warning,
             }
             images = {}
+            rendered_views = {}
             for p in presets:
                 for mode in ("original", "modded"):
+                    if p.get('data'):
+                        cached = self.folder / live_render_key(p['data'], mode)
+                        if cached.is_file():
+                            images.setdefault(str(p['id']), {})[mode] = '/api/preset-image/' + cached.name + '?v=' + str(cached.stat().st_mtime_ns)
+                            rendered_views.setdefault(str(p['id']), []).append(mode)
+                            continue
                     name = (
                         f'Icon_PresetID_{p["id"]}'
                         + ("_Modded" if mode == "modded" else "")
@@ -360,13 +392,14 @@ class Appearance:
                         stale.append(p["id"])
                 except (OSError, KeyError):
                     pass
-            result["stalePreviews"] = stale
+            result["stalePreviews"] = [identity for identity in stale if 'modded' not in rendered_views.get(str(identity), [])]
+            result['staleViews'] = {str(identity): [mode for mode in ('original', 'modded') if mode not in rendered_views.get(str(identity), [])] for identity in stale}
             result["previews"] = images
             return result
 
     def image(self, name):
         if not re.fullmatch(
-            r"(?:[a-f0-9]{64}|Icon_PresetID_-?\d+(?:_Modded)?)\.png", name
+            r"(?:(?:live-)?[a-f0-9]{64}|Icon_PresetID_-?\d+(?:_Modded)?)\.png", name
         ):
             raise ValueError("Invalid preview.")
         path = self.files.get(name) or self.folder / name

@@ -25,6 +25,10 @@ export default function App() {
   const [focusId, setFocusId] = useState(null);
   const [seenJob, setSeenJob] = useState("");
   const [presetDirty, setPresetDirty] = useState(false);
+  const renderPreview = useCallback(
+    (body, signal) => api("live-preview", body, signal),
+    [],
+  );
   const refresh = useCallback(async () => {
     try {
       setState(await api("state"));
@@ -55,7 +59,7 @@ export default function App() {
   }, [state?.job, seenJob]);
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(() => setMessage(""), 5000);
+    const timer = setTimeout(() => setMessage(""), 10000);
     return () => clearTimeout(timer);
   }, [message]);
   async function run(action, body) {
@@ -67,7 +71,14 @@ export default function App() {
     setMessage("");
     try {
       const value = await api(action, body);
-      if (action === "settings") setMessage(value.message);
+      if (
+        [
+          "settings",
+          "install-preview-companion",
+          "remove-preview-companion",
+        ].includes(action)
+      )
+        setMessage(value.message);
       await refresh();
       return value;
     } catch (err) {
@@ -283,8 +294,11 @@ export default function App() {
           <PresetManager
             state={state.presetState}
             loadImage={loadPreview}
+            renderPreview={renderPreview}
             busy={busy}
-            available={state.steamConnected && !state.syncError}
+            available={
+              state.steamConnected && !state.syncError && !state.gameRunning
+            }
             onChange={changePresets}
             onExport={exportPresets}
             onError={setError}

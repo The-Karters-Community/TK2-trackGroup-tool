@@ -60,6 +60,42 @@ export default function Settings({ state, busy, run }) {
         </button>
       </div>
       <div className="settings-section">
+        <h2>Live 3D preview · optional</h2>
+        <p>
+          The game can render unsaved cosmetic selections while it stays at its
+          main menu. This companion requires BepInEx Unity IL2CPP and game build
+          0.1.4.18. Normal Garage features work without it.
+        </p>
+        <p>
+          {state.previewCompanion?.installed
+            ? "Companion installed. Restart the game after installation, then open a preset in Garage."
+            : "Companion not installed."}
+        </p>
+        <button
+          disabled={
+            busy || state.gameRunning || !state.previewCompanion?.canInstall
+          }
+          onClick={() => run("install-preview-companion", {})}
+        >
+          {state.previewCompanion?.installed
+            ? "Reinstall preview companion"
+            : "Install preview companion"}
+        </button>
+        {state.previewCompanion?.installed && (
+          <button
+            disabled={busy || state.gameRunning}
+            onClick={() => run("remove-preview-companion", {})}
+          >
+            Remove preview companion
+          </button>
+        )}
+        <p className="hint">
+          Close the game before installing. Save editing still requires the game
+          closed. Toolkit online protection may treat this optional plugin as
+          unapproved.
+        </p>
+      </div>
+      <div className="settings-section">
         <h2>App updates</h2>
         <p>
           Installed version: {state.version}. {state.update?.message}

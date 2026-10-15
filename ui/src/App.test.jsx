@@ -112,7 +112,7 @@ test("import review stays visible through completion and opens the saved local g
   ).toBeTruthy();
 });
 
-test("success messages expire after five seconds and credits have no repository link", async () => {
+test("success messages stay beyond five seconds and expire after ten and credits have no repository link", async () => {
   let state = {
     version: "0.1.0-dev",
     groups: [],
@@ -141,6 +141,10 @@ test("success messages expire after five seconds and credits have no repository 
   );
   expect(screen.getByText("Made by DarkSlayer")).toBeTruthy();
   expect(screen.queryByRole("link", { name: "Project & help" })).toBeNull();
+  await new Promise((resolve) => setTimeout(resolve, 6000));
+  expect(
+    screen.getByText("Steam refreshed. Known Workshop tracks are installed."),
+  ).toBeTruthy();
   await waitFor(
     () =>
       expect(
