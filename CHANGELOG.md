@@ -57,12 +57,22 @@ a release is requested; development builds do not advance the release version.
 - Show loading feedback and allow larger previews/reset view. Animate accordion
   expansion and respect reduced-motion preferences.
 - Keep optional native game-reference images and guarded live saving for existing
-  ordinary presets. Quick Setup and structural save edits still require the game
-  closed; extracted game assets are never distributed.
+  ordinary presets. Quick Setup now also saves live through the native bridge;
+  structural save edits still require the game closed; extracted game assets are never distributed.
 
-- Verify a temporary native hook can read two local-player Quick Setup slots on
-  the real game's Unity thread without BepInEx. It leaves save bytes unchanged
-  and unloads afterward. This is research only; native live saving is not enabled.
+- Add a small native Quick Setup bridge without BepInEx. Validate the exact live
+  target and installed choices, back up first, save through the game's API and
+  verify local/Steam copies. Refresh an open Quick Setup editor after saving.
+  Live write/restore and UI-to-game round trips passed in build 0.1.4.18.
+- Open the 3D preview collapsed, remove duplicate side controls, and show larger
+  contained part thumbnails next to categories. Selected characters support
+  animation selection, pause, scrubbing and speed, starting in standing idle.
+- Simplify collection commands into a compact toolbar and More menu; use pictured
+  group rows/cards and visible gold favorite states. Favorite exact appearances
+  once and open all saved variants directly from Favorites. Convert older
+  character/skin stars to representative exact appearances.
+- Restore draft dragging during gameplay, including group order and members.
+  Reordering saves remain disabled with an explanation until the game closes.
 
 ### Steam and track groups
 

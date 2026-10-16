@@ -76,18 +76,28 @@ export default function AppearanceChoice({
     .flat()
     .join("\n");
   useEffect(() => {
+    const aliases = {};
+    for (const entry of entries) {
+      const target = recordKey(entry, true);
+      for (const old of [recordKey(entry, false), skinKey(entry)])
+        if (old !== target && (!aliases[old] || entry.id === selected?.id))
+          aliases[old] = target;
+    }
+    library?.migrateFavorites(aliases);
     library?.observe(observed.split("\n"));
   }, [observed]);
-  const exact = Boolean(query) || stage === levels.length - 1;
+  const exact = favoritesOnly || Boolean(query) || stage === levels.length - 1;
   const key = levels[stage]?.[1] || "id";
   let items = entries.filter((e) =>
-    query
-      ? (e.label || e.name).toLowerCase().includes(query.toLowerCase())
-      : stage === 0 ||
-        (e.entity === selected?.entity &&
-          (stage < 2 || e.skin === selected?.skin)),
+    favoritesOnly
+      ? true
+      : query
+        ? (e.label || e.name).toLowerCase().includes(query.toLowerCase())
+        : stage === 0 ||
+          (e.entity === selected?.entity &&
+            (stage < 2 || e.skin === selected?.skin)),
   );
-  if (!query) {
+  if (!query && !favoritesOnly) {
     const unique = new Map();
     items.forEach((e) => {
       const identity = exact ? e.id : e[key];
@@ -96,8 +106,7 @@ export default function AppearanceChoice({
     });
     items = [...unique.values()];
   }
-  const keyFor = (entry) =>
-    !exact && stage === 1 ? skinKey(entry) : recordKey(entry, exact);
+  const keyFor = (entry) => recordKey(entry, true);
   if (favoritesOnly) items = items.filter((e) => library?.favorite(keyFor(e)));
   items = sortEntries(items, sort, {
     key: keyFor,
@@ -153,7 +162,7 @@ export default function AppearanceChoice({
           {favoritesOnly ? <StarFilledIcon /> : <StarIcon />}
         </button>
       </div>
-      {!query && (
+      {!query && !favoritesOnly && (
         <div
           className="appearance-steps"
           aria-label={`${label} selection steps`}
@@ -172,6 +181,27 @@ export default function AppearanceChoice({
               </small>
             </button>
           ))}
+        </div>
+      )}
+      {selected && library && (
+        <div className="selected-appearance">
+          <span>
+            <strong>{selected.label || selected.name}</strong>
+            <small>Current {label.toLowerCase()} appearance</small>
+          </span>
+          <button
+            className="favorite-button icon-button"
+            type="button"
+            aria-label={`${library.favorite(recordKey(selected, true)) ? "Unfavorite" : "Favorite"} ${selected.label || selected.name}`}
+            aria-pressed={library.favorite(recordKey(selected, true))}
+            onClick={() => library.toggle(recordKey(selected, true))}
+          >
+            {library.favorite(recordKey(selected, true)) ? (
+              <StarFilledIcon />
+            ) : (
+              <StarIcon />
+            )}
+          </button>
         </div>
       )}
       <RowPage
@@ -195,6 +225,7 @@ export default function AppearanceChoice({
               return (
                 <div
                   key={entry.id}
+                  data-appearance-id={entry.id}
                   className={`appearance-choice ${active ? "selected" : ""}`}
                 >
                   <button
@@ -216,18 +247,39 @@ export default function AppearanceChoice({
                       alt={entry.image ? title : `Saved setup using ${title}`}
                     />
                     <span>{title}</span>
+                    {!exact &&
+                      entries.some(
+                        (e) =>
+                          e.entity === entry.entity &&
+                          library?.favorite(recordKey(e, true)),
+                      ) && (
+                        <small className="favorite-count">
+                          <StarFilledIcon />{" "}
+                          {
+                            entries.filter(
+                              (e) =>
+                                e.entity === entry.entity &&
+                                library?.favorite(recordKey(e, true)),
+                            ).length
+                          }{" "}
+                          saved
+                        </small>
+                      )}
                   </button>
-                  {library && entry.available !== false && (
-                    <button
-                      type="button"
-                      className="favorite-button icon-button"
-                      aria-label={`${favorite ? "Unfavorite" : "Favorite"} ${title}`}
-                      aria-pressed={Boolean(favorite)}
-                      onClick={() => library.toggle(keyFor(entry))}
-                    >
-                      {favorite ? <StarFilledIcon /> : <StarIcon />}
-                    </button>
-                  )}
+                  {library &&
+                    exact &&
+                    entry.id !== selected?.id &&
+                    entry.available !== false && (
+                      <button
+                        type="button"
+                        className="favorite-button icon-button"
+                        aria-label={`${favorite ? "Unfavorite" : "Favorite"} ${title}`}
+                        aria-pressed={Boolean(favorite)}
+                        onClick={() => library.toggle(keyFor(entry))}
+                      >
+                        {favorite ? <StarFilledIcon /> : <StarIcon />}
+                      </button>
+                    )}
                 </div>
               );
             })}

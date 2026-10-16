@@ -111,3 +111,12 @@ reserved IDs, order, unchanged records and cloud rollback. Actual in-game loadin
 of imported preset packs still needs a dedicated smoke test. A reversible
 single-preset live edit passed against the running game and was restored; Steam
 refresh then found the local and Cloud saves in agreement.
+
+## Quick Setup live saving
+
+The native bridge now saves one Quick Setup while the game runs, without BepInEx.
+The open editor refreshes after a verified save. Local and Steam copies are checked,
+and only the selected slot's cosmetics change. During a race the current racer is
+left alone; the stored setup is available for the next Quick Setup selection.
+Race-return/lobby transitions remain unverified. Group/import/order writes still
+require the game closed. See [native evidence](NATIVE-BRIDGE-RESEARCH.md).

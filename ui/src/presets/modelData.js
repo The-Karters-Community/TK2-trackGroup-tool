@@ -31,7 +31,19 @@ export function createModelLoader(load, limit = 48 * 1024 * 1024) {
     return task;
   }
   return async function model(request, signal) {
-    if (request.kind !== "setup") return part(request.kind, request.id);
+    if (request.kind !== "setup") {
+      const data = await part(request.kind, request.id);
+      if (request.kind === "characters" && request.animation) {
+        const clip = await part("animation", request.id, {
+          animation: request.animation,
+        });
+        return {
+          ...data,
+          rig: { ...data.rig, standingAnimations: clip.animations },
+        };
+      }
+      return data;
+    }
     const plan = await load({ ...request, kind: "setup-plan" }, signal);
     signal?.throwIfAborted();
     const characters = await part("characters", plan.parts.characters);

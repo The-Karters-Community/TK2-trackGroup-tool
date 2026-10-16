@@ -15,6 +15,7 @@ export default function PresetGroupEditor({
   group,
   presets,
   busy,
+  canSave = true,
   onClose,
   onChange,
   onExport,
@@ -176,6 +177,11 @@ export default function PresetGroupEditor({
         </details>
       </div>
       <footer className="editor-footer">
+        {!canSave && (
+          <p className="hint">
+            Arrange this group freely. Close the game to save group changes.
+          </p>
+        )}
         {error && (
           <p className="editor-error" role="alert">
             {error}
@@ -190,7 +196,7 @@ export default function PresetGroupEditor({
                   Export group
                 </button>
                 <button
-                  disabled={busy || dirty || !group.editable}
+                  disabled={busy || dirty || !canSave || !group.editable}
                   onClick={() =>
                     window.confirm(
                       "Delete this group? Its presets will stay in your library.",
@@ -218,6 +224,7 @@ export default function PresetGroupEditor({
               className="primary"
               disabled={
                 busy ||
+                !canSave ||
                 !group.editable ||
                 (!dirty && !group.new) ||
                 !name.trim() ||

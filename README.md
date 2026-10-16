@@ -13,7 +13,8 @@ Current development changes are collected in [CHANGELOG.md](CHANGELOG.md) for th
 ## Use the app
 
 Appearance choices use a compact Character → Skin → Variant rail with search,
-sorting and stars. Choose 1–4 complete rows; resizing recalculates how many tiles
+sorting and one star per exact appearance. Favorites shows saved variants directly,
+without navigating through every character and skin. Choose 1–4 complete rows; resizing recalculates how many tiles
 fit each page. Recent/most-picked sorts use Garage activity, while added dates
 come from installation or first discovery. Favorites are saved separately from
 player profiles and shared across All presets and group members.
@@ -21,7 +22,7 @@ player profiles and shared across All presets and group members.
 Quick Setup has six player-slot buttons with separate in-session drafts and
 unsaved indicators. Switching slots or reopening the editor preserves drafts;
 closing Garage discards them. These are saved player slots, not detection or
-assignment of connected controllers. The 3D preview can be collapsed on phones.
+assignment of connected controllers. The 3D preview opens collapsed and can be expanded when needed.
 
 
 Home opens first, with the garage artwork and direct shortcuts. Track collections
@@ -91,8 +92,12 @@ Selection changes rebuild this local scene without a running game or BepInEx.
 **Selected part** isolates an appearance. **Game reference** optionally requests
 a Unity-rendered comparison image. The optional companion can also save one
 existing preset through the running game's own
-save method after Steam/profile verification. Other save edits need the game
-closed. Pictures load as you scroll. In the browser edition, use
+save method after Steam/profile verification. **Quick Setup** can now save through
+a separate, version-pinned native bridge, without BepInEx. It backs up, validates
+the exact live slot, asks the game to save, verifies local and Steam copies and
+refreshes an open Quick Setup editor. The bridge temporarily runs authored code
+inside the game; it installs no plugin or game files. Group/order/import changes
+still need the game closed. Dragging can prepare a draft while playing. Pictures load as you scroll. In the browser edition, use
 **Connect game folder** and choose `TheKarters2` to load the save and pictures together.
 Edge/Chrome can remember the granted folder. Setup numbers describe library entries.
 
@@ -213,3 +218,8 @@ the chosen clip, and offers pause, scrub and playback speed controls. Separate
 weapon-model animation and unsupported humanoid retargeting are not simulated.
 The browser edition continues to use permitted local images rather than the
 native asset decoder. Garage artwork was supplied by DarkSlayer.
+
+Native bridge contributors need Visual Studio C++ x64 Build Tools.
+Run `python tools/build_native_bridge.py` before starting the source app;
+`tools/build_portable.py` builds and bundles this small authored DLL automatically.
+Release users need no compiler. [Native integration evidence and limits](docs/NATIVE-BRIDGE-RESEARCH.md).

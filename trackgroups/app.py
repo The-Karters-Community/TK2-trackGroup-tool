@@ -84,6 +84,8 @@ def make_server(service):
                         import base64
                         service.appearance.cache_render(body, base64.b64decode(result['png'], validate=True))
                     return self.reply(200, result)
+                if action == "live-save-quick":
+                    return self.reply(200, service.save_live_quick(body))
                 if action == "live-save-preset":
                     return self.reply(200, service.save_live_preset(body))
                 if action == "library-preferences":
@@ -158,6 +160,8 @@ def make_server(service):
                         else: result = {"message": "Export cancelled.", "saved": False}
                     else: result = {"group": group}
                 elif action == "shutdown":
+                    if getattr(service, "quick_saving", False):
+                        raise ValueError("Wait for Quick Setup to finish saving before closing.")
                     if service.job and service.job["state"] == "running":
                         raise ValueError("Cancel or finish the current operation before closing.")
                     result = {"message": "Closed."}
@@ -211,6 +215,7 @@ def main():
     service.on_update = apply_update
 
     def closing():
+        if getattr(service,"quick_saving",False): return False
         if service.job and service.job["state"] == "running":
             service.cancel.set()
             # Retain host until subscriptions stop or a save transaction completes.

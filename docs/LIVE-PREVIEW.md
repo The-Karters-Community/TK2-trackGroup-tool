@@ -194,3 +194,12 @@ fixes do not make Three.js pixel-identical to Unity: lighting/reflections differ
 and effects spawned separately by the game (such as exhaust smoke) are not part
 of the installed cosmetic prefab renderer. The optional Game reference remains
 the comparison for those engine-specific effects.
+
+## Quick Setup live saving
+
+The native bridge now saves one Quick Setup while the game runs, without BepInEx.
+The open editor refreshes after a verified save. Local and Steam copies are checked,
+and only the selected slot's cosmetics change. During a race the current racer is
+left alone; the stored setup is available for the next Quick Setup selection.
+Race-return/lobby transitions remain unverified. Group/import/order writes still
+require the game closed. See [native evidence](NATIVE-BRIDGE-RESEARCH.md).

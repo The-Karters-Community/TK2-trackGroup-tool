@@ -96,3 +96,52 @@ it("loads a preview only when it enters the visible area", async () => {
   unmount();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview");
 });
+
+it("keeps drag available during a race while leaving order saving disabled", async () => {
+  const state = presetState(readProfile(fixture()));
+  state.presets = Array.from({ length: 4 }, (_, i) => ({
+    ...state.presets[0],
+    id: 100 + i,
+  }));
+  const onChange = vi.fn();
+  render(
+    <PresetManager
+      state={state}
+      available={false}
+      gameRunning
+      onChange={onChange}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "Drag Setup 1 to reorder" }).disabled,
+  ).toBe(false);
+  const instance = instances[0];
+  instance.node.appendChild(instance.node.children[0]);
+  instance.options.onEnd({ oldIndex: 0, newIndex: 3 });
+  await screen.findByText(/Close the game to save this order/);
+  expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
+    true,
+  );
+  expect(onChange).not.toHaveBeenCalled();
+});
+it("stages preset group drag order without saving or losing memberships", async () => {
+  const state = presetState(readProfile(fixture()));
+  state.groups.push({ ...state.groups[0], id: "another", name: "Other group" });
+  const onChange = vi.fn();
+  render(
+    <PresetManager
+      state={state}
+      available={false}
+      gameRunning
+      onChange={onChange}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Preset groups/ }));
+  const instance = instances.at(-1);
+  instance.node.appendChild(instance.node.children[0]);
+  instance.options.onEnd({ oldIndex: 0, newIndex: 1 });
+  await screen.findByText(/Unsaved group order/);
+  expect(instance.node.children[0].dataset.id).toBe("another");
+  expect(onChange).not.toHaveBeenCalled();
+  expect(state.groups[0].members).toEqual([100]);
+});

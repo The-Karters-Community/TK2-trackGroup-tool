@@ -80,7 +80,7 @@ export default function OrderedPresets({
             <div className="preset-row-tools">
               {onFavorite && (
                 <button
-                  className="icon-button"
+                  className="icon-button favorite-button"
                   aria-label={`${isFavorite?.(p.id) ? "Unfavorite" : "Favorite"} ${title}`}
                   aria-pressed={Boolean(isFavorite?.(p.id))}
                   onClick={() => onFavorite(p.id)}

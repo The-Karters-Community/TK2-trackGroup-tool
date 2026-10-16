@@ -52,6 +52,14 @@ def run(folder):
                 data = steam.read_save(request["profile"])
                 result["save"] = base64.b64encode(data).decode()
                 result["saveHash"] = hashlib.sha256(data).hexdigest()
+        elif action == "read-save":
+            from .profile import SAVE_NAME
+            name=request.get('profile')
+            if not isinstance(name,str) or not SAVE_NAME.fullmatch(name):raise ValueError('Invalid profile name.')
+            if request.get('account') and request['account']!=steam.account:raise ValueError('The Steam account changed.')
+            data=steam.read_save(name)
+            result={'account':steam.account,'saveHash':hashlib.sha256(data).hexdigest(),
+                    'cloudEnabled':bool(steam.storage_call('IsCloudEnabledForAccount') and steam.storage_call('IsCloudEnabledForApp'))}
         elif action == "details":
             details = steam.details(request['ids'], cancelled)
             for item,info in details.items(): info['kind'] = content_kind(steam,item)

@@ -10,3 +10,5 @@ artifacts/
 
 preview-bridge/bin/
 preview-bridge/obj/
+
+native-bridge/*.dll

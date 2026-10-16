@@ -22,7 +22,7 @@ export function framingDistance(size, quaternion, fov, aspect) {
           point.z + Math.abs(point.y) / vertical,
         );
       }
-  return Math.max(0.5, distance * 1.15);
+  return Math.max(0.5, distance * 1.25);
 }
 
 export function centerModel(root) {
@@ -195,7 +195,10 @@ export function createViewport(host, isPlaying) {
           motion,
           size: size.multiplyScalar(1.8 / longest),
           duration: Math.max(
-            ...(models[0].rig.animations || []).map((a) => a.duration),
+            ...(kind === "characters"
+              ? models[0].rig.standingAnimations || []
+              : models[0].rig.animations || []
+            ).map((a) => a.duration),
             0.01,
           ),
         };

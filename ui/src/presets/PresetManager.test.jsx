@@ -256,7 +256,7 @@ it("reloads a pristine editor after a game-side edit without closing it", async 
   rerender(<PresetManager state={next} onChange={onChange} />);
   await waitFor(() => expect(screen.getByText("No changes")).toBeTruthy());
   expect(
-    screen.getByRole("button", { name: /Vehicle Green kart/ }),
+    screen.getByRole("button", { name: "Vehicle", exact: true }),
   ).toBeTruthy();
   expect(screen.queryByText(/This preset changed in the game/)).toBeNull();
   expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
@@ -393,7 +393,7 @@ it("keeps separate player drafts across switching and reopening Quick Setup", as
   );
   expect(await screen.findByText("Unsaved changes")).toBeTruthy();
   expect(
-    screen.getByRole("button", { name: /Vehicle Kart Blue/ }),
+    screen.getByRole("button", { name: "Vehicle", exact: true }),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Close preset" }));
   fireEvent.click(
@@ -402,7 +402,7 @@ it("keeps separate player drafts across switching and reopening Quick Setup", as
   expect(await screen.findByText("Unsaved changes")).toBeTruthy();
 });
 
-it("favorites one character skin without starring every skin of the same character", () => {
+it("opens favorite variants directly from the character level with one star per exact appearance", () => {
   const data = state();
   const original = data.presets[0].data.iCharacterSkinMaterialID_Modded;
   data.appearance = {
@@ -427,12 +427,65 @@ it("favorites one character skin without starring every skin of the same charact
   };
   render(<PresetManager state={data} />);
   fireEvent.click(screen.getByRole("button", { name: /^Bobby · Setup 1/ }));
-  fireEvent.click(screen.getByRole("button", { name: /^Skin: Red/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Favorite Red" }));
-  expect(screen.getByRole("button", { name: "Unfavorite Red" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Favorite Bobby Red" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Favorite appearances only" }),
+  );
   expect(
-    screen
-      .getByRole("button", { name: "Favorite Blue" })
-      .getAttribute("aria-pressed"),
-  ).toBe("false");
+    screen.getByRole("button", { name: "Unfavorite Bobby Red" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: /^Bobby Red/, pressed: true }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Favorite Blue" })).toBeNull();
+});
+it("enables Quick Setup save through the running game while retaining its editor", async () => {
+  const data = state();
+  data.quickSetup = { id: 338088, data: structuredClone(data.presets[0].data) };
+  data.quickSetups = [{ ...data.quickSetup, player: 0 }];
+  data.appearance = {
+    items: {
+      vehicles: {
+        2: {
+          name: "Kart",
+          label: "Kart Red",
+          entity: "Kart",
+          skin: "Red",
+          source: "official",
+        },
+        5: {
+          name: "Kart",
+          label: "Kart Blue",
+          entity: "Kart",
+          skin: "Blue",
+          source: "official",
+        },
+      },
+    },
+  };
+  const onChange = vi.fn().mockResolvedValue(true);
+  render(
+    <PresetManager
+      state={data}
+      available={false}
+      gameRunning
+      quickSaveAvailable
+      onChange={onChange}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Quick Setup" }));
+  fireEvent.click(screen.getByRole("button", { name: "Vehicle", exact: true }));
+  fireEvent.change(screen.getByLabelText("Search vehicle"), {
+    target: { value: "Blue" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^Kart Blue/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Save to running game" }));
+  await waitFor(() =>
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "quick", player: 0 }),
+      expect.objectContaining({ baseline: expect.any(Object) }),
+    ),
+  );
+  expect(screen.getByRole("heading", { name: "Quick Setup" })).toBeTruthy();
+  expect(screen.queryByText(/requires the game to be closed/)).toBeNull();
 });

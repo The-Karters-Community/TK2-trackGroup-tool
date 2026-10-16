@@ -148,12 +148,18 @@ export default function App() {
   }
   async function changePresets(change, edit = {}) {
     try {
-      if (change.mode === "preset" && state?.gameRunning) {
-        const result = await api("live-save-preset", {
-          profile: state.settings?.profile,
-          change,
-          baseline: edit.baseline,
-        });
+      if (
+        (change.mode === "preset" || change.mode === "quick") &&
+        state?.gameRunning
+      ) {
+        const result = await api(
+          change.mode === "quick" ? "live-save-quick" : "live-save-preset",
+          {
+            profile: state.settings?.profile,
+            change,
+            baseline: edit.baseline,
+          },
+        );
         setMessage(result.message || "Preset saved by the running game.");
         await refresh();
         return true;
@@ -198,7 +204,7 @@ export default function App() {
         <p role="status">{error || "Opening your group library…"}</p>
       </div>
     );
-  const busy = state.job?.state === "running";
+  const busy = state.job?.state === "running" || state.quickSaving;
   const reviewJob =
     confirmed && state.job?.action === "import" ? state.job : null;
   async function prepare(action, body) {
@@ -382,6 +388,13 @@ export default function App() {
               state.steamConnected && !state.syncError && !state.gameRunning
             }
             gameRunning={state.gameRunning}
+            quickSaveAvailable={
+              state.gameRunning &&
+              state.steamConnected &&
+              !state.syncError &&
+              state.cloudEnabled &&
+              state.nativeQuickSaveAvailable
+            }
             liveSaveAvailable={
               state.gameRunning &&
               state.steamConnected &&

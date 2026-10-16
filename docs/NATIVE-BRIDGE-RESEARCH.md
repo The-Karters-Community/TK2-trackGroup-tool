@@ -1,7 +1,9 @@
 # Native Quick Setup integration research
 
-Status: **investigation, not a working live-save feature**. The current product
-still protects Quick Setup disk writes while the game runs. The user authorized
+Status: **live Quick Setup saves verified in the open game editor** on 2026-10-17.
+The optional authored native bridge requires no BepInEx or installed plugin.
+It executes one bounded request through a temporary Windows thread hook; it is
+an in-process integration, not a file-only hot reload. The user authorized
 investigating an optional integration without BepInEx on 2026-10-16.
 
 ## Verified game behavior
@@ -53,9 +55,42 @@ window thread and that the private mapping returned a result. Its expected
 
 This proves main-thread read access and transport in this build. It does not
 prove safe live saves, in-menu refresh, race-return behavior or multiplayer
-synchronization. No experimental DLL is included in the normal app.
+synchronization. The original read-only prototype is not shipped. The production bridge is authored MIT-licensed code.
 
-## Remaining live-save proof
+## Verified write path (2026-10-17)
+
+The production source is `native-bridge/QuickSetup.cpp`; Python marshaling and
+verification live in `trackgroups/native_quick.py` and `Service.save_live_quick`.
+It is pinned to GameAssembly SHA-256
+`e55fab2cdcbf3852160183504a847b1a1b7af61c24bc9619e3736e3753aee130`.
+
+The request validates the exact executable path, profile filename, player slot,
+preset ID, all cosmetic fields and 20 sticker slots against the live baseline.
+Every selected configuration must be loaded in the game. In an open Quick Setup
+editor, conflicting approved/hovered/entry drafts are rejected. The bridge changes
+only existing cosmetic scalar fields and calls the game's `SaveProfileLocalData`.
+The game owns serialization, Cloud writes and lobby synchronization. Garage backs
+up first and verifies local bytes against Steam Remote Storage after saving.
+It never replaces a running game's full profile with an older backup.
+
+Real tests changed a wheel, verified local and Steam copies, then restored the
+original through the same route. The open editor was screen 115 and refreshed via
+`LoadQuickPresetForEditing`, on Unity thread 15840. Other saved presets, custom
+groups and five other Quick Setup slots stayed unchanged. A browser-driven Save
+button test also persisted a modded wheel and restored the original afterward.
+Changed baselines, wrong profiles and unavailable appearances were rejected with
+unchanged profile hashes. Hooks and helper processes are short lived.
+
+## Scope and remaining validation
+
+Quick Setup can be saved while the game runs. Open-editor refresh is verified.
+During a race, the bridge only saves the stored slot and does not call the menu
+refresh/synchronization path. Automatic race-return and online-lobby transitions
+have not been exercised; the message promises the next Quick Setup selection.
+Group/order/import transactions still require the game closed.
+
+The original investigation checklist is retained below:
+
 
 Before enabling saves, verify the active game/profile/build, Unity main-thread
 execution, target-slot baseline and installed choices. Preserve all other slots

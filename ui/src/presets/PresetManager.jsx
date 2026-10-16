@@ -9,7 +9,10 @@ import {
   ChevronDownIcon,
   StarIcon,
   StarFilledIcon,
+  DotsHorizontalIcon,
+  DragHandleDots2Icon,
 } from "@radix-ui/react-icons";
+import SortableGroups from "../components/SortableGroups.jsx";
 import PresetImportReview from "./PresetImportReview.jsx";
 import { validatePack } from "./model.js";
 import PresetEditor from "./PresetEditor.jsx";
@@ -28,6 +31,7 @@ export default function PresetManager({
   available = true,
   gameRunning = false,
   liveSaveAvailable = false,
+  quickSaveAvailable = false,
   onOpenSave,
   onChange,
   onExport,
@@ -71,9 +75,16 @@ export default function PresetManager({
   const images = previewImages || localImages;
   const [layout, setLayout] = useState("gallery");
   const [draftOrder, setDraftOrder] = useState(null);
+  const [draftGroupOrder, setDraftGroupOrder] = useState(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const presets = state?.presets || [];
   const groups = state?.groups || [];
+  const groupOrder = draftGroupOrder || groups.map((g) => g.id);
+  const groupOrderDirty =
+    JSON.stringify(groupOrder) !== JSON.stringify(groups.map((g) => g.id));
+  const orderedGroups = groupOrder
+    .map((id) => groups.find((g) => g.id === id))
+    .filter(Boolean);
   const appearance = browser
     ? { ...state?.appearance, previews: images }
     : state?.appearance;
@@ -117,7 +128,7 @@ export default function PresetManager({
   const paging = layout === "gallery" ? gridPaging : listPaging;
   const groupPaging = useRowPagination(
     sortEntries(
-      groups.filter(
+      orderedGroups.filter(
         (g) =>
           g.name.toLowerCase().includes(query.toLowerCase()) &&
           (!favoritesOnly || library.favorite(groupKey(g.id))),
@@ -126,8 +137,8 @@ export default function PresetManager({
       { key: (g) => groupKey(g.id), name: (g) => g.name, ...library.data },
     ),
     `groups:${query}:${sort}:${favoritesOnly}`,
-    220,
-    16,
+    640,
+    14,
   );
   const openedQuick = useRef(0);
   useEffect(() => {
@@ -154,12 +165,20 @@ export default function PresetManager({
   useEffect(() => {
     onDirty?.(
       orderDirty ||
+        groupOrderDirty ||
         editorDirty ||
         memberDirty ||
         Object.keys(quickDrafts).length > 0,
     );
     return () => onDirty?.(false);
-  }, [orderDirty, editorDirty, memberDirty, quickDrafts, onDirty]);
+  }, [
+    orderDirty,
+    groupOrderDirty,
+    editorDirty,
+    memberDirty,
+    quickDrafts,
+    onDirty,
+  ]);
   useEffect(
     () => () =>
       !onPreviewImages &&
@@ -224,10 +243,10 @@ export default function PresetManager({
     }
   }
   function moveGroup(id, step) {
-    const order = groups.map((g) => g.id);
+    const order = [...groupOrder];
     const i = order.indexOf(id);
     [order[i], order[i + step]] = [order[i + step], order[i]];
-    changeOutside({ mode: "group-order", order });
+    setDraftGroupOrder(order);
   }
   return (
     <section className="library-page preset-page">
@@ -251,9 +270,7 @@ export default function PresetManager({
         />
       )}
       <header className="page-heading">
-        <span className="eyebrow">Bobby’s Garage</span>
         <h1>Presets & Quick Setup</h1>
-        <p>Browse your setups, arrange them, and share your favorites.</p>
       </header>
       {browser && !available ? (
         <div className="notice">
@@ -268,7 +285,7 @@ export default function PresetManager({
           {state.error}
         </p>
       )}
-      <div className="preset-toolbar">
+      <div className="preset-toolbar preset-navigation">
         <div className="tabs">
           {state?.quickSetup && (
             <button
@@ -309,44 +326,64 @@ export default function PresetManager({
             Preset groups · {groups.length}
           </button>
         </div>
-        <div className="preset-actions">
-          {browser && (
+        <details className="library-menu">
+          <summary>
+            <DotsHorizontalIcon /> More
+          </summary>
+          <div className="library-menu-items">
+            {browser && (
+              <button
+                onClick={() =>
+                  onConnectFolder
+                    ? onConnectFolder()
+                    : imageInput.current.click()
+                }
+              >
+                Connect game folder
+              </button>
+            )}
             <button
+              disabled={!editable}
+              onClick={() => fileInput.current.click()}
+            >
+              <UploadIcon />
+              Import preset file
+            </button>
+            <button
+              disabled={!editable || !presets.length}
               onClick={() =>
-                onConnectFolder ? onConnectFolder() : imageInput.current.click()
+                setEditor({
+                  kind: "group",
+                  value: {
+                    new: true,
+                    editable: true,
+                    id: crypto.randomUUID(),
+                    name: "",
+                    members: selectedIds,
+                  },
+                })
               }
             >
-              Connect game folder
+              <PlusIcon />
+              Create group
             </button>
-          )}
-          <button
-            disabled={!editable}
-            onClick={() => fileInput.current.click()}
-          >
-            <UploadIcon />
-            Import preset file
-          </button>
-          <button
-            disabled={!editable || !presets.length}
-            onClick={() =>
-              setEditor({
-                kind: "group",
-                value: {
-                  new: true,
-                  editable: true,
-                  id: crypto.randomUUID(),
-                  name: "",
-                  members: selectedIds,
-                },
-              })
-            }
-          >
-            <PlusIcon />
-            Create group
-          </button>
-        </div>
+            <button
+              disabled={!filtered.length}
+              onClick={() =>
+                setIds([
+                  ...new Set([
+                    ...selectedIds,
+                    ...paging.items.map((p) => p.id),
+                  ]),
+                ])
+              }
+            >
+              Select this page
+            </button>
+          </div>
+        </details>
       </div>
-      <div className="preset-toolbar">
+      <div className="preset-toolbar preset-filters">
         <input
           type="search"
           aria-label="Search presets"
@@ -396,6 +433,18 @@ export default function PresetManager({
           {favoritesOnly ? <StarFilledIcon /> : <StarIcon />} Favorites
         </button>
         <button
+          className="arrange-button"
+          title="Switch to the saved order and show every preset for drag reordering"
+          onClick={() => {
+            setSort("custom");
+            setQuery("");
+            setFavoritesOnly(false);
+          }}
+        >
+          <DragHandleDots2Icon /> Arrange
+        </button>
+        <button
+          className={`bulk-export${selectedIds.length + selectedGroups.length ? " has-selection" : ""}`}
           disabled={busy || (!selectedIds.length && !selectedGroups.length)}
           onClick={() => onExport(selectedIds, selectedGroups)}
         >
@@ -415,7 +464,9 @@ export default function PresetManager({
       {appearance?.warning && <p className="notice">{appearance.warning}</p>}
       {tab === "presets" ? (
         <>
-          <div className="preset-selection-bar">
+          <div
+            className={`preset-selection-bar${selectedIds.length || orderDirty ? " has-selection" : ""}`}
+          >
             <button
               disabled={!filtered.length}
               onClick={() =>
@@ -441,9 +492,7 @@ export default function PresetManager({
             <span className="hint">
               {selectedIds.length
                 ? `${selectedIds.length} selected`
-                : sort === "custom" && !query
-                  ? `${filtered.length} setups · drag to arrange`
-                  : `${filtered.length} setups`}
+                : `${filtered.length} setups`}
             </span>
             {(query || sort !== "custom") && (
               <span className="hint">
@@ -496,7 +545,10 @@ export default function PresetManager({
                 aria-hidden={!orderDirty}
                 inert={!orderDirty}
               >
-                <span className="hint">Unsaved preset order</span>
+                <span className="hint">
+                  Unsaved preset order
+                  {gameRunning ? " · Close the game to save this order" : ""}
+                </span>
                 <button disabled={busy} onClick={() => setDraftOrder(null)}>
                   Discard
                 </button>
@@ -526,7 +578,13 @@ export default function PresetManager({
             <OrderedPresets
               items={paging.items}
               offset={paging.start}
-              disabled={!editable || Boolean(query) || sort !== "custom"}
+              disabled={
+                busy ||
+                Boolean(state?.error) ||
+                Boolean(query) ||
+                favoritesOnly ||
+                sort !== "custom"
+              }
               onChange={reorderPage}
               onOpen={(p) => {
                 library.used(presetKey(p.id));
@@ -558,22 +616,48 @@ export default function PresetManager({
           )}
         </>
       ) : (
-        <div
-          className="preset-cards"
-          ref={groupPaging.host}
+        <SortableGroups
+          items={groupPaging.items}
+          disabled={
+            busy ||
+            Boolean(state?.error) ||
+            Boolean(query) ||
+            favoritesOnly ||
+            sort !== "custom"
+          }
+          onChange={(changed) => {
+            const ids = new Set(changed);
+            let i = 0;
+            setDraftGroupOrder(
+              groupOrder.map((id) => (ids.has(id) ? changed[i++] : id)),
+            );
+          }}
+          className="preset-cards preset-group-collection"
+          hostRef={groupPaging.host}
           style={{ "--collection-columns": groupPaging.columns }}
         >
           {groupPaging.items.map((g) => (
-            <article key={g.id}>
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={selectedGroups.includes(g.id)}
-                  aria-label={`Select ${g.name}`}
-                  onChange={() => toggle(g.id, selectedGroups, setGroupIds)}
-                />
-                Select group
-              </label>
+            <article key={g.id} data-id={g.id}>
+              <div className="group-row-tools">
+                <button
+                  className="icon-button group-grip"
+                  aria-label={`Drag ${g.name} to reorder`}
+                  disabled={
+                    busy || Boolean(query) || favoritesOnly || sort !== "custom"
+                  }
+                >
+                  <DragHandleDots2Icon />
+                </button>
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    checked={selectedGroups.includes(g.id)}
+                    aria-label={`Select ${g.name}`}
+                    onChange={() => toggle(g.id, selectedGroups, setGroupIds)}
+                  />
+                  Select group
+                </label>
+              </div>
               <button
                 onClick={() => {
                   library.used(groupKey(g.id));
@@ -601,7 +685,7 @@ export default function PresetManager({
               </button>
               <div className="preset-group-order">
                 <button
-                  className="icon-button"
+                  className="icon-button favorite-button"
                   aria-label={`${library.favorite(groupKey(g.id)) ? "Unfavorite" : "Favorite"} ${g.name}`}
                   aria-pressed={library.favorite(groupKey(g.id))}
                   onClick={() => library.toggle(groupKey(g.id))}
@@ -614,7 +698,7 @@ export default function PresetManager({
                 </button>
                 <button
                   className="icon-button"
-                  disabled={!editable || groups[0]?.id === g.id}
+                  disabled={busy || groupOrder[0] === g.id}
                   aria-label={`Move ${g.name} up`}
                   onClick={() => moveGroup(g.id, -1)}
                 >
@@ -622,7 +706,7 @@ export default function PresetManager({
                 </button>
                 <button
                   className="icon-button"
-                  disabled={!editable || groups.at(-1)?.id === g.id}
+                  disabled={busy || groupOrder.at(-1) === g.id}
                   aria-label={`Move ${g.name} down`}
                   onClick={() => moveGroup(g.id, 1)}
                 >
@@ -636,23 +720,40 @@ export default function PresetManager({
               Create a group from your favorite setups.
             </p>
           )}
+        </SortableGroups>
+      )}
+      {tab === "groups" && groupOrderDirty && (
+        <div className="group-order-save">
+          <span className="hint">
+            Unsaved group order
+            {gameRunning ? " · Close the game to save this order" : ""}
+          </span>
+          <button onClick={() => setDraftGroupOrder(null)}>Discard</button>
+          <button
+            className="primary"
+            disabled={!editable}
+            onClick={async () => {
+              if (
+                await changeOutside({ mode: "group-order", order: groupOrder })
+              )
+                setDraftGroupOrder(null);
+            }}
+          >
+            Save changes
+          </button>
         </div>
       )}
       {tab === "groups" && (
         <RowControls paging={groupPaging} label="Preset groups" />
       )}
-      <p className="hint">
+      <p className="hint collection-save-hint">
         {browser
-          ? "Connect TheKarters2 once to open your save and PresetIcons together. Files stay on this device. "
-          : "Inspect installed appearances in 3D, or use the game's full setup renderer at its main menu with the optional companion. "}
-        Workshop installation status is unverified.{" "}
-        {browser
-          ? "Changes go into the edited save download."
-          : liveSaveAvailable
-            ? "A single preset can be saved through the running game. Close it for group and collection changes."
+          ? "Changes stay on this device until you download an edited save."
+          : quickSaveAvailable
+            ? "Quick Setup saves live. Close the game to save collection changes."
             : gameRunning
-              ? "Install the optional companion with the game closed to enable live preset saving."
-              : "Refresh Steam before saving changes."}
+              ? "Arrange drafts while playing. Close the game to save collection changes."
+              : "Changes are backed up before saving."}
       </p>
       {state?.localPackages?.length > 0 && (
         <details className="notice">
@@ -685,10 +786,11 @@ export default function PresetManager({
           }}
           group={{
             ...editor.value,
-            editable: editor.value.editable && editable,
+            editable: editor.value.editable && !busy && !state?.error,
           }}
           presets={presets}
           busy={busy}
+          canSave={editable}
           onDirty={setEditorDirty}
           appearance={appearance}
           loadImage={loadImage}
@@ -765,8 +867,12 @@ export default function PresetManager({
               loadModel={loadModel}
               refreshModels={refreshModels}
               canSave={editable}
-              canSavePreset={editable || (!quick && liveSaveAvailable)}
-              saveToRunningGame={!quick && gameRunning && liveSaveAvailable}
+              canSavePreset={
+                editable || (quick ? quickSaveAvailable : liveSaveAvailable)
+              }
+              saveToRunningGame={
+                gameRunning && (quick ? quickSaveAvailable : liveSaveAvailable)
+              }
               gameRunning={gameRunning}
               onDirty={memberEditor ? setMemberDirty : setEditorDirty}
               appearance={appearance}

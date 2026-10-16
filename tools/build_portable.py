@@ -25,6 +25,7 @@ if __name__ == '__main__':
     if args.preview_companion and (args.preview_companion.name != 'TK2.Garage.Preview.dll' or not args.preview_companion.is_file()):
         raise SystemExit('Specify the compiled authored TK2.Garage.Preview.dll.')
     if os.name != 'nt': raise SystemExit('Portable builds require Windows x64.')
+    run(sys.executable, 'tools/build_native_bridge.py')
     run('npm.cmd', 'ci')
     run('npm.cmd', 'run', 'build')
     run('npm.cmd', 'test')
@@ -40,6 +41,7 @@ if __name__ == '__main__':
         '--specpath', str(ROOT / 'local'), '--icon', str(ROOT / 'assets/app.ico'),
         '--add-data', str(ROOT / 'ui/dist') + ';ui/dist', '--add-data', str(ROOT / 'catalog') + ';catalog',
         '--add-data', str(ROOT / 'assets/app.ico') + ';assets',
+        '--add-data', str(ROOT / 'native-bridge/BobbyGarage.QuickSetup.dll') + ';native-bridge',
         '--add-data', str(ROOT / 'tools/apply_update.ps1') + ';tools',
         '--collect-data', 'UnityPy',
         '--collect-data', 'archspec',

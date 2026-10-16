@@ -12,7 +12,9 @@ export function rowSlice(total, columns, rows, requested = 1) {
 export function useRowPagination(items, scope, minWidth = 96, gap = 8) {
   const [host, setHost] = useState(null);
   const [columns, setColumns] = useState(4),
-    [rows, setRows] = useState(3);
+    [rows, setRows] = useState(() =>
+      window.innerHeight < 600 ? 1 : window.innerHeight < 700 ? 2 : 3,
+    );
   const [position, setPosition] = useState({ scope, page: 1 });
   useLayoutEffect(() => {
     const measure = () => {

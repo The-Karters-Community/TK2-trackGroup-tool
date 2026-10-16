@@ -98,3 +98,29 @@ it("loads selected animation clips lazily without replacing the cached character
     1,
   );
 });
+
+it("plays a selected character clip in standing view without poisoning the cached default", async () => {
+  const load = vi.fn(async (request) =>
+    request.kind === "animation"
+      ? { animations: [{ name: request.animation }] }
+      : {
+          rig: {
+            standingAnimations: [{ name: "menu idle" }],
+            animations: [{ name: "driving idle" }],
+          },
+        },
+  );
+  const model = createModelLoader(load);
+  const changed = await model({
+    kind: "characters",
+    id: 1,
+    animation: "Events/Victory",
+  });
+  const original = await model({ kind: "characters", id: 1 });
+  expect(changed.rig.standingAnimations[0].name).toBe("Events/Victory");
+  expect(original.rig.standingAnimations[0].name).toBe("menu idle");
+  expect(original.rig.animations[0].name).toBe("driving idle");
+  expect(load.mock.calls.filter(([r]) => r.kind === "characters")).toHaveLength(
+    1,
+  );
+});

@@ -31,7 +31,7 @@ export default function ModelViewer({
     () => createModelLoader(loadModel),
     [loadModel, revision, retry],
   );
-  const identity = `${revision}:${view}:${preset?.[view === "modded" ? "iCharacterSkinMaterialID_Modded" : "iCharacterSkinMaterialID"]}`;
+  const identity = `${kind}:${id}:${revision}:${view}:${preset?.[view === "modded" ? "iCharacterSkinMaterialID_Modded" : "iCharacterSkinMaterialID"]}`;
   const selected = selection?.identity === identity ? selection.clip : "";
   const request = JSON.stringify(
     kind === "setup"
@@ -41,7 +41,11 @@ export default function ModelViewer({
           view,
           ...(selected ? { animation: selected } : {}),
         }
-      : { kind, id },
+      : {
+          kind,
+          id,
+          ...(kind === "characters" && selected ? { animation: selected } : {}),
+        },
   );
 
   useEffect(() => {
@@ -165,7 +169,7 @@ export default function ModelViewer({
             : "Drag to rotate · Scroll to zoom"}
         </p>
       </div>
-      {kind === "setup" && choices.length > 0 && (
+      {(kind === "setup" || kind === "characters") && choices.length > 0 && (
         <section className="motion-browser" aria-label="Animation showcase">
           <label>
             Animation
@@ -178,7 +182,11 @@ export default function ModelViewer({
                 setAnimated(true);
               }}
             >
-              <option value="">Seated idle · default</option>
+              <option value="">
+                {kind === "characters"
+                  ? "Standing menu idle · default"
+                  : "Seated idle · default"}
+              </option>
               {[...new Set(choices.map((c) => c.category))].map((category) => (
                 <optgroup key={category} label={category}>
                   {choices

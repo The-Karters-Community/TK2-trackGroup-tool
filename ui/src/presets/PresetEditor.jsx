@@ -16,7 +16,7 @@ import LocalPlayers from "./LocalPlayers.jsx";
 export default function PresetEditor({
   preset,
   presets,
-  busy,
+  busy: working,
   canSave = true,
   canSavePreset = canSave,
   saveToRunningGame = false,
@@ -42,6 +42,8 @@ export default function PresetEditor({
   onDraft,
   quickDraftPlayers = [],
 }) {
+  const [saving, setSaving] = useState(false);
+  const busy = Boolean(working || saving);
   const [value, setValue] = useState(
     () => initialDraft?.value || cosmetic(preset.data),
   );
@@ -56,7 +58,7 @@ export default function PresetEditor({
   const saved = JSON.stringify(cosmetic(preset.data));
   const base = JSON.stringify(baseline);
   const dirty = JSON.stringify(value) !== base;
-  const conflict = saved !== base && dirty;
+  const conflict = saved !== base && dirty && !saving;
   const draftReporter = useRef(onDraft);
   draftReporter.current = onDraft;
   const serializedDraft = JSON.stringify(value);
@@ -98,6 +100,7 @@ export default function PresetEditor({
   }
   async function act(action) {
     setError("");
+    setSaving(true);
     try {
       if (await action()) onClose();
       else
@@ -106,6 +109,8 @@ export default function PresetEditor({
         );
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
   const [label, kind, baseField] = slots[category] || [
@@ -156,63 +161,48 @@ export default function PresetEditor({
           <Cross2Icon />
         </button>
       </header>
-      <div className="editor-body customization-layout">
+      <div
+        className={`editor-body customization-layout${previewOpen ? " with-preview" : ""}`}
+      >
         <button
-          className="mobile-preview-toggle"
+          className="preview-toggle"
           type="button"
           aria-expanded={previewOpen}
           onClick={() => setPreviewOpen(!previewOpen)}
         >
-          {previewOpen ? "Hide 3D preview" : "Show 3D preview"}
+          {previewOpen
+            ? "Hide preview"
+            : loadModel
+              ? "Show 3D preview"
+              : "Show saved preview"}
         </button>
         <aside
           className={`setup-inspector${previewOpen ? " preview-open" : ""}`}
         >
-          <LivePresetPreview
-            data={value}
-            view={version}
-            source={appearance?.previews?.[preset.id]?.[version]}
-            changed={changed}
-            loadImage={loadImage}
-            renderPreview={renderPreview}
-            loadModel={loadModel}
-            refreshModels={refreshModels}
-            modelKind={kind}
-            modelId={modelId}
-            modelAvailable={modelAvailable}
-            appearanceLoading={appearance?.loading}
-            revision={appearance?.revision}
-          />
-          <div className="setup-components">
-            {slots.map(([title, k, f], i) => {
-              const id = value[modded ? `${f}_Modded` : f];
-              const info = appearance?.items?.[k]?.[id];
-              return (
-                <button
-                  key={k}
-                  className={category === i ? "selected" : ""}
-                  title={info?.label || title}
-                  onClick={() => setCategory(i)}
-                >
-                  <PresetPreview
-                    source={info?.image}
-                    loadImage={loadImage}
-                    alt={info?.label || title}
-                  />
-                  <span>
-                    <small>{title}</small>{" "}
-                    <strong>{info?.label || "Saved appearance"}</strong>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {previewOpen && (
+            <LivePresetPreview
+              data={value}
+              view={version}
+              source={appearance?.previews?.[preset.id]?.[version]}
+              changed={changed}
+              loadImage={loadImage}
+              renderPreview={renderPreview}
+              loadModel={loadModel}
+              refreshModels={refreshModels}
+              modelKind={kind}
+              modelId={modelId}
+              modelAvailable={modelAvailable}
+              appearanceLoading={appearance?.loading}
+              revision={appearance?.revision}
+            />
+          )}
         </aside>
         <section className="customization-picker">
-          {quick && gameRunning && (
+          {quick && gameRunning && !saveToRunningGame && (
             <p className="notice">
-              Preview Quick Setup freely. Saving Quick Setup or creating a new
-              preset requires the game to be closed.
+              {saveToRunningGame
+                ? "Save changes applies through the running game. An open Quick Setup editor refreshes automatically."
+                : "Preview and arrange freely. Live saving is unavailable for this game build or Steam profile."}
             </p>
           )}
           <div className="customization-picker-heading">
@@ -223,12 +213,46 @@ export default function PresetEditor({
               {["Character", "Vehicle", "Wheels", "Stickers"].map(
                 (title, i) => (
                   <button
+                    aria-label={title}
+                    title={
+                      i < 3
+                        ? appearance?.items?.[slots[i][1]]?.[
+                            value[
+                              modded ? `${slots[i][2]}_Modded` : slots[i][2]
+                            ]
+                          ]?.label
+                        : title
+                    }
                     key={title}
                     className={category === i ? "active" : ""}
                     aria-pressed={category === i}
                     onClick={() => setCategory(i)}
                   >
-                    {title}
+                    {i < 3 && (
+                      <PresetPreview
+                        source={
+                          appearance?.items?.[slots[i][1]]?.[
+                            value[
+                              modded ? `${slots[i][2]}_Modded` : slots[i][2]
+                            ]
+                          ]?.image
+                        }
+                        loadImage={loadImage}
+                        alt=""
+                      />
+                    )}
+                    <span>
+                      {title}
+                      {i < 3 && (
+                        <small>
+                          {appearance?.items?.[slots[i][1]]?.[
+                            value[
+                              modded ? `${slots[i][2]}_Modded` : slots[i][2]
+                            ]
+                          ]?.label || "Saved appearance"}
+                        </small>
+                      )}
+                    </span>
                   </button>
                 ),
               )}
@@ -390,6 +414,7 @@ export default function PresetEditor({
                 quick
                   ? (async () => {
                       setError("");
+                      setSaving(true);
                       try {
                         if (
                           await onSave(value, { id: preset.id, data: baseline })
@@ -397,6 +422,8 @@ export default function PresetEditor({
                           setBaseline(value);
                       } catch (err) {
                         setError(err.message);
+                      } finally {
+                        setSaving(false);
                       }
                     })()
                   : act(() => onSave(value, { id: preset.id, data: baseline }))

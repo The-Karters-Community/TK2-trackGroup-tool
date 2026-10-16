@@ -111,7 +111,7 @@ class Service:
             raise ValueError("This tool currently supports game build 0.1.4.18. Select that installation in Settings.")
 
     def settings(self, body):
-        if self.job and self.job["state"] == "running": raise ValueError("Wait for the current operation before changing settings.")
+        if getattr(self,"quick_saving",False) or self.job and self.job["state"] == "running": raise ValueError("Wait for the current operation before changing settings.")
         profile = body.get("profile", self.profile)
         if profile and profile not in self.profiles: raise ValueError("Choose a detected profile.")
         self.game = str(body.get("game", self.game)).strip()
@@ -159,7 +159,8 @@ class Service:
                 group['missingTracks'] = sum(not self.track_status.get(t.get('workshopId'), {}).get('ready', False) or not self.track_status.get(t.get('workshopId'), {}).get('subscribed', False) for t in workshop) if self.account else None
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
             from .track_library import library, summary
-            return {"version": VERSION, "libraryPreferences":getattr(self,'library_preferences',{'favorites':[],'activity':{}}), "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
+            from .native_quick import available
+            return {"nativeQuickSaveAvailable":available(self.game), "quickSaving":getattr(self,"quick_saving",False), "version": VERSION, "libraryPreferences":getattr(self,'library_preferences',{'favorites':[],'activity':{}}), "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
                 "tracks":library(self.items, self.track_status), "trackSummary":summary(self.items, self.track_status, local), "libraryLoading":self.library_loading,
                 "groups": reviewed, "localGroups": local,
                 "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]) + self.preset_state.get('quickSetups', []))}), "profileHash": getattr(self, 'local_hash', ''),
@@ -198,12 +199,70 @@ class Service:
 
     def start_job(self, action, body):
         with self.lock:
-            if self.job and self.job["state"] == "running": raise ValueError("An operation is already running.")
+            if getattr(self,"quick_saving",False) or self.job and self.job["state"] == "running": raise ValueError("An operation is already running.")
             if action not in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import", "presets"): raise ValueError("Unknown operation.")
             self.cancel.clear()
             self.job = {"id": str(uuid.uuid4()), "action": action, "state": "running", "message": "Starting…", "phase": "starting"}
             threading.Thread(target=self.perform, args=(action, body), daemon=False).start()
             return {"message": "Operation started."}
+
+    def save_live_quick(self, body):
+        """Edit one live Quick Setup, letting the game own serialization and Cloud."""
+        self.supported_game()
+        if not game_running(): raise ValueError('The game is not running. Use the regular save flow.')
+        if not isinstance(body,dict): raise ValueError('Invalid Quick Setup request.')
+        with self.lock:
+            if getattr(self,'quick_saving',False) or self.job and self.job.get('state')=='running': raise ValueError('A save or Steam operation is already running.')
+            if not self.profile or not self.account or not self.cloud_enabled or self.sync_error: raise ValueError('Refresh Steam and resolve the active profile and Cloud status before saving.')
+            self.quick_saving=True
+        try:
+            from .native_quick import request
+            from .presets import verify_edit_base,cosmetic,view
+            from .profile import SAVE_NAME
+            change=body.get('change');baseline=body.get('baseline')
+            if body.get('profile')!=self.profile or not SAVE_NAME.fullmatch(self.profile): raise ValueError('The selected profile changed. Reopen Quick Setup.')
+            if not isinstance(change,dict) or change.get('mode')!='quick' or type(change.get('player'))is not int or not 0<=change['player']<6 or type(change.get('presetId'))is not int: raise ValueError('Choose one existing local-player Quick Setup.')
+            target=cosmetic(change.get('data'),strict=True)
+            path=PROFILE_DIR/self.profile;before=path.read_bytes();profile=Profile(before)
+            verify_edit_base(profile,change,baseline)
+            worker=Worker(self.game)
+            def cloud_matches(raw):
+                remote=worker.request('read-save',{'profile':self.profile,'account':self.account},timeout=20)
+                return remote.get('account')==self.account and remote.get('cloudEnabled') and remote.get('saveHash')==digest(raw)
+            if not cloud_matches(before) or path.read_bytes()!=before: raise ValueError('Local and Steam saves changed or disagree. Refresh Steam before saving; nothing was changed.')
+            folder=DATA/'backups/live-quick';folder.mkdir(parents=True,exist_ok=True)
+            backup=folder/f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}-{self.profile}.bak"
+            backup.write_bytes(before)
+            def current():
+                raw=path.read_bytes();slot=next((p for p in view(Profile(raw))['quickSetups'] if p['player']==change['player'] and p['id']==change['presetId']),None)
+                return raw,slot
+            error=None
+            try: result=request(self.game,self.profile,change['presetId'],change['player'],baseline['data'],target)
+            except Exception as exc: error=exc;result={}
+            deadline=time.monotonic()+5;verified=False
+            while time.monotonic()<deadline:
+                try:
+                    raw,slot=current()
+                    if slot and slot['data']==target:
+                        if cloud_matches(raw) and path.read_bytes()==raw: verified=True;break
+                    elif error: raise error
+                except (OSError,ValueError) as exc:
+                    if error: raise ValueError(f'{error} Safety copy: {backup}') from exc
+                time.sleep(.15)
+            if not verified:
+                # Restore only this target through the game. Never replace the whole
+                # running profile with a stale backup that could discard progress.
+                restored=False
+                try:
+                    request(self.game,self.profile,change['presetId'],change['player'],target,baseline['data'])
+                    raw,slot=current();restored=bool(slot and slot['data']==baseline['data'] and cloud_matches(raw))
+                except Exception: pass
+                outcome='Original Quick Setup restored.' if restored else 'Save persistence is uncertain. Reopen Quick Setup and retain this safety copy.'
+                raise ValueError(f'{outcome} Safety copy: {backup}')
+            with self.lock:self.load_local()
+            return {'message':'Quick Setup saved by the running game. Local and Steam copies verified.'+(' '+result['warning'] if result.get('warning') else ''), 'menuRefreshed':result.get('menuRefreshed',False), 'backup':str(backup)}
+        finally:
+            with self.lock:self.quick_saving=False
 
     def save_live_preset(self, body):
         """Save exactly one unchanged-target preset through the running game's API."""
@@ -211,7 +270,7 @@ class Service:
         if not game_running(): raise ValueError("The game is not running. Use the regular save flow instead.")
         if not isinstance(body, dict): raise ValueError("Invalid live preset request.")
         with self.lock:
-            if self.job and self.job.get("state") == "running":
+            if getattr(self,"quick_saving",False) or self.job and self.job.get("state") == "running":
                 raise ValueError("Finish the current Steam operation before saving a preset.")
         if not self.profile or not self.account or not self.cloud_enabled or self.sync_error:
             raise ValueError("Refresh Steam and resolve the active profile and Cloud status before saving.")

@@ -98,6 +98,17 @@ export function useLibraryState(initial, onSave, onError) {
   return {
     data,
     favorite: (key) => (data.favorites || []).includes(key),
+    migrateFavorites(aliases) {
+      const next = current.current,
+        old = next.favorites || [];
+      if (old.some((key) => aliases[key]))
+        persist({
+          ...next,
+          favorites: [...new Set(old.map((key) => aliases[key] || key))].slice(
+            -5000,
+          ),
+        });
+    },
     toggle(key) {
       const next = current.current,
         favorites = next.favorites || [];
