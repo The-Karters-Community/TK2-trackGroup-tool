@@ -1,8 +1,7 @@
-"""Local-only Unity prefab geometry for the optional Three.js appearance viewer.
+"""Independent setup geometry, rigs, animation and decals from installed assets.
 
-This is a mesh inspection preview, not the game's skinned/animated renderer. It
-reads installed bundles on demand, never bundles game or Workshop assets, and
-keeps generated geometry in the user's application cache.
+No game process or companion is used. Reduced geometry/textures stay in the
+owner's bounded local cache; game and Workshop assets never ship with Garage.
 """
 
 import base64
@@ -12,6 +11,10 @@ from io import BytesIO
 import json
 from pathlib import Path
 import uuid
+import threading
+
+CACHE_LIMIT = 96 * 1024 * 1024
+CACHE_LOCK = threading.Lock()
 
 
 MAX_PACKAGE = 256 * 1024 * 1024
@@ -22,9 +25,10 @@ MAX_NODES = 2_000
 
 
 def _pointer(obj, pointer):
-    if not isinstance(pointer, dict) or pointer.get("m_FileID") != 0:
+    if not isinstance(pointer, dict) or not pointer.get('m_PathID'):
         return None
-    return obj.assets_file.objects.get(pointer.get("m_PathID"))
+    from UnityPy.classes.PPtr import PPtr
+    return PPtr(**pointer, assetsfile=obj.assets_file).deref()
 
 
 def _material(pointer):
@@ -82,7 +86,7 @@ def _geometry(mesh_pointer, materials):
         if len(indices) > 1_800_000:
             return None
         groups.append([start, len(indices) - start, number])
-    return {
+    output = {
         "positions": [round(float(x), 6) for vertex in positions for x in vertex[:3]],
         "normals": [round(float(x), 5) for normal in handler.m_Normals for x in normal[:3]] if len(handler.m_Normals) == len(positions) else [],
         "uv": [round(float(x), 5) for uv in handler.m_UV0 for x in uv[:2]] if len(handler.m_UV0) == len(positions) else [],
@@ -91,9 +95,16 @@ def _geometry(mesh_pointer, materials):
         "materials": [_material(materials[i]) if i < len(materials) else {"color": [0.75, 0.78, 0.82], "texture": None}
                       for i in range(len(triangles))],
     }
+    if handler.m_BoneIndices and handler.m_BoneWeights and mesh.m_BindPose:
+        # Unity may store one or two influences per vertex. Three's skin
+        # attributes always have four; pad each vertex, not the flattened array.
+        output['skinIndices'] = [int(x) for item in handler.m_BoneIndices for x in (list(item) + [0]*4)[:4]]
+        output['skinWeights'] = [round(float(x), 6) for item in handler.m_BoneWeights for x in (list(item) + [0]*4)[:4]]
+        output['bindPoses'] = [[getattr(matrix, f'e{row}{col}') for col in range(4) for row in range(4)] for matrix in mesh.m_BindPose]
+    return output
 
 
-def _node(game_object, depth, visited, count):
+def _node(game_object, depth, visited, count, path=''):
     if depth > 32 or count[2] >= MAX_NODES or game_object.path_id in visited:
         return None
     visited.add(game_object.path_id)
@@ -107,7 +118,8 @@ def _node(game_object, depth, visited, count):
     position = transform.read_typetree()
     mesh_filter = next((c for c in components if c.type.name == "MeshFilter"), None)
     renderer = next((c for c in components if c.type.name in ("SkinnedMeshRenderer", "MeshRenderer")), None)
-    output = {"name": tree.get("m_Name", "Part")[:80], "position": [position["m_LocalPosition"][x] for x in "xyz"],
+    output = {"id":str(transform.path_id), "path":path, "active":bool(tree.get('m_IsActive', 1)),
+              "name": tree.get("m_Name", "Part")[:80], "position": [position["m_LocalPosition"][x] for x in "xyz"],
               "rotation": [position["m_LocalRotation"][x] for x in "xyzw"],
               "scale": [position["m_LocalScale"][x] for x in "xyz"], "children": []}
     if renderer and count[0] < MAX_MESHES:
@@ -117,6 +129,9 @@ def _node(game_object, depth, visited, count):
             geometry = _geometry(mesh, rendered.m_Materials)
             if geometry and count[1] + len(geometry["positions"]) // 3 <= MAX_TOTAL_VERTICES:
                 output["mesh"] = geometry
+                geometry['visible'] = bool(rendered.m_Enabled)
+                if 'skinIndices' in geometry:
+                    geometry['bones'] = [str(p.m_PathID) for p in rendered.m_Bones]
                 count[0] += 1
                 count[1] += len(geometry["positions"]) // 3
         except (OSError, ValueError, AttributeError, KeyError, TypeError):
@@ -127,35 +142,96 @@ def _node(game_object, depth, visited, count):
             continue
         child_go = _pointer(child_transform, child_transform.read_typetree().get("m_GameObject", {}))
         if child_go is not None:
-            node = _node(child_go, depth + 1, visited, count)
+            child_name = child_go.peek_name()
+            node = _node(child_go, depth + 1, visited, count, (path + '/' + child_name).lstrip('/'))
             if node:
                 output["children"].append(node)
     return output
 
 
-def model(appearance, kind, identity):
-    if kind not in ("characters", "vehicles", "wheels") or type(identity) is not int:
+def _rig(prefab, root):
+    """Read only attachment and idle-animation fields; never execute game code."""
+    from .unity_animation import decode_clip
+    output = {'animations':[], 'hidden':[], 'hideVehicle':False, 'offset':[0,0,0]}
+    trees = []
+    for component in prefab.read_typetree().get('m_Component', []):
+        obj = _pointer(prefab, component['component'])
+        if obj and obj.type.name == 'MonoBehaviour':
+            trees.append((obj, obj.read_typetree()))
+    for obj, tree in trees:
+        if 'bHideVehicleAndWheels' in tree:
+            output['hideVehicle'] = bool(tree['bHideVehicleAndWheels'])
+        if 'bHideWheels' in tree:
+            output['hideWheels'] = bool(tree['bHideWheels'])
+        if 'previewParent' in tree:
+            target = _pointer(obj, tree['previewParent'])
+            if target:
+                tr = _pointer(target, target.read_typetree()['m_Component'][0]['component'])
+                output['hidden'].append(str(tr.path_id))
+        if 'characterSocketBone' in tree:
+            output['characterSocket'] = str(tree['characterSocketBone']['m_PathID'])
+            output['wheels'] = [{'node':str(tree[f'{side}_Bone']['m_PathID']), 'scale':tree[f'{side}_WheelSize']}
+                                for side in ('fl','fr','bl','br')]
+            stickers = _pointer(obj, tree.get('stickersManager'))
+            if stickers:
+                output['stickerSlots'] = []
+                for pointer in stickers.read_typetree().get('vehicleStickers', []):
+                    info = _pointer(stickers, pointer)
+                    go = _pointer(info, info.read_typetree()['m_GameObject'])
+                    transform = _pointer(go, go.read_typetree()['m_Component'][0]['component'])
+                    output['stickerSlots'].append(str(transform.path_id))
+            clip = _pointer(obj, tree.get('defaultAnim'))
+            if clip:
+                # Vehicle clips are relative to the animator's GameObject.
+                animator = _pointer(obj, tree.get('vehicleAnimator'))
+                go = _pointer(animator, animator.read_typetree()['m_GameObject']) if animator else None
+                prefix = go.peek_name() if go else ''
+                animation = decode_clip(clip, root, prefix)
+                if animation: output['animations'].append(animation)
+        if 'charAnimationsListSO' in tree:
+            config = _pointer(obj, tree['charAnimationsListSO'])
+            if config:
+                animation_tree = config.read_typetree()
+                for number, category in enumerate(('CharacterA','CharacterB','CharacterC')):
+                    if number >= len(root['children']): break
+                    clips = animation_tree.get(category, {}).get('Menu', [])
+                    for pointer in clips:
+                        clip = _pointer(config, pointer)
+                        if clip and clip.peek_name() == 'Idle_Menu':
+                            animation = decode_clip(clip, root, root['children'][number]['path'])
+                            if animation: output['animations'].append(animation)
+    return output
+
+
+def _source(appearance, kind, identity):
+    if kind not in ("characters", "vehicles", "wheels", "stickers") or type(identity) is not int:
         raise ValueError("This appearance cannot be displayed in 3D.")
     with appearance.lock:
         reference = appearance.model_refs.get(f"{kind}:{identity}")
         game = appearance.game
     if not reference or not game:
-        raise ValueError("No installed model is available for this appearance.")
+        raise ValueError(f"The selected {kind.rstrip('s')} asset is not installed or could not be resolved. Install its Workshop/local content or choose another appearance.")
     directory = Path(reference["directory"]).resolve()
     root = Path(game).resolve()
     workshop = (root.parent.parent / "workshop/content/2269950").resolve()
-    if not (directory.is_relative_to(root / "Mods") or directory.is_relative_to(workshop)):
+    official = root / 'TheKarters2_Data/StreamingAssets/aa/StandaloneWindows64'
+    if not (directory.is_relative_to(root / "Mods") or directory.is_relative_to(workshop) or directory == official):
         raise ValueError("The model path is outside installed game content.")
-    bundles = sorted(p for p in directory.glob("*.bundle") if p.resolve().is_relative_to(directory))
+    bundles = sorted((directory / name for name in reference['bundles']) if 'bundles' in reference else directory.glob('*.bundle'))
+    if any(not p.resolve().is_relative_to(directory) or not p.is_file() for p in bundles):
+        raise ValueError('An installed model dependency is unavailable.')
     if not bundles or sum(p.stat().st_size for p in bundles) > MAX_PACKAGE or any(p.stat().st_size > 64 * 1024 * 1024 for p in bundles):
         raise ValueError("This model package is too large for the lightweight viewer.")
-    signature = hashlib.sha256(json.dumps([2, reference["prefab"],
+    native_files = [root / 'TheKarters2_Data' / name for name in ('level5','sharedassets5.assets','sharedassets1.assets','sharedassets0.assets')] if 'characterType' in reference else []
+    signature = hashlib.sha256(json.dumps([7, reference,
+        *[(p.name,p.stat().st_size,p.stat().st_mtime_ns) for p in native_files],
         *[(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in bundles]]).encode()).hexdigest()
     cache = appearance.folder / "models" / (signature + ".json.gz")
-    if cache.is_file() and cache.stat().st_size < 8 * 1024 * 1024:
-        return cache.read_bytes()
-    import UnityPy
+    return reference, root, bundles, cache
 
+
+def _load_asset(reference, bundles):
+    import UnityPy
     env = UnityPy.load(*map(str, bundles))
     prefab = None
     for obj in env.objects:
@@ -167,21 +243,105 @@ def model(appearance, kind, identity):
                 break
         if prefab:
             break
-    if prefab is None or prefab.type.name != "GameObject":
+    if prefab is None:
         raise ValueError("The installed prefab could not be resolved.")
+    return env, prefab
+
+
+def _cache(cache, raw):
+    cache.parent.mkdir(exist_ok=True)
+    temporary = cache.with_name(cache.name + "." + uuid.uuid4().hex + ".tmp")
+    try:
+        temporary.write_bytes(raw)
+        with CACHE_LOCK:
+            temporary.replace(cache)
+            files = sorted(cache.parent.glob('*.json.gz'), key=lambda p:p.stat().st_mtime_ns, reverse=True)
+            total = 0
+            for file in files:
+                total += file.stat().st_size
+                if total > CACHE_LIMIT and file != cache: file.unlink(missing_ok=True)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _read_cache(cache):
+    with CACHE_LOCK:
+        if cache.is_file() and cache.stat().st_size < 8 * 1024 * 1024:
+            raw = cache.read_bytes()
+            cache.touch()
+            return raw
+    return None
+
+
+def model(appearance, kind, identity):
+    if kind == 'stickers':
+        raise ValueError('Use a complete setup to preview stickers.')
+    reference, root, bundles, cache = _source(appearance, kind, identity)
+    cached = _read_cache(cache)
+    if cached: return cached
+    env, prefab = _load_asset(reference, bundles)
+    if prefab.type.name != 'GameObject':
+        raise ValueError('The installed model is not a GameObject.')
     tree = _node(prefab, 0, set(), [0, 0, 0])
     def mesh_count(node):
         return (1 if node.get("mesh") else 0) + sum(mesh_count(x) for x in node["children"])
     if not tree or mesh_count(tree) == 0:
         raise ValueError("This prefab does not contain a supported mesh.")
-    raw = gzip.compress(json.dumps({"kind": kind, "id": identity, "root": tree}, separators=(",", ":")).encode(), compresslevel=6)
+    rig = _rig(prefab, tree)
+    if kind == 'characters' and 'characterType' in reference:
+        from .native_menu import character_presentation
+        rig.update(character_presentation(root, reference['characterType'], tree))
+    # Character offsets are part of the character's configuration, not guessed
+    # from its mesh bounds. Packages with one CharacterInfo are unambiguous.
+    infos = [o.read_typetree()['charInfo'] for o in env.objects if o.type.name == 'MonoBehaviour'
+             and ('characterInfo' not in reference or str(o.path_id) == reference['characterInfo'])
+             and 'charInfo' in o.read_typetree()]
+    if kind == 'characters' and 'characterType' not in reference and len(infos) == 1:
+        offset = infos[0].get('vCharOffsetPosInVehicle', {})
+        rig['offset'] = [offset.get(axis, 0) for axis in 'xyz']
+    raw = gzip.compress(json.dumps({"kind": kind, "id": identity, "root": tree, "rig":rig}, separators=(",", ":")).encode(), compresslevel=6)
     if len(raw) > 8 * 1024 * 1024:
         raise ValueError("This model exceeds the preview size limit.")
-    cache.parent.mkdir(exist_ok=True)
-    temporary = cache.with_name(cache.name + "." + uuid.uuid4().hex + ".tmp")
-    try:
-        temporary.write_bytes(raw)
-        temporary.replace(cache)
-    finally:
-        temporary.unlink(missing_ok=True)
+    _cache(cache, raw)
+    return raw
+
+
+def sticker_texture(appearance, identity):
+    # The supported build's explicit empty-sticker config has no asset GUID.
+    if identity in (-1, 0, 868534): return None
+    reference, _, bundles, cache = _source(appearance, 'stickers', identity)
+    cached = _read_cache(cache)
+    if cached:
+        return json.loads(gzip.decompress(cached))['texture']
+    _, asset = _load_asset(reference, bundles)
+    texture = _pointer(asset, asset.read_typetree().get('textureClamp'))
+    result = _texture_ref(texture) if texture else None
+    if not result: raise ValueError('The installed sticker texture could not be resolved.')
+    _cache(cache, gzip.compress(json.dumps({'texture':result}).encode()))
+    return result
+
+
+def setup(appearance, body):
+    from .presets import cosmetic
+    data = cosmetic(body.get('data'), strict=True)
+    view = body.get('view')
+    if view not in ('original','modded'):
+        raise ValueError('Choose Original or Modded for the 3D setup.')
+    suffix = '_Modded' if view == 'modded' else ''
+    parts = {}
+    for kind, field in [('characters','iCharacterSkinMaterialID'), ('vehicles','iVehicleMaterialID'), ('wheels','iWheelMaterialID')]:
+        if kind == 'wheels' and parts['vehicles']['rig'].get('hideWheels'): continue
+        parts[kind] = json.loads(gzip.decompress(model(appearance, kind, data[field + suffix])))
+        if kind == 'characters' and parts[kind]['rig']['hideVehicle']:
+            break
+    stickers = []
+    if 'vehicles' in parts:
+        textures = {}
+        for slot in data['stickersData'][:len(parts['vehicles']['rig'].get('stickerSlots', []))*2]:
+            identity = slot['iStickerMaterialID' + suffix]
+            if identity not in textures: textures[identity] = sticker_texture(appearance, identity)
+            stickers.append({'texture':textures[identity], 'settings':slot['iStickerMaterialID' + suffix + '_SettingsPacked']})
+    raw = gzip.compress(json.dumps({'kind':'setup', 'parts':parts, 'stickers':stickers}, separators=(',',':')).encode(), compresslevel=6)
+    if len(raw) > 20 * 1024 * 1024:
+        raise ValueError('This setup exceeds the lightweight preview size limit.')
     return raw

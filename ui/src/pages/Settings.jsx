@@ -60,11 +60,12 @@ export default function Settings({ state, busy, run }) {
         </button>
       </div>
       <div className="settings-section">
-        <h2>Live 3D preview · optional</h2>
+        <h2>Game connection · optional</h2>
         <p>
-          The game can render unsaved cosmetic selections while it stays at its
-          main menu. This companion requires BepInEx Unity IL2CPP and game build
-          0.1.4.18. Normal Garage features work without it.
+          Full 3D setups render locally in Garage without this connection. The
+          optional companion adds a reference image from the game and saves one
+          preset while the game stays at its main menu. It requires BepInEx
+          Unity IL2CPP and game build 0.1.4.18.
         </p>
         <p>
           {state.previewCompanion?.installed
@@ -90,9 +91,9 @@ export default function Settings({ state, busy, run }) {
           </button>
         )}
         <p className="hint">
-          Close the game before installing. Save editing still requires the game
-          closed. Toolkit online protection may treat this optional plugin as
-          unapproved.
+          Close the game before installing or removing the companion. Imports
+          and group edits still require the game closed; one existing preset can
+          save live after Steam and profile verification.
         </p>
       </div>
       <div className="settings-section">

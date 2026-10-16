@@ -2,7 +2,7 @@
 
 A desktop and browser companion for **The Karters 2: Turbo Charged**. Share ordered track groups, organize customization presets, and browse installed cosmetic appearances. The desktop app also manages Workshop track subscriptions.
 
-**Development version: 0.1.1-dev.** The Garage redesign and presets are in current source and the hosted website. **Stable Windows release: 0.1.0**, which predates these features. Supports game build **0.1.4.18**, Steam app **2269950**. Normal features require no BepInEx or mod toolkit. [Optional live 3D previews](docs/LIVE-PREVIEW.md) use a small game companion. [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
+**Development version: 0.1.1-dev.** The Garage redesign and presets are in current source and the hosted website. **Stable Windows release: 0.1.0**, which predates these features. Supports game build **0.1.4.18**, Steam app **2269950**. Normal features require no BepInEx or mod toolkit. [Independent 3D setups](docs/LIVE-PREVIEW.md) render from installed assets; an optional companion supports game reference frames and live saving. [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
 
 **Prefer a website?** [Open the browser edition](https://the-karters-community.github.io/TK2-trackGroup-tool/). Browse the Speedrun library, download group files, and prepare save edits locally without an executable or profile upload. Applying them requires manual Workshop subscriptions and file replacement with Steam Cloud disabled for this game. [Browser instructions and limits](docs/WEB.md).
 
@@ -59,10 +59,12 @@ selections and 20 sticker slots are included, without player data or mod assets.
 
 Desktop saved previews come from `%USERPROFILE%\AppData\LocalLow\PixelEdgeGames\TheKarters2\PresetIcons`.
 Appearance metadata loads in the background from installed game and mod bundles
-and is cached locally. In the editor, **3D appearance** lets you orbit an
-installed character, vehicle or wheel independently; **Full setup** shows the
-game's accurate assembled render when the optional companion is running. The
-same companion can save one existing preset through the running game's own
+and is cached locally. **Full setup** assembles the installed character, kart,
+wheels and stickers in Three.js, with skeleton animation, orbit and zoom.
+Selection changes rebuild this local scene without a running game or BepInEx.
+**Selected part** isolates an appearance. **Game reference** optionally requests
+a Unity-rendered comparison image. The optional companion can also save one
+existing preset through the running game's own
 save method after Steam/profile verification. Other save edits need the game
 closed. Pictures load as you scroll. In the browser edition, use
 **Connect game folder** and choose `TheKarters2` to load the save and pictures together.
@@ -78,7 +80,7 @@ Sticker placement stays unchanged and is edited in the game.
 
 ![Direct editing with conditional Save and Discard controls](docs/images/inline-edit.png)
 
-Both Browse groups and My groups offer Gallery and List views, remembered independently. Track previews appear in galleries, group details and import reviews. Steam success messages dismiss after five seconds.
+Both Browse groups and My groups offer Gallery and List views, remembered independently. Track previews appear in galleries, group details and import reviews. Transient notifications dismiss after ten seconds.
 
 Only reviewed catalog submissions appear in Browse groups. The bundled four collections are under Speedrun; the Community category is ready for future reviewed submissions.
 

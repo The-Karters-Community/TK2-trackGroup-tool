@@ -1,13 +1,39 @@
 # Garage previews and live preset saving
 
-Garage itself needs no BepInEx. For installed Workshop and local cosmetic
-prefabs, the desktop app can extract a real mesh and reduced textures into its
-private cache and show that selected **character, vehicle or wheel** in Three.js.
-Drag to orbit and scroll to zoom. No game assets ship with the app. This mesh
-viewer does not yet assemble the full kart, apply skeleton animation or reproduce
-Unity shaders; **Full setup** uses the game's own renderer for an accurate pose.
-Its optional companion renders detached temporary copies without creating a
-saved preset. The same companion can ask the running game to save one preset.
+## Independent full-setup rendering
+
+Garage's desktop **Full setup** is an interactive Three.js scene. It reads the
+owner's installed official, Workshop and local assets, preserving the prefab
+hierarchy, skeleton/bind poses, menu idle animation, character seating offset,
+vehicle seat/wheel sockets and per-wheel scale. Characters that hide the kart
+and vehicles that hide separate wheels are respected. Sticker textures use the
+vehicle's authored surfaces and saved packed position/size/rotation/opacity.
+
+No running game, Steam connection, injected DLL or BepInEx is needed to render.
+Drag to orbit, scroll to zoom, and use Pause/Play for motion. Reduced-motion
+preferences start paused. Changing a selection rebuilds the scene while keeping
+the camera angle. **Selected part** isolates one cosmetic. Initial extraction
+can take several seconds; a 96 MiB local LRU cache speeds subsequent loads.
+No extracted assets are distributed or included in portable files.
+
+Original character seating and menu overrides currently target **0.1.4.18**.
+A fingerprint verifies the narrow native menu record before using its references;
+an incompatible layout fails explicitly. Generic streamed/dense/constant Unity
+transform animation is supported; humanoid muscle retargeting and arbitrary
+script curves are not. Standard Three.js materials approximate Unity shaders;
+sticker tint/color effects are not reproduced. Missing assets are reported. Clips that expand the model abnormally fall back
+to a labeled rest pose. Wheel bounds are normalized to unit height, matching
+the game, before the authored per-wheel size is applied.
+The browser edition still uses saved images and explicit folder permission; it
+cannot decode the desktop's installed Unity bundles.
+
+## Optional game reference and live saving
+
+**Game reference** requests a Unity-rendered comparison image through the
+optional companion. It renders detached temporary copies without creating a
+saved preset. The same companion supports saving one existing preset through
+the game's own method while it is at the main menu. Rendering locally and
+synchronizing the running game's in-memory save are separate operations.
 
 ## Setup (current development source)
 
@@ -16,11 +42,11 @@ saved preset. The same companion can ask the running game to save one preset.
 2. With a .NET SDK installed, run `python tools/build_preview_bridge.py` in this
    repository. Only the authored companion DLL is copied to ignored
    `local/preview-bridge/`; installed game/runtime DLLs are compile references.
-3. Close the game. In Garage **Settings → Live 3D preview**, click **Install
+3. Close the game. In Garage **Settings → Game connection (optional)**, click **Install
    preview companion**. This writes only
    `BepInEx/plugins/TK2-Garage-Preview/TK2.Garage.Preview.dll`.
 4. Open the game yourself and leave it at its main menu. Open a preset in Garage.
-   **3D appearance** works independently from installed assets; **Full setup**
+   **Full setup** works independently from installed assets; **Game reference**
    uses the native game renderer and refreshes after a short debounce.
 5. Connect Steam and resolve any profile/Cloud conflict. You can save changes to
    one existing preset while the game remains at its main menu. The companion
@@ -35,7 +61,7 @@ config or background process outside the game.
 
 ## Boundaries
 
-- The renderer lives in `MainMenuScene`, including an online lobby in that scene.
+- The optional companion renderer lives in `MainMenuScene`, including an online lobby in that scene.
   No online-room restriction is imposed; races use a different scene and are not
   supported. Actual online-lobby rendering remains to be manually validated.
 - Toolkit compatibility approves exactly `community.tk2.garage.preview` in the
@@ -63,10 +89,10 @@ config or background process outside the game.
   the user changes selection; stale responses never replace the current image.
 - Static websites cannot access named pipes or silently access game directories.
   They retain saved images and appearance thumbnails with explicit stale labels.
-- Three.js geometry is extracted only on request, from the owner's installed
-  `Mods` or Steam Workshop bundles. The app caches it locally. Unsupported or
-  missing prefabs fall back to the full saved/game-rendered image. Character
-  skinning and exact full-setup composition remain future work.
+- Independent geometry, textures and clips are read on request from the owner's
+  installed assets. Authentication and bounded sizes apply to the local endpoint.
+  Requests for Full setup do not use the companion pipe. Original/modded changes
+  do not alter the profile until a separate Save action succeeds.
 
 ## Evidence
 
@@ -101,3 +127,32 @@ Compile first, then use `python tools/build_portable.py --preview-companion
 local/preview-bridge/TK2.Garage.Preview.dll` when explicitly building a distribution.
 Only this authored DLL is included; no BepInEx, interop assemblies, game assets or
 .NET compile references are shipped. Normal builds omit the optional companion.
+
+### Independent renderer verification (2026-10-16)
+
+REA browser scenarios rendered an animated 13-mesh modded Crash setup and an
+animated 50-mesh original Bobby setup. Captured frames changed over time; both
+used the local model endpoint without companion-render requests or page errors.
+An original vehicle's two-influence skin layout exposed a conversion bug; the
+reader now pads per vertex to Three's four-influence format, with a regression
+test. The installed library was also checked for a vehicle-hiding rocketboard.
+
+Native evidence used for composition: `PTK_PlayerPreviewItem.SetupCharacter`
+(0x180770290), `SetPlayerInCorrectPosition` (0x18076fe40),
+`PTK_KartVisual.InitWheels` (0x18095a270), and
+`PTK_ModVehicleWheelsSetupPreview.Update` (0x180a6d080). Sticker packing and
+placement follow `CStickerIntBitVariable` (0x180a6ac90),
+`IntVariablePacker.UnpackVariables` (0x180a53680), and
+`PTK_VehicleStickerInfo.SetStickerSetting` (0x180a73310).
+Wheel loading was additionally verified by a fresh read-only local Ghidra
+export of `PTK_KartVisual.<SpawnWheels>b__0` (0x1809618a0), which calls
+`PTK_KartVisual_WheelParams.CalculateBoundsAndNormalizeHeight` (0x180966830).
+The latter resets child zero and normalizes its renderer bounds to unit height.
+These are observations from Ghidra pseudocode and serialized assets, not
+recovered original C# source. REA's native Windows provider could not analyze
+this DLL; local Ghidra supplied the missing callback evidence.
+
+All 38 resolvable views from the owner's 20 saved setups assembled with finite
+bounds. Two modded views referenced unresolved vehicles. One rocketboard clip
+needs runtime retargeting and displays a labeled rest pose. REA also verified
+the normalized original Puma/quad/wheel setup with no companion-render requests.

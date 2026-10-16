@@ -1,27 +1,42 @@
 import { useEffect, useRef, useState } from "react";
+import { createModel, createSetup, visibleBounds } from "./modelScene.js";
 
-// The model data comes from locally installed Unity bundles. Three.js is loaded
-// only when the user opens this viewer; no game meshes ship with the app.
-export default function ModelViewer({ kind, id, loadModel }) {
+export default function ModelViewer({ kind, id, loadModel, preset, view }) {
   const host = useRef(null);
-  const [message, setMessage] = useState("Loading installed model…");
+  const cameraState = useRef(null);
+  const [message, setMessage] = useState("Loading installed models…");
+  const [warning, setWarning] = useState("");
+  const [hasMotion, setHasMotion] = useState(false);
+  const [animated, setAnimated] = useState(
+    () => !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+  const playing = useRef(animated);
+  playing.current = animated;
+  const request = JSON.stringify(
+    kind === "setup" ? { kind, data: preset, view } : { kind, id },
+  );
   useEffect(() => {
     if (!host.current) return;
     let disposed = false;
     let cleanup = () => {};
     const abort = new AbortController();
+    const resources = [];
     async function start() {
+      setMessage("Loading installed models…");
+      setWarning("");
       try {
         const [THREE, { OrbitControls }, data] = await Promise.all([
           import("three"),
           import("three/addons/controls/OrbitControls.js"),
-          loadModel({ kind, id }, abort.signal),
+          loadModel(JSON.parse(request), abort.signal),
         ]);
         if (disposed || !host.current) return;
         const canvas = document.createElement("canvas");
         canvas.setAttribute(
           "aria-label",
-          `Interactive ${kind.slice(0, -1)} model`,
+          kind === "setup"
+            ? "Interactive full setup"
+            : `Interactive ${kind.slice(0, -1)} model`,
         );
         host.current.replaceChildren(canvas);
         const renderer = new THREE.WebGLRenderer({
@@ -30,6 +45,7 @@ export default function ModelViewer({ kind, id, loadModel }) {
           alpha: true,
         });
         cleanup = () => {
+          resources.forEach((r) => r.dispose());
           renderer.dispose();
           renderer.forceContextLoss();
           canvas.remove();
@@ -46,94 +62,43 @@ export default function ModelViewer({ kind, id, loadModel }) {
         fill.position.set(-3, 1, -2);
         scene.add(fill);
         const asset = new THREE.Group();
-        const resources = [];
-        let meshCount = 0;
-        function build(node) {
-          const group = new THREE.Group();
-          group.position.fromArray(node.position);
-          group.quaternion.fromArray(node.rotation);
-          group.scale.fromArray(node.scale);
-          if (node.mesh) {
-            const source = node.mesh;
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute(
-              "position",
-              new THREE.Float32BufferAttribute(source.positions, 3),
-            );
-            if (source.normals.length === source.positions.length)
-              geometry.setAttribute(
-                "normal",
-                new THREE.Float32BufferAttribute(source.normals, 3),
-              );
-            else geometry.computeVertexNormals();
-            if (source.uv.length * 3 === source.positions.length * 2)
-              geometry.setAttribute(
-                "uv",
-                new THREE.Float32BufferAttribute(source.uv, 2),
-              );
-            geometry.setIndex(source.indices);
-            for (const [start, count, material] of source.groups)
-              geometry.addGroup(start, count, material);
-            const materials = source.materials.map((item) => {
-              const m = new THREE.MeshStandardMaterial({
-                color: new THREE.Color().setRGB(...item.color),
-                roughness: 0.85,
-                side: THREE.DoubleSide,
-              });
-              if (item.texture) {
-                const texture = new THREE.TextureLoader().load(
-                  `data:image/png;base64,${item.texture}`,
-                );
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-                m.map = texture;
-                resources.push(texture);
-              }
-              resources.push(m);
-              return m;
-            });
-            if (!materials.length) {
-              materials.push(
-                new THREE.MeshStandardMaterial({
-                  color: 0xc8d4d5,
-                  side: THREE.DoubleSide,
-                }),
-              );
-              resources.push(materials[0]);
-            }
-            group.add(new THREE.Mesh(geometry, materials));
-            resources.push(geometry);
-            meshCount += 1;
-          }
-          for (const child of node.children) group.add(build(child));
-          return group;
-        }
-        const modelRoot = build(data.root);
-        asset.add(modelRoot);
+        const result =
+          kind === "setup"
+            ? createSetup(THREE, data, resources)
+            : createModel(THREE, data, resources);
+        const models = result.models || [result];
+        const motion = models.some(
+          (m) => !m.warning && m.rig.animations?.length,
+        );
+        setHasMotion(motion);
+        setWarning(models.find((m) => m.warning)?.warning || "");
+        asset.add(result.root);
         scene.add(asset);
-        if (!meshCount)
+        if (!result.meshCount)
           throw new Error("This model contains no supported meshes.");
-        const bounds = new THREE.Box3().setFromObject(asset);
+        scene.updateMatrixWorld(true);
+        const bounds = visibleBounds(THREE, asset);
         const size = bounds.getSize(new THREE.Vector3());
         const longest = Math.max(size.x, size.y, size.z);
         if (!Number.isFinite(longest) || longest <= 0)
           throw new Error("Invalid model dimensions.");
-        const center = bounds.getCenter(new THREE.Vector3());
-        modelRoot.position.sub(center);
+        result.root.position.sub(bounds.getCenter(new THREE.Vector3()));
         asset.scale.setScalar(1.8 / longest);
-        // Unity assets use a left-handed coordinate system. Reflect as a group,
-        // while two-sided materials keep submeshes visible during inspection.
         asset.scale.x *= -1;
-        camera.position.set(0, 0.1, 3.4);
+        camera.position.fromArray(
+          cameraState.current?.position || [2.2, 1.3, 3.1],
+        );
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;
-        controls.enablePan = false;
-        controls.minDistance = 1.4;
+        controls.enablePan = true;
+        controls.minDistance = 1.2;
         controls.maxDistance = 8;
+        if (cameraState.current)
+          controls.target.fromArray(cameraState.current.target);
         const resize = new ResizeObserver(() => {
           if (!host.current) return;
-          const width = host.current.clientWidth;
-          const height = host.current.clientHeight;
+          const width = host.current.clientWidth,
+            height = host.current.clientHeight;
           if (width && height) {
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
@@ -141,19 +106,34 @@ export default function ModelViewer({ kind, id, loadModel }) {
           }
         });
         resize.observe(host.current);
+        const clock = new THREE.Clock();
         let frame;
         function draw() {
           frame = requestAnimationFrame(draw);
+          const delta = Math.min(clock.getDelta(), 0.05);
+          if (document.hidden) return;
+          if (playing.current)
+            models.forEach((model) => model.mixer.update(delta));
           controls.update();
           renderer.render(scene, camera);
         }
         draw();
         setMessage("");
+        host.current.dataset.meshes = String(result.meshCount);
+        host.current.dataset.animated = String(motion);
         cleanup = () => {
+          cameraState.current = {
+            position: camera.position.toArray(),
+            target: controls.target.toArray(),
+          };
           cancelAnimationFrame(frame);
           resize.disconnect();
           controls.dispose();
-          resources.forEach((resource) => resource.dispose());
+          models.forEach((m) => {
+            m.mixer.stopAllAction();
+            m.mixer.uncacheRoot(m.root);
+          });
+          resources.forEach((r) => r.dispose());
           renderer.dispose();
           renderer.forceContextLoss();
           canvas.remove();
@@ -170,18 +150,35 @@ export default function ModelViewer({ kind, id, loadModel }) {
       abort.abort();
       cleanup();
     };
-  }, [kind, id, loadModel]);
+  }, [request, kind, loadModel]);
   return (
-    <div className="model-viewer">
-      <div className="model-canvas" ref={host} />
-      {message && (
-        <p className="model-message" role="status">
-          {message}
+    <>
+      <div className="model-viewer">
+        <div className="model-canvas" ref={host} />
+        {message ? (
+          <p className="model-message" role="status">
+            {message}
+          </p>
+        ) : (
+          <>
+            <span className="model-hint">Drag to rotate · Scroll to zoom</span>
+            {hasMotion && (
+              <button
+                className="model-motion"
+                aria-pressed={animated}
+                onClick={() => setAnimated((v) => !v)}
+              >
+                {animated ? "Pause motion" : "Play motion"}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      {warning && !message && (
+        <p className="hint" role="status">
+          {warning}
         </p>
       )}
-      {!message && (
-        <span className="model-hint">Drag to rotate · Scroll to zoom</span>
-      )}
-    </div>
+    </>
   );
 }

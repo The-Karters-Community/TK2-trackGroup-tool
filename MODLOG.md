@@ -142,3 +142,45 @@
   with standard backup. Actual online-lobby rendering and upload/join behavior
   have not been exercised. See docs/LIVE-PREVIEW.md for limits and build steps.
 - App stays 0.1.1-dev. No release, portable EXE or ZIP built for this change.
+
+
+## 2026-10-16 — independent full-setup Three.js renderer
+
+- Applied Universal Modder/reverse-engineering guidance. REA opened the installed
+  GameAssembly.dll; native analysis was unavailable on this Windows provider.
+  Used existing local Ghidra pseudocode plus installed serialized data, not an
+  invented decompilation result. REA browser scenarios exercised actual WebGL.
+- Replaced the default companion frame with local full-setup composition:
+  Addressables prefab/dependency resolution, preserved hierarchy/skinning,
+  generic menu clips, original-character menu overrides/worker seating transforms,
+  vehicle seat/four wheel mounts, hide-vehicle/hide-wheel flags and sticker surfaces.
+  A fingerprint gates the native 0.1.4.18 record. No game process, injected DLL,
+  companion pipe or Steam connection is needed for this renderer.
+- Reduced textures/geometry stay in a 96 MiB local cache. No game/Workshop assets
+  enter Git or portable assets. Three.js remains lazy-loaded; website builds
+  retain the saved-image path without shipping the Three.js runtime.
+- Checked extraction for all 20 saved setups in both views: 38 resolved; two
+  modded vehicles were not installed/resolvable. Full scene assembly found the
+  original vehicle's two-influence skin format; pad each vertex to four instead
+  of misaligning attributes. Visible bounds exclude hidden preview helpers.
+- REA verified moving 13-mesh modded Crash and 50-mesh original Bobby scenes,
+  with zero companion-render requests and no page errors. Rocketboard excludes
+  separate kart/wheels. Its unsupported animation uses a labeled rest pose;
+  wheel sizing follows the freshly inspected native normalization callback. Unity shaders/sticker tint and
+  humanoid retargeting are not claimed as exact. Live saving remains optional
+  companion behavior; this work does not change save transactions.
+- Version stays 0.1.1-dev; no release requested.
+
+- A fresh read-only Ghidra export of wheel-spawn callback 0x1809618a0 exposed the
+  missing CalculateBoundsAndNormalizeHeight call (0x180966830). Implemented unit
+  height normalization before mount sizing. All 38 resolved views now assemble
+  with finite visible bounds; one uses a labeled animation rest-pose fallback.
+  REA verified original Puma on its selected quad after the normalization fix.
+
+- Final verification: 83 Python tests and 81 UI tests passed; desktop and website
+  builds succeeded. Relocated frozen app with no developer PATH decoded both
+  preview views, preserved the save hash, exited and allowed folder rename.
+  Cleanup deletion was rejected by automatic approval review; test copies remain
+  under ignored local/native-smoke-*. Flat ZIP: 27.1 MiB; all 244 manifest entries
+  and ZIP SHA-256 matched. No extracted bundles/models, game binaries or steam_api
+  DLLs were distributed.

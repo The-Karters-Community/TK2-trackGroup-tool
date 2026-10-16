@@ -3,7 +3,7 @@ import PresetPreview from "./PresetPreview.jsx";
 
 const ModelViewer = lazy(() => import("./ModelViewer.jsx"));
 
-// One native render after a settled edit, never a per-frame screenshot stream.
+// Independent Three.js is the default; native reference frames are opt-in.
 export default function LivePresetPreview({
   data,
   view,
@@ -16,12 +16,14 @@ export default function LivePresetPreview({
   modelId,
   modelAvailable = false,
 }) {
-  const [mode, setMode] = useState("model");
+  const [mode, setMode] = useState("setup");
   const [rotation, setRotation] = useState(0);
   const [frame, setFrame] = useState(null);
   const [message, setMessage] = useState("");
   const key = JSON.stringify({ data, view, rotation });
-  const showModel = Boolean(loadModel && modelAvailable && mode === "model");
+  const showModel = Boolean(
+    loadModel && (mode === "setup" || (modelAvailable && mode === "model")),
+  );
   useEffect(
     () => () => {
       if (frame?.url) URL.revokeObjectURL(frame.url);
@@ -64,27 +66,44 @@ export default function LivePresetPreview({
   const current = frame?.key === key;
   return (
     <div className="live-preview">
-      {modelAvailable && loadModel && (
+      {loadModel && (
         <div className="preview-mode" aria-label="Preview mode">
           <button
-            className={showModel ? "active" : ""}
-            aria-pressed={showModel}
-            onClick={() => setMode("model")}
-          >
-            3D appearance
-          </button>
-          <button
-            className={!showModel ? "active" : ""}
-            aria-pressed={!showModel}
-            onClick={() => setMode("full")}
+            className={mode === "setup" ? "active" : ""}
+            aria-pressed={mode === "setup"}
+            onClick={() => setMode("setup")}
           >
             Full setup
           </button>
+          {modelAvailable && (
+            <button
+              className={mode === "model" ? "active" : ""}
+              aria-pressed={mode === "model"}
+              onClick={() => setMode("model")}
+            >
+              Selected part
+            </button>
+          )}
+          {renderPreview && (
+            <button
+              className={!showModel ? "active" : ""}
+              aria-pressed={!showModel}
+              onClick={() => setMode("full")}
+            >
+              Game reference
+            </button>
+          )}
         </div>
       )}
       {showModel ? (
         <Suspense fallback={<p className="hint">Opening 3D viewer…</p>}>
-          <ModelViewer kind={modelKind} id={modelId} loadModel={loadModel} />
+          <ModelViewer
+            kind={mode === "setup" ? "setup" : modelKind}
+            id={modelId}
+            loadModel={loadModel}
+            preset={data}
+            view={view}
+          />
         </Suspense>
       ) : frame ? (
         <span className="preset-preview preset-hero">
@@ -107,7 +126,9 @@ export default function LivePresetPreview({
       )}
       <p className="hint" role="status">
         {showModel
-          ? "Installed appearance mesh · unsaved selection"
+          ? mode === "setup"
+            ? "Local 3D setup · no game connection required"
+            : "Installed appearance · unsaved selection"
           : current
             ? "Live game render · unsaved preview"
             : frame

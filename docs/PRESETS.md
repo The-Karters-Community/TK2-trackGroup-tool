@@ -54,23 +54,25 @@ The Original/Modded tabs choose which cosmetic fields to edit; selecting a prese
 in the game sets `bUsingModdedVersion` from the game's own display control, so the
 app preserves that flag rather than offering a misleading global switch.
 
-For installed modded appearances, **3D appearance** displays a selected
-character, vehicle or wheel as an orbitable Three.js mesh extracted from local
-bundles. It does not yet pose a character or assemble all parts into a kart.
-**Full setup** uses the optional companion and the actual game camera. Leave the
-game at its main menu, then edit a preset in Garage. Changes settle for 300 ms
-before requesting a new frame; rotate with the slider. A temporary detached
-preset supplies the renderer and is discarded afterward. Successful default-angle
-images are cached by exact selections in Garage, so they do not require a
-game-generated preset icon.
+**Full setup** now renders locally in Three.js from installed official, Workshop
+and local bundles. It attaches the character to the vehicle's authored seating
+socket, poses the skeleton with its menu animation, and places the selected
+wheels on the four authored mounts. Supported sticker surfaces use the saved
+placement settings. Orbit, zoom and pause/play work without a running game or
+BepInEx. **Selected part** isolates a character, vehicle or wheel. First loads
+extract/cache reduced textures and geometry; later loads reuse a bounded cache.
+Unity-specific shader effects and sticker tint effects are approximations.
+Missing assets show an error instead of silently using a different vehicle.
+
+**Game reference** is a separate, optional companion-rendered comparison frame.
+It needs the running game at its main menu and never creates a saved preset.
 
 With Steam/profile checks passing, the rebuilt companion can save **one existing
 preset** through the running game's own save method. Garage checks the exact
 previous target, keeps a safety copy, and verifies the local result. Other
 changes still require the game closed and the verified local/Steam transaction.
 
-Without the companion, Garage keeps the saved full image visible and labels it
-when it differs from the draft. Component thumbnails still show exact selections.
+The desktop full setup does not depend on the companion.
 The hosted website uses the saved-image fallback; browser sandboxing prevents
 direct access to the game's Windows pipe or installed Unity bundles. See
 [LIVE-PREVIEW.md](LIVE-PREVIEW.md) for the distinct preview and save paths.

@@ -1700,6 +1700,14 @@ progress {
   border-radius: 8px;
   background: radial-gradient(circle at 50% 45%, #35443b, #192018 75%);
 }
+.model-motion {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 5px 8px;
+  font-size: 11px;
+  background: var(--surface);
+}
 .model-canvas,
 .model-canvas canvas {
   display: block;

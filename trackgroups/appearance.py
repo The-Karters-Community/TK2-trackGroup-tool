@@ -187,7 +187,7 @@ class Appearance:
             try:
                 saved = json.loads(cache.read_text(encoding="utf-8"))
                 if (
-                    saved.get("version") == 5
+                    saved.get("version") == 10
                     and saved.get("signature") == signature
                     and not saved.get("previewError")
                 ):
@@ -205,6 +205,11 @@ class Appearance:
 
             result = {kind: {} for kind in KINDS.values()}
             model_refs = {}
+            from .addressables import Addressables
+            try:
+                official_catalog = Addressables(Path(game) / 'TheKarters2_Data/StreamingAssets/aa/catalog.json')
+            except (OSError, ValueError, KeyError):
+                official_catalog = None
             finished = set()
             names = {}
             for file, source in sources:
@@ -234,6 +239,12 @@ class Appearance:
                             )
                             if not kind:
                                 continue
+                            if official_catalog:
+                                reference_field = {'characters':'CharacterSkinMaterialPrefabAssetReference', 'vehicles':'KartSkinMaterialPrefabAssetReference', 'wheels':'WheelPrefabAssetReference', 'stickers':'StickerPrefabAssetReference_canBeNull'}[kind]
+                                ref = official_catalog.resolve(tree.get(reference_field, {}).get('m_AssetGUID'), asset=kind=='stickers')
+                                if ref:
+                                    if kind == 'characters': ref['characterType'] = tree.get('CharacterType')
+                                    model_refs[f"{kind}:{tree['iMainScriptableObjectConfigIDUnique']}"] = ref
                             chain = [tree]
                             parent = tree.get("objectParentConfig", {}).get("m_PathID")
                             while parent in trees and len(chain) < 5:
@@ -276,6 +287,10 @@ class Appearance:
                             )
                             result[kind][str(identity)] = entry
                         elif isinstance(tree.get("modContentInfo"), dict):
+                            try:
+                                package_catalog = Addressables(file.parent / 'catalog_config.json')
+                            except (OSError, ValueError, KeyError):
+                                package_catalog = None
                             thumbs = {
                                 t.get("strObjDirName_AddressableKey"): t.get(
                                     "spriteThumbnail", {}
@@ -309,9 +324,19 @@ class Appearance:
                                     identity,
                                 )
                                 result[kind][str(identity)] = entry
-                                prefab = model_prefab(file.parent, kind, raw_parts)
-                                if prefab:
-                                    model_refs[f"{kind}:{identity}"] = {"directory": str(file.parent), "prefab": prefab}
+                                reference = package_catalog.resolve(variant.get('strPrefabFileName_AddressableKey'), asset=kind=='stickers') if package_catalog else None
+                                if not reference and kind != 'stickers':
+                                    prefab = model_prefab(file.parent, kind, raw_parts)
+                                    if prefab: reference = {"directory": str(file.parent), "prefab": prefab}
+                                if reference:
+                                    # Include package metadata needed for exact character offsets.
+                                    if kind == 'characters':
+                                        char = next(c for c in tree['modContentInfo']['characters'] if c.get('strCharacterDirName') == raw_parts[0])
+                                        reference['characterInfo'] = str(char.get('inGameCharacterInfo', {}).get('m_PathID', 0))
+                                        # Small metadata bundles can be separate from the model's dependency chain.
+                                        if 'bundles' in reference:
+                                            reference['bundles'] = sorted(set(reference['bundles']) | {p.name for p in file.parent.glob('*.bundle') if p.stat().st_size < 128 * 1024})
+                                    model_refs[f"{kind}:{identity}"] = reference
                             finished.add(file.parent)
                 except Exception:
                     # One damaged/unavailable package must not hide the library.
@@ -319,7 +344,7 @@ class Appearance:
             write_json(
                 cache,
                 {
-                    "version": 5,
+                    "version": 10,
                     "signature": signature,
                     "items": result,
                     "modelRefs": model_refs,
