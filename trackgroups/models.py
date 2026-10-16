@@ -119,11 +119,16 @@ def _geometry(mesh_pointer, materials):
         "materials": [_material(materials[i]) if i < len(materials) else {"color": [0.75, 0.78, 0.82], "texture": None}
                       for i in range(len(triangles))],
     }
-    if handler.m_BoneIndices and handler.m_BoneWeights and mesh.m_BindPose:
+    # Unity's one-influence optimization omits the weight stream entirely.
+    # These are still skinned surfaces (notably separate facial meshes).
+    weights = handler.m_BoneWeights
+    if not weights and handler.m_BoneIndices and all(len(item) == 1 for item in handler.m_BoneIndices):
+        weights = [(1.0,)] * len(handler.m_BoneIndices)
+    if handler.m_BoneIndices and weights and mesh.m_BindPose:
         # Unity may store one or two influences per vertex. Three's skin
         # attributes always have four; pad each vertex, not the flattened array.
         output['skinIndices'] = [int(x) for item in handler.m_BoneIndices for x in (list(item) + [0]*4)[:4]]
-        output['skinWeights'] = [round(float(x), 6) for item in handler.m_BoneWeights for x in (list(item) + [0]*4)[:4]]
+        output['skinWeights'] = [round(float(x), 6) for item in weights for x in (list(item) + [0]*4)[:4]]
         output['bindPoses'] = [[getattr(matrix, f'e{row}{col}') for col in range(4) for row in range(4)] for matrix in mesh.m_BindPose]
     return output
 
@@ -186,7 +191,7 @@ def _node(game_object, depth, visited, count, path=''):
 def _rig(prefab, root):
     """Read only attachment and idle-animation fields; never execute game code."""
     from .unity_animation import decode_clip
-    output = {'animations':[], 'hidden':[], 'hideVehicle':False, 'offset':[0,0,0]}
+    output = {'animations':[], 'standingAnimations':[], 'hidden':[], 'hideVehicle':False, 'offset':[0,0,0]}
     trees = []
     for component in prefab.read_typetree().get('m_Component', []):
         obj = _pointer(prefab, component['component'])
@@ -231,12 +236,12 @@ def _rig(prefab, root):
                     # inKart_IdleTrigger selects jazda_idle in the native menu
                     # controller. Its Workshop override is Driving_idle, not the
                     # standing Idle_Menu clip used by the separate standing state.
-                    clips = animation_tree.get(category, {}).get('Driving', [])
-                    for pointer in clips:
-                        clip = _pointer(config, pointer)
-                        if clip and clip.peek_name().casefold() == 'driving_idle':
-                            animation = decode_clip(clip, root, root['children'][number]['path'])
-                            if animation: output['animations'].append(animation)
+                    for section, name, target in (('Driving', 'driving_idle', 'animations'), ('Menu', 'idle_menu', 'standingAnimations')):
+                        for pointer in animation_tree.get(category, {}).get(section, []):
+                            clip = _pointer(config, pointer)
+                            if clip and clip.peek_name().casefold() == name:
+                                animation = decode_clip(clip, root, root['children'][number]['path'])
+                                if animation: output[target].append(animation)
     return output
 
 
@@ -260,7 +265,7 @@ def _source(appearance, kind, identity):
     if not bundles or sum(p.stat().st_size for p in bundles) > MAX_PACKAGE or any(p.stat().st_size > 64 * 1024 * 1024 for p in bundles):
         raise ValueError("This model package is too large for the lightweight viewer.")
     native_files = [root / 'TheKarters2_Data' / name for name in ('level5','sharedassets5.assets','sharedassets1.assets','sharedassets0.assets')] if 'characterType' in reference else []
-    signature = hashlib.sha256(json.dumps([11, reference,
+    signature = hashlib.sha256(json.dumps([12, reference,
         *[(p.name,p.stat().st_size,p.stat().st_mtime_ns) for p in native_files],
         *[(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in bundles]]).encode()).hexdigest()
     cache = appearance.folder / "models" / (signature + ".json.gz")
@@ -312,7 +317,9 @@ def _read_cache(cache):
 
 def model(appearance, kind, identity):
     if kind == 'stickers':
-        raise ValueError('Use a complete setup to preview stickers.')
+        if type(identity) is not int:
+            raise ValueError('Invalid sticker identity.')
+        return gzip.compress(json.dumps({'texture':sticker_texture(appearance, identity)}).encode())
     reference, root, bundles, cache = _source(appearance, kind, identity)
     cached = _read_cache(cache)
     if cached: return cached
@@ -334,7 +341,7 @@ def model(appearance, kind, identity):
         rig.update(character_presentation(root, reference['characterType'], tree))
     # Character offsets are part of the character's configuration, not guessed
     # from its mesh bounds. Packages with one CharacterInfo are unambiguous.
-    infos = [o.read_typetree()['charInfo'] for o in env.objects if o.type.name == 'MonoBehaviour'
+    infos = [o.read_typetree()['charInfo'] for o in env.objects if kind == 'characters' and 'characterType' not in reference and o.type.name == 'MonoBehaviour'
              and ('characterInfo' not in reference or str(o.path_id) == reference['characterInfo'])
              and 'charInfo' in o.read_typetree()]
     if kind == 'characters' and 'characterType' not in reference and len(infos) == 1:
@@ -404,3 +411,19 @@ def setup(appearance, body):
     if len(raw) > 20 * 1024 * 1024:
         raise ValueError('This setup exceeds the lightweight preview size limit.')
     return raw
+
+
+def setup_plan(appearance, body):
+    """Small setup descriptor; clients reuse unchanged, independently cached parts."""
+    from .presets import cosmetic
+    data = cosmetic(body.get('data'), strict=True)
+    if body.get('view') not in ('original', 'modded'):
+        raise ValueError('Choose Original or Modded for the 3D setup.')
+    suffix = '_Modded' if body['view'] == 'modded' else ''
+    parts = {kind:data[field + suffix] for kind, field in (
+        ('characters','iCharacterSkinMaterialID'), ('vehicles','iVehicleMaterialID'), ('wheels','iWheelMaterialID'))}
+    stickers = []
+    for slot in data['stickersData']:
+        identity = slot['iStickerMaterialID' + suffix]
+        stickers.append({'id':identity, 'settings':slot['iStickerMaterialID' + suffix + '_SettingsPacked']})
+    return gzip.compress(json.dumps({'kind':'setup', 'parts':parts, 'stickers':stickers}, separators=(',', ':')).encode())

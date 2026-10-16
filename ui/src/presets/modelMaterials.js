@@ -1,16 +1,24 @@
 // Rebuild the installed material's authored layers; never ship asset textures.
 // Unity lighting differs, but albedo, secondary alpha and emission stay distinct.
 export function modelMaterial(THREE, item, resources, textures = {}) {
+  resources.materialCache ||= new WeakMap();
+  if (resources.materialCache.has(item))
+    return resources.materialCache.get(item);
+  resources.textureCache ||= new Map();
   function texture(data, color = true) {
     if (!data) return null;
     if (data.startsWith("@")) data = textures[data.slice(1)];
     if (!data) throw new Error("An installed material texture is unresolved.");
+    const key = `${color}:${item.uvScale}:${item.uvOffset}:${data}`;
+    if (resources.textureCache.has(key)) return resources.textureCache.get(key);
     const result = new THREE.TextureLoader().load(
       `data:image/png;base64,${data}`,
+      resources.invalidate,
     );
     if (color) result.colorSpace = THREE.SRGBColorSpace;
     result.wrapS = result.wrapT = THREE.RepeatWrapping;
     resources.push(result);
+    resources.textureCache.set(key, result);
     return result;
   }
   const material = new THREE.MeshStandardMaterial({
@@ -22,6 +30,7 @@ export function modelMaterial(THREE, item, resources, textures = {}) {
     alphaTest: item.alphaTest ?? 0,
     side: THREE.DoubleSide,
   });
+  resources.materialCache.set(item, material);
   const map = texture(item.texture);
   if (map) {
     map.repeat.fromArray(item.uvScale || [1, 1]);

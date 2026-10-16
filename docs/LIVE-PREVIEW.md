@@ -10,11 +10,23 @@ and vehicles that hide separate wheels are respected. Sticker textures use the
 vehicle's authored surfaces and saved packed position/size/rotation/opacity.
 
 No running game, Steam connection, injected DLL or BepInEx is needed to render.
-Drag to orbit, scroll to zoom, and use Pause/Play for motion. Reduced-motion
-preferences start paused. Changing a selection rebuilds the scene while keeping
-the camera angle. **Selected part** isolates one cosmetic. Initial extraction
-can take several seconds; a 96 MiB local LRU cache speeds subsequent loads.
+Drag to orbit, scroll to zoom, enlarge the preview or reset the camera. Pause/Play
+controls motion; reduced-motion preferences start paused. **Selected part** shows
+characters in their standing menu-idle animation; **Full setup** uses seated idle.
+One WebGL renderer and lighting environment stay alive across selections. The
+previous setup remains interactive while a selection loads. Parts are fetched
+individually with a bounded 48 MiB in-memory cache, shared wheel geometry and
+textures, and a 96 MiB on-disk cache. Stationary paused previews render on demand.
+Initial extraction of an uncached installed bundle can still take several seconds.
 No extracted assets are distributed or included in portable files.
+
+Garage observes the selected profile during its regular status poll. Game-side
+saved edits appear after the file is stable (normally within about 1–2 seconds),
+without reopening the editor. An untouched draft follows the game; unsaved edits
+are preserved with an explicit conflict notice and **Load game version** action.
+Partial writes retain the last valid snapshot and are retried. This observes disk
+saves, not changes that the game has not saved yet. Cached preset icons also use
+file revisions to refresh when the game replaces them.
 
 Original character seating and menu overrides currently target **0.1.4.18**.
 A fingerprint verifies the narrow native menu record before using its references;

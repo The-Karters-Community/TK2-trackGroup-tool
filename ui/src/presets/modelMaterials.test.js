@@ -29,7 +29,10 @@ it("resolves shared images and applies authored UV and alpha properties", () => 
       resources,
       { image: "image-data" },
     );
-    expect(load).toHaveBeenCalledWith("data:image/png;base64,image-data");
+    expect(load).toHaveBeenCalledWith(
+      "data:image/png;base64,image-data",
+      undefined,
+    );
     expect(material.map.repeat.toArray()).toEqual([2, 3]);
     expect(material.map.offset.toArray()).toEqual([0.2, 0.4]);
     expect(material.opacity).toBe(0.6);

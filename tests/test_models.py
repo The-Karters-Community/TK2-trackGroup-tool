@@ -2,10 +2,22 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from trackgroups.models import _geometry, _rig, _pack_textures, _material
+from trackgroups.models import _geometry, _rig, _pack_textures, _material, setup_plan
 
 
 class ModelTests(unittest.TestCase):
+    def test_setup_descriptor_does_not_extract_unused_stickers_or_geometry(self):
+        import gzip, json
+        from test_presets import fixture
+        from trackgroups.profile import Profile
+        from trackgroups.presets import view
+        data = view(Profile(fixture()))['presets'][0]['data']
+        with patch('trackgroups.models.model', side_effect=AssertionError('geometry read')), patch('trackgroups.models.sticker_texture', side_effect=AssertionError('sticker read')):
+            result = json.loads(gzip.decompress(setup_plan(None, {'data':data, 'view':'modded'})))
+        self.assertEqual(result['parts']['characters'], data['iCharacterSkinMaterialID_Modded'])
+        self.assertEqual(len(result['stickers']), 20)
+        self.assertEqual(result['stickers'][0]['id'], 4)
+
     def test_seated_preview_uses_driving_override_not_standing_menu_clip(self):
         driving = SimpleNamespace(peek_name=lambda:'Driving_idle')
         standing = SimpleNamespace(peek_name=lambda:'Idle_Menu')
@@ -17,8 +29,10 @@ class ModelTests(unittest.TestCase):
         with patch('trackgroups.models._pointer', side_effect=lambda obj,p:objects.get(p)), patch('trackgroups.unity_animation.decode_clip', return_value={'name':'seated'}) as decode:
             root={'children':[{'path':'Character'}]}
             result=_rig(prefab,root)
-        decode.assert_called_once_with(driving,root,'Character')
+        self.assertEqual(decode.call_args_list[0].args, (driving,root,'Character'))
+        self.assertEqual(decode.call_args_list[1].args, (standing,root,'Character'))
         self.assertEqual(result['animations'],[{'name':'seated'}])
+        self.assertEqual(len(result['standingAnimations']), 1)
 
     def test_shared_albedo_and_layers_are_encoded_once(self):
         material={'texture':'same-image','layers':{'_SecondaryTex':'same-image','_MaskTex':'mask-image'}}
@@ -52,3 +66,13 @@ class ModelTests(unittest.TestCase):
             result = _geometry(pointer, [])
         self.assertEqual(result['skinIndices'], [0,1,0,0,1,2,0,0,2,0,0,0])
         self.assertEqual(result['skinWeights'], [.25,.75,0,0,.5,.5,0,0,1,0,0,0])
+
+    def test_single_bone_stream_without_weights_is_still_skinned(self):
+        handler = SimpleNamespace(process=lambda:None, m_Vertices=[(0,0,0)]*3,
+            m_Normals=[], m_UV0=[], get_triangles=lambda:[[(0,1,2)]],
+            m_BoneIndices=[(5,)]*3, m_BoneWeights=None)
+        matrix = SimpleNamespace(**{f'e{r}{c}':float(r==c) for r in range(4) for c in range(4)})
+        with patch('UnityPy.helpers.MeshHelper.MeshHandler', return_value=handler):
+            result = _geometry(SimpleNamespace(read=lambda:SimpleNamespace(m_BindPose=[matrix]*6)), [])
+        self.assertEqual(result['skinIndices'], [5,0,0,0]*3)
+        self.assertEqual(result['skinWeights'], [1,0,0,0]*3)

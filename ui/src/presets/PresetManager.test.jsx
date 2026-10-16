@@ -235,3 +235,81 @@ it("keeps a failed preset import visible with an inline error and pinned command
     "Steam save conflict",
   );
 });
+
+it("reloads a pristine editor after a game-side edit without closing it", async () => {
+  const initial = state();
+  initial.appearance = {
+    items: {
+      vehicles: {
+        7: { name: "Green kart", label: "Green kart", source: "official" },
+      },
+    },
+  };
+  const onChange = vi.fn().mockResolvedValue(true);
+  const { rerender } = render(
+    <PresetManager state={initial} onChange={onChange} />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^Setup 1/ }));
+  const next = structuredClone(initial);
+  next.presets[0].data.iVehicleMaterialID_Modded = 7;
+  rerender(<PresetManager state={next} onChange={onChange} />);
+  await waitFor(() => expect(screen.getByText("No changes")).toBeTruthy());
+  expect(
+    screen.getByRole("button", { name: /Vehicle Green kart/ }),
+  ).toBeTruthy();
+  expect(screen.queryByText(/This preset changed in the game/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
+    true,
+  );
+});
+
+it("preserves unsaved choices when the game changes the same preset", async () => {
+  const initial = state();
+  initial.appearance = {
+    items: {
+      vehicles: {
+        2: {
+          name: "Kart",
+          label: "Kart Red",
+          entity: "Kart",
+          skin: "Red",
+          source: "official",
+        },
+        5: {
+          name: "Kart",
+          label: "Kart Blue",
+          entity: "Kart",
+          skin: "Blue",
+          source: "official",
+        },
+      },
+    },
+  };
+  const onChange = vi.fn();
+  const { rerender } = render(
+    <PresetManager state={initial} onChange={onChange} />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^Setup 1/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Vehicle", exact: true }));
+  fireEvent.change(screen.getByLabelText("Search vehicle"), {
+    target: { value: "Blue" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Kart Blue/ }));
+  const next = structuredClone(initial);
+  next.presets[0].data.iVehicleMaterialID_Modded = 7;
+  rerender(<PresetManager state={next} onChange={onChange} />);
+  expect(
+    await screen.findByText(/Your unsaved changes are preserved/),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
+    true,
+  );
+  expect(
+    screen
+      .getByRole("button", { name: /^Kart Blue/ })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Load game version" }));
+  await waitFor(() => expect(screen.getByText("No changes")).toBeTruthy());
+  expect(onChange).not.toHaveBeenCalled();
+});

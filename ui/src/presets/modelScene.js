@@ -35,7 +35,8 @@ export function normalizeWheel(THREE, root) {
   child.scale.setScalar(1 / height);
 }
 
-export function createModel(THREE, data, resources) {
+export function createModel(THREE, data, resources, pose = "seated") {
+  resources.geometryCache ||= new WeakMap();
   const nodes = new Map();
   const pending = [];
   let meshCount = 0;
@@ -49,25 +50,30 @@ export function createModel(THREE, data, resources) {
     nodes.set(node.id, group);
     if (node.mesh) {
       const source = node.mesh;
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(source.positions, 3),
-      );
-      geometry.setIndex(source.indices);
-      if (source.normals.length === source.positions.length)
+      let geometry = resources.geometryCache.get(source);
+      if (!geometry) {
+        geometry = new THREE.BufferGeometry();
         geometry.setAttribute(
-          "normal",
-          new THREE.Float32BufferAttribute(source.normals, 3),
+          "position",
+          new THREE.Float32BufferAttribute(source.positions, 3),
         );
-      else geometry.computeVertexNormals();
-      if (source.uv.length * 3 === source.positions.length * 2)
-        geometry.setAttribute(
-          "uv",
-          new THREE.Float32BufferAttribute(source.uv, 2),
-        );
-      for (const [start, count, material] of source.groups)
-        geometry.addGroup(start, count, material);
+        geometry.setIndex(source.indices);
+        if (source.normals.length === source.positions.length)
+          geometry.setAttribute(
+            "normal",
+            new THREE.Float32BufferAttribute(source.normals, 3),
+          );
+        else geometry.computeVertexNormals();
+        if (source.uv.length * 3 === source.positions.length * 2)
+          geometry.setAttribute(
+            "uv",
+            new THREE.Float32BufferAttribute(source.uv, 2),
+          );
+        for (const [start, count, material] of source.groups)
+          geometry.addGroup(start, count, material);
+        resources.geometryCache.set(source, geometry);
+        resources.push(geometry);
+      }
       const materials = source.materials.map((item) =>
         modelMaterial(THREE, item, resources, data.textures),
       );
@@ -96,7 +102,6 @@ export function createModel(THREE, data, resources) {
       } else mesh = new THREE.Mesh(geometry, materials);
       mesh.visible = source.visible !== false;
       group.add(mesh);
-      resources.push(geometry);
       meshCount++;
     }
     for (const child of node.children) group.add(build(child));
@@ -124,7 +129,11 @@ export function createModel(THREE, data, resources) {
   const restSize = visibleBounds(THREE, root)
     .getSize(new THREE.Vector3())
     .length();
-  for (const animation of data.rig?.animations || []) {
+  const animations =
+    pose === "standing"
+      ? data.rig?.standingAnimations || []
+      : data.rig?.animations || [];
+  for (const animation of animations) {
     const tracks = animation.tracks.flatMap((track) => {
       const node = nodes.get(track.node);
       if (!node) return [];
@@ -166,7 +175,15 @@ export function createModel(THREE, data, resources) {
       ? "This asset's menu animation needs runtime retargeting; showing its rest pose."
       : "";
   if (warning) mixer.stopAllAction();
-  return { root, nodes, mixer, meshCount, rig: data.rig || {}, warning };
+  return {
+    root,
+    nodes,
+    mixer,
+    meshCount,
+    rig: data.rig || {},
+    warning,
+    animated: animations.length > 0,
+  };
 }
 
 export function createSetup(THREE, data, resources) {
@@ -236,6 +253,7 @@ export function stickerSettings(packed) {
 }
 
 function applyStickers(THREE, vehicle, stickers, resources) {
+  resources.stickerTextures ||= new Map();
   for (const [index, id] of (vehicle.rig.stickerSlots || []).entries()) {
     const node = vehicle.nodes.get(id);
     if (!node) continue;
@@ -251,15 +269,22 @@ function applyStickers(THREE, vehicle, stickers, resources) {
       if (!sticker?.texture) continue;
       node.visible = true;
       const settings = stickerSettings(sticker.settings);
-      const texture = new THREE.TextureLoader().load(
-        `data:image/png;base64,${sticker.texture}`,
-      );
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.center.set(0.5, 0.5);
-      texture.repeat.setScalar(settings.repeat);
-      texture.offset.fromArray(settings.offset);
-      texture.rotation = settings.rotation;
+      const key = `${sticker.settings}:${sticker.texture}`;
+      let texture = resources.stickerTextures.get(key);
+      if (!texture) {
+        texture = new THREE.TextureLoader().load(
+          `data:image/png;base64,${sticker.texture}`,
+          resources.invalidate,
+        );
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.center.set(0.5, 0.5);
+        texture.repeat.setScalar(settings.repeat);
+        texture.offset.fromArray(settings.offset);
+        texture.rotation = settings.rotation;
+        resources.stickerTextures.set(key, texture);
+        resources.push(texture);
+      }
       const material = new THREE.MeshStandardMaterial({
         map: texture,
         color: 0xffffff,
@@ -273,7 +298,7 @@ function applyStickers(THREE, vehicle, stickers, resources) {
         polygonOffsetFactor: -(layer + 1),
         polygonOffsetUnits: -(layer + 1),
       });
-      resources.push(texture, material);
+      resources.push(material);
       for (const surface of surfaces) {
         const decal = new THREE.Mesh(surface.geometry, material);
         decal.position.copy(surface.position);

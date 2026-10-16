@@ -215,3 +215,40 @@
   down cleanly. ZIP is 27.1 MiB; 245 manifest hashes match; flat archive contains
   no extracted model/prefab/bundle assets. Remaining native particles/lighting
   differences are documented rather than claimed as pixel-identical rendering.
+
+### 2026-10-16 - Attached facial meshes, context poses and incremental preview
+
+- Diagnosed the installed Tikal mouth and mouth_smile streams: each has 75
+  vertices, one bone index (5), 89 bind poses and no explicit weight channel.
+  Unity implicitly gives these vertices weight 1. Preserve that skinning instead
+  of treating the facial surfaces as rigid meshes. Cache schema advances to 12;
+  application/artifact version remains 0.1.1-dev.
+- Decode Workshop Menu/Idle_Menu and original idle_w_menu alongside the seated
+  Driving_idle/jazda_idle clips. Selected character parts use standing motion;
+  full setups retain seated motion. All 30 resolved saved character appearances
+  assembled in both contexts (60 poses), finite bounds, no rest-pose fallbacks.
+- Separate the persistent WebGL viewport from bounded part loading. Preserve
+  camera and previous interactive scene while fetching, debounce rapid choices,
+  share wheel geometry/materials/textures, and render unchanged paused scenes
+  only on demand. Lightweight descriptors and cached mounted sticker textures
+  avoid resending full setups and loading unused dependencies. The editor offers
+  enlarge/reset controls. No additional runtime dependency or game plugin needed.
+- Observe stable profile revisions through the existing status poll. Publish only
+  complete parsed snapshots, retry transient partial writes, refresh clean open
+  preset editors and retain conflicting drafts with an explicit reload action.
+  Skip unchanged UI snapshots to avoid redrawing the library on every poll.
+- REA browser captures show the previously detached Tikal mouth attached in both
+  standing and seated views. Full setup -> selected character reused cached data.
+  Local evidence remains ignored; no game/profile assets are added to Git.
+
+- Verification: 89 Python tests and 91 frontend tests passed; desktop and browser
+  production builds passed. REA checked standing/seated Tikal, cached mode
+  switching, enlarge/reset and reduced-motion pause without page/shader errors.
+  A warm descriptor measured 150 compressed bytes / 2.6 ms versus the previous
+  full-setup response of 3,400,685 bytes / 797 ms on this machine. Uncached parts
+  are still fetched separately; these are not cold-load timings.
+
+- Final portable check: all 244 manifest hashes and ZIP checksum match. Frozen
+  app decoded all three skinned Tikal surfaces and both idle clips without
+  developer runtimes on PATH. Clean shutdown released the portable folder for
+  rename/restore. Profile hash unchanged; updated development Garage reopened.

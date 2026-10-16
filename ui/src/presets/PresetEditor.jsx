@@ -33,11 +33,21 @@ export default function PresetEditor({
   browser = false,
 }) {
   const [value, setValue] = useState(() => cosmetic(preset.data));
+  const [baseline, setBaseline] = useState(() => cosmetic(preset.data));
   const [version, setVersion] = useState("modded");
   const [category, setCategory] = useState(0);
   const [sticker, setSticker] = useState(0);
   const [error, setError] = useState("");
-  const dirty = JSON.stringify(value) !== JSON.stringify(preset.data);
+  const saved = JSON.stringify(cosmetic(preset.data));
+  const base = JSON.stringify(baseline);
+  const dirty = JSON.stringify(value) !== base;
+  const conflict = saved !== base && dirty;
+  useEffect(() => {
+    if (saved !== base && !dirty) {
+      setValue(cosmetic(preset.data));
+      setBaseline(cosmetic(preset.data));
+    }
+  }, [saved, base, dirty, preset.data]);
   useEffect(() => {
     onDirty?.(dirty);
     return () => onDirty?.(false);
@@ -151,7 +161,7 @@ export default function PresetEditor({
                     alt={info?.label || title}
                   />
                   <span>
-                    <small>{title}</small>
+                    <small>{title}</small>{" "}
                     <strong>{info?.label || "Saved appearance"}</strong>
                   </span>
                 </button>
@@ -238,6 +248,20 @@ export default function PresetEditor({
         </section>
       </div>
       <footer className="editor-footer">
+        {conflict && (
+          <p className="editor-error" role="alert">
+            This preset changed in the game. Your unsaved changes are preserved.{" "}
+            <button
+              onClick={() => {
+                setValue(cosmetic(preset.data));
+                setBaseline(cosmetic(preset.data));
+                setError("");
+              }}
+            >
+              Load game version
+            </button>
+          </p>
+        )}
         {error && (
           <p className="editor-error" role="alert">
             {error}
@@ -279,6 +303,7 @@ export default function PresetEditor({
               disabled={busy || !dirty}
               onClick={() => {
                 setValue(cosmetic(preset.data));
+                setBaseline(cosmetic(preset.data));
                 setError("");
               }}
             >
@@ -286,8 +311,10 @@ export default function PresetEditor({
             </button>
             <button
               className="primary"
-              disabled={busy || !canSavePreset || !dirty}
-              onClick={() => act(() => onSave(value))}
+              disabled={busy || !canSavePreset || !dirty || conflict}
+              onClick={() =>
+                act(() => onSave(value, { id: preset.id, data: baseline }))
+              }
             >
               {browser
                 ? "Apply to edited save"

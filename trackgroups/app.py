@@ -87,8 +87,9 @@ def make_server(service):
                 if action == "live-save-preset":
                     return self.reply(200, service.save_live_preset(body))
                 if action == "preset-model":
-                    from .models import model, setup
-                    raw = setup(service.appearance, body) if body.get('kind') == 'setup' else model(service.appearance, body.get("kind"), body.get("id"))
+                    from .models import model, setup, setup_plan
+                    builder = {'setup': setup, 'setup-plan': setup_plan}.get(body.get('kind'))
+                    raw = builder(service.appearance, body) if builder else model(service.appearance, body.get("kind"), body.get("id"))
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json; charset=utf-8")
                     self.send_header("Content-Encoding", "gzip")

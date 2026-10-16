@@ -1675,7 +1675,7 @@ progress {
 }
 .setup-inspector .preset-hero {
   width: 100%;
-  height: 210px;
+  height: 280px;
 }
 .preview-mode {
   display: flex;
@@ -1694,16 +1694,30 @@ progress {
 .model-viewer {
   position: relative;
   width: 100%;
-  height: 210px;
+  height: 280px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: radial-gradient(circle at 50% 45%, #35443b, #192018 75%);
 }
-.model-motion {
+.model-viewer.expanded {
+  height: min(65vh, 560px);
+}
+@media (min-width: 900px) {
+  .customization-layout:has(.model-viewer.expanded) {
+    grid-template-columns: minmax(320px, 1fr) minmax(0, 1fr);
+  }
+}
+.model-tools {
   position: absolute;
   top: 8px;
   right: 8px;
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.model-tools button {
   padding: 5px 8px;
   font-size: 11px;
   background: var(--surface);

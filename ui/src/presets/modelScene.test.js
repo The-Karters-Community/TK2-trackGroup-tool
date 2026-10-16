@@ -211,3 +211,27 @@ it("decodes default and customized packed sticker transforms", () => {
   expect(result.color).toBe(2);
   expect(result.opacity).toBeCloseTo(2 / 3);
 });
+
+it("uses the standing menu clip only for the selected character part", () => {
+  const clip = (name, y) => ({
+    name,
+    duration: 1,
+    tracks: [
+      {
+        node: "body",
+        property: "position",
+        times: [0, 1],
+        values: [0, y, 0, 0, y, 0],
+      },
+    ],
+  });
+  const data = model(node("body"), {
+    animations: [clip("seated", 1)],
+    standingAnimations: [clip("menu", 2)],
+  });
+  const seated = createModel(THREE, data, []);
+  const standing = createModel(THREE, data, [], "standing");
+  expect(seated.root.position.y).toBe(1);
+  expect(standing.root.position.y).toBe(2);
+  expect(standing.animated).toBe(true);
+});

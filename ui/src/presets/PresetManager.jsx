@@ -491,7 +491,9 @@ export default function PresetManager({
           return (
             <PresetEditor
               key={target.value.id}
-              preset={target.value}
+              preset={
+                presets.find((p) => p.id === target.value.id) || target.value
+              }
               presets={presets}
               position={positions[target.value.id]}
               busy={busy}
@@ -508,10 +510,10 @@ export default function PresetManager({
               onClose={() =>
                 memberEditor ? setMemberEditor(null) : setEditor(null)
               }
-              onSave={(data) =>
+              onSave={(data, baseline) =>
                 onChange(
                   { mode: "preset", presetId: target.value.id, data },
-                  { expectedHash: target.hash, baseline: target.value },
+                  { expectedHash: state?.profileHash, baseline },
                 )
               }
               onChange={onChange}

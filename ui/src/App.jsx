@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   StackIcon,
   PersonIcon,
@@ -25,6 +25,8 @@ export default function App() {
   const [focusId, setFocusId] = useState(null);
   const [seenJob, setSeenJob] = useState("");
   const [presetDirty, setPresetDirty] = useState(false);
+  const polling = useRef(false);
+  const lastSnapshot = useRef("");
   const renderPreview = useCallback(
     (body, signal) => api("live-preview", body, signal),
     [],
@@ -34,10 +36,19 @@ export default function App() {
     [],
   );
   const refresh = useCallback(async () => {
+    if (polling.current) return;
+    polling.current = true;
     try {
-      setState(await api("state"));
+      const next = await api("state");
+      const snapshot = JSON.stringify(next);
+      if (snapshot !== lastSnapshot.current) {
+        lastSnapshot.current = snapshot;
+        setState(next);
+      }
     } catch (err) {
       setError(err.message);
+    } finally {
+      polling.current = false;
     }
   }, []);
   useEffect(() => {

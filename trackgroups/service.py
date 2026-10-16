@@ -49,24 +49,51 @@ class Service:
         self.appearance.refresh(self.game)
         self.load_local()
 
-    def load_local(self):
+    def load_local(self, *, external=False):
         if not self.profile:
             self.local_groups = []
             self.preset_state = {'presets': [], 'groups': [], 'error': 'Select a game profile in Settings.'}
             return
         try:
-            raw = (PROFILE_DIR / self.profile).read_bytes()
-            self.local_groups = Profile(raw).custom_groups()
-            self.local_hash = digest(raw)
+            path = PROFILE_DIR / self.profile
+            before = path.stat()
+            raw = path.read_bytes()
+            after = path.stat()
+            if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
+                return False
+            profile = Profile(raw)
+            groups = profile.custom_groups()
             from .presets import view
             from .preset_assets import local_packages
-            try: self.preset_state = {**view(Profile(raw)), 'localPackages':local_packages(self.game), 'error': ''}
-            except (ValueError, KeyError, TypeError) as exc:
-                self.preset_state = {'presets': [], 'groups': [], 'error': str(exc)}
+            presets = {**view(profile), 'localPackages':local_packages(self.game), 'error': ''}
+            self.local_groups, self.preset_state = groups, presets
+            self.local_hash = digest(raw)
+            self._profile_stamp = (self.profile, after.st_mtime_ns, after.st_size)
+            self._pending_profile = None
+            if external: self.previews.clear()
+            return True
         except (OSError, ValueError, KeyError, TypeError) as exc:
+            # A game save may briefly be truncated or replaced. Keep the last
+            # valid snapshot and retry; never expose half-written profile data.
+            if external: return False
             self.local_groups = []
             self.preset_state = {'presets': [], 'groups': [], 'error': str(exc)}
             self.sync_error = "Could not read this profile: " + str(exc)
+
+    def observe_profile(self):
+        """Debounced read-only observation, driven by the existing state poll."""
+        if not self.profile or self.job and self.job.get('state') == 'running': return
+        try:
+            info = (PROFILE_DIR / self.profile).stat()
+        except OSError:
+            return
+        stamp = (self.profile, info.st_mtime_ns, info.st_size)
+        if stamp == getattr(self, '_profile_stamp', None): return
+        pending = getattr(self, '_pending_profile', None)
+        if not pending or pending[0] != stamp:
+            self._pending_profile = (stamp, time.monotonic())
+        elif time.monotonic() - pending[1] >= .35:
+            self.load_local(external=True)
 
     def supported_game(self):
         p = Path(self.game)
@@ -98,6 +125,7 @@ class Service:
         from .live_preview import companion_state
         # The public state deliberately excludes save contents and full Steam account IDs.
         with self.lock:
+            self.observe_profile()
             mapping = self.dependencies.mapping()
             local = []
             for native in self.local_groups:

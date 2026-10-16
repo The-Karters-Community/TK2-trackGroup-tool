@@ -46,6 +46,7 @@ def character_presentation(game, character_type, root):
     env = UnityPy.load(str(directory / 'sharedassets5.assets'))
     file = env.assets[0]
     animations = []
+    standing = []
     for index, (external, identity) in enumerate(refs):
         if not identity or index >= len(root['children']):
             continue
@@ -53,10 +54,10 @@ def character_presentation(game, character_type, root):
             raise ValueError('Unsupported menu animation reference.')
         controller = file.objects[identity].read()
         for entry in controller.m_Clips:
-            if entry.m_OriginalClip.read().m_Name == 'jazda_idle':
+            name = entry.m_OriginalClip.read().m_Name
+            if name in ('jazda_idle', 'idle_w_menu'):
                 animation = decode_clip(entry.m_OverrideClip.deref(), root, root['children'][index]['path'])
-                if animation: animations.append(animation)
-                break
+                if animation: (animations if name == 'jazda_idle' else standing).append(animation)
     if not animations:
         raise ValueError('The original character idle pose could not be decoded.')
     # The character-worker array supplies the exact seated offset/scale used by
@@ -80,7 +81,7 @@ def character_presentation(game, character_type, root):
             continue
         go = worker.parse_monobehaviour_head().m_GameObject.read()
         transform = go.m_Component[0].component.read()
-        return {'animations':animations,
+        return {'animations':animations, 'standingAnimations':standing,
                 'offset':[getattr(transform.m_LocalPosition, axis) for axis in 'xyz'],
                 'rotation':[getattr(transform.m_LocalRotation, axis) for axis in 'xyzw'],
                 'scale':[getattr(transform.m_LocalScale, axis) for axis in 'xyz']}
