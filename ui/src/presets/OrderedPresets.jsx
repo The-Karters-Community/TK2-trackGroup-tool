@@ -5,6 +5,8 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   MinusCircledIcon,
+  StarIcon,
+  StarFilledIcon,
 } from "@radix-ui/react-icons";
 import { reorder } from "../components/EditGroup.jsx";
 import PresetPreview from "./PresetPreview.jsx";
@@ -23,6 +25,8 @@ export default function OrderedPresets({
   layout = "list",
   positions,
   offset = 0,
+  isFavorite,
+  onFavorite,
 }) {
   const list = useRef();
   const sortable = useRef();
@@ -74,6 +78,16 @@ export default function OrderedPresets({
         return (
           <li key={p.id} data-id={p.id}>
             <div className="preset-row-tools">
+              {onFavorite && (
+                <button
+                  className="icon-button"
+                  aria-label={`${isFavorite?.(p.id) ? "Unfavorite" : "Favorite"} ${title}`}
+                  aria-pressed={Boolean(isFavorite?.(p.id))}
+                  onClick={() => onFavorite(p.id)}
+                >
+                  {isFavorite?.(p.id) ? <StarFilledIcon /> : <StarIcon />}
+                </button>
+              )}
               <button
                 className="icon-button preset-grip"
                 disabled={disabled}

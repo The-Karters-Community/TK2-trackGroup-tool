@@ -7,6 +7,8 @@ import {
   StackIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  StarIcon,
+  StarFilledIcon,
 } from "@radix-ui/react-icons";
 import PresetImportReview from "./PresetImportReview.jsx";
 import { validatePack } from "./model.js";
@@ -16,6 +18,8 @@ import OrderedPresets from "./OrderedPresets.jsx";
 import PresetPreview from "./PresetPreview.jsx";
 import { setupTitle, setupDescription, setupMatches } from "./appearance.js";
 import Pagination, { usePagination } from "../components/Pagination.jsx";
+import { useRowPagination, RowControls } from "../components/RowPage.jsx";
+import { useLibraryState, sortEntries, sortOptions } from "./libraryState.js";
 
 export default function PresetManager({
   state,
@@ -38,6 +42,9 @@ export default function PresetManager({
   openQuickRequest = 0,
   onQuickOpened,
   refreshModels,
+  initialLibraryPreferences,
+  saveLibraryPreferences,
+  libraryScope = "local",
 }) {
   const [tab, setTab] = useState("presets");
   const [ids, setIds] = useState([]);
@@ -47,6 +54,16 @@ export default function PresetManager({
   const [memberDirty, setMemberDirty] = useState(false);
   const [review, setReview] = useState(null);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("custom"),
+    [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [quickDrafts, setQuickDrafts] = useState({});
+  const library = useLibraryState(
+    initialLibraryPreferences,
+    saveLibraryPreferences,
+    onError,
+  );
+  const presetKey = (id) => `${libraryScope}:preset:${id}`;
+  const groupKey = (id) => `${libraryScope}:group:${id}`;
   const [moveTarget, setMoveTarget] = useState(1);
   const fileInput = useRef();
   const imageInput = useRef();
@@ -67,13 +84,50 @@ export default function PresetManager({
   const ordered = order
     .map((id) => presets.find((p) => p.id === id))
     .filter(Boolean);
-  const filtered = ordered.filter((p) =>
-    setupMatches(p, appearance, positions[p.id], query),
+  const libraryKeys = [
+    ...presets.map((p) => presetKey(p.id)),
+    ...groups.map((g) => groupKey(g.id)),
+  ].join("\n");
+  useEffect(() => {
+    if (libraryKeys) library.observe(libraryKeys.split("\n"));
+  }, [libraryKeys]);
+  const filtered = sortEntries(
+    ordered.filter(
+      (p) =>
+        setupMatches(p, appearance, positions[p.id], query) &&
+        (!favoritesOnly || library.favorite(presetKey(p.id))),
+    ),
+    sort,
+    {
+      key: (p) => presetKey(p.id),
+      name: (p) => setupTitle(p, appearance, positions[p.id]),
+      ...library.data,
+    },
   );
-  const paging = usePagination(filtered, `presets:${query}`);
-  const groupPaging = usePagination(
-    groups.filter((g) => g.name.toLowerCase().includes(query.toLowerCase())),
-    `groups:${query}`,
+  const listPaging = usePagination(
+    filtered,
+    `presets:${query}:${sort}:${favoritesOnly}`,
+  );
+  const gridPaging = useRowPagination(
+    filtered,
+    `presets:${query}:${sort}:${favoritesOnly}`,
+    180,
+    12,
+  );
+  const paging = layout === "gallery" ? gridPaging : listPaging;
+  const groupPaging = useRowPagination(
+    sortEntries(
+      groups.filter(
+        (g) =>
+          g.name.toLowerCase().includes(query.toLowerCase()) &&
+          (!favoritesOnly || library.favorite(groupKey(g.id))),
+      ),
+      sort,
+      { key: (g) => groupKey(g.id), name: (g) => g.name, ...library.data },
+    ),
+    `groups:${query}:${sort}:${favoritesOnly}`,
+    220,
+    16,
   );
   const openedQuick = useRef(0);
   useEffect(() => {
@@ -98,9 +152,14 @@ export default function PresetManager({
     setDraftOrder(order.map((id) => (ids.has(id) ? pageOrder[index++] : id)));
   }
   useEffect(() => {
-    onDirty?.(orderDirty || editorDirty || memberDirty);
+    onDirty?.(
+      orderDirty ||
+        editorDirty ||
+        memberDirty ||
+        Object.keys(quickDrafts).length > 0,
+    );
     return () => onDirty?.(false);
-  }, [orderDirty, editorDirty, memberDirty, onDirty]);
+  }, [orderDirty, editorDirty, memberDirty, quickDrafts, onDirty]);
   useEffect(
     () => () =>
       !onPreviewImages &&
@@ -224,6 +283,9 @@ export default function PresetManager({
             >
               <PersonIcon />
               Quick Setup
+              {Object.keys(quickDrafts).length
+                ? ` · ${Object.keys(quickDrafts).length} ${Object.keys(quickDrafts).length === 1 ? "draft" : "drafts"}`
+                : ""}
             </button>
           )}
           <button
@@ -314,6 +376,25 @@ export default function PresetManager({
             </button>
           </div>
         )}
+        <select
+          aria-label="Sort presets"
+          title="Added dates start when Garage first sees a setup. Recent and most picked reflect Garage use."
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="custom">Custom order</option>
+          {sortOptions.map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button
+          aria-pressed={favoritesOnly}
+          onClick={() => setFavoritesOnly(!favoritesOnly)}
+        >
+          {favoritesOnly ? <StarFilledIcon /> : <StarIcon />} Favorites
+        </button>
         <button
           disabled={busy || (!selectedIds.length && !selectedGroups.length)}
           onClick={() => onExport(selectedIds, selectedGroups)}
@@ -360,10 +441,14 @@ export default function PresetManager({
             <span className="hint">
               {selectedIds.length
                 ? `${selectedIds.length} selected`
-                : `${filtered.length} setups - drag the grip to arrange`}
+                : sort === "custom" && !query
+                  ? `${filtered.length} setups · drag to arrange`
+                  : `${filtered.length} setups`}
             </span>
-            {query && (
-              <span className="hint">Clear search to reorder the library.</span>
+            {(query || sort !== "custom") && (
+              <span className="hint">
+                Choose Custom order and clear search to drag presets.
+              </span>
             )}
             {selectedIds.length > 0 && (
               <div className="selection-move">
@@ -397,6 +482,7 @@ export default function PresetManager({
                       0,
                       ...selected,
                     );
+                    setSort("custom");
                     setDraftOrder(next);
                   }}
                 >
@@ -427,31 +513,56 @@ export default function PresetManager({
               </div>
             </div>
           </div>
-          <Pagination paging={paging} label="Presets" />
-          <OrderedPresets
-            items={paging.items}
-            offset={paging.start}
-            disabled={!editable || Boolean(query)}
-            onChange={reorderPage}
-            onOpen={(p) =>
-              setEditor({ kind: "preset", value: p, hash: state?.profileHash })
-            }
-            appearance={appearance}
-            loadImage={loadImage}
-            selectedIds={selectedIds}
-            onSelect={(id) => toggle(id, selectedIds, setIds)}
-            layout={layout}
-            positions={positions}
-          />
+          <div
+            ref={gridPaging.host}
+            className="preset-paged-content"
+            style={{ "--collection-columns": gridPaging.columns }}
+          >
+            {layout === "gallery" ? (
+              <RowControls paging={paging} label="Presets" />
+            ) : (
+              <Pagination paging={paging} label="Presets" />
+            )}
+            <OrderedPresets
+              items={paging.items}
+              offset={paging.start}
+              disabled={!editable || Boolean(query) || sort !== "custom"}
+              onChange={reorderPage}
+              onOpen={(p) => {
+                library.used(presetKey(p.id));
+                setEditor({
+                  kind: "preset",
+                  value: p,
+                  hash: state?.profileHash,
+                });
+              }}
+              isFavorite={(id) => library.favorite(presetKey(id))}
+              onFavorite={(id) => library.toggle(presetKey(id))}
+              appearance={appearance}
+              loadImage={loadImage}
+              selectedIds={selectedIds}
+              onSelect={(id) => toggle(id, selectedIds, setIds)}
+              layout={layout}
+              positions={positions}
+            />
+          </div>
           {!presets.length && (
             <p className="empty-state">Your saved presets will appear here.</p>
           )}
           {presets.length > 0 && !filtered.length && (
-            <p className="empty-state">No setups match that search.</p>
+            <p className="empty-state">
+              {favoritesOnly
+                ? "Star a setup to find it here."
+                : "No setups match that search."}
+            </p>
           )}
         </>
       ) : (
-        <div className="preset-cards">
+        <div
+          className="preset-cards"
+          ref={groupPaging.host}
+          style={{ "--collection-columns": groupPaging.columns }}
+        >
           {groupPaging.items.map((g) => (
             <article key={g.id}>
               <label className="check-label">
@@ -464,13 +575,14 @@ export default function PresetManager({
                 Select group
               </label>
               <button
-                onClick={() =>
+                onClick={() => {
+                  library.used(groupKey(g.id));
                   setEditor({
                     kind: "group",
                     value: g,
                     hash: state?.profileHash,
-                  })
-                }
+                  });
+                }}
               >
                 <span className="preset-group-previews">
                   {g.members.slice(0, 4).map((id) => (
@@ -488,6 +600,18 @@ export default function PresetManager({
                 </small>
               </button>
               <div className="preset-group-order">
+                <button
+                  className="icon-button"
+                  aria-label={`${library.favorite(groupKey(g.id)) ? "Unfavorite" : "Favorite"} ${g.name}`}
+                  aria-pressed={library.favorite(groupKey(g.id))}
+                  onClick={() => library.toggle(groupKey(g.id))}
+                >
+                  {library.favorite(groupKey(g.id)) ? (
+                    <StarFilledIcon />
+                  ) : (
+                    <StarIcon />
+                  )}
+                </button>
                 <button
                   className="icon-button"
                   disabled={!editable || groups[0]?.id === g.id}
@@ -515,7 +639,7 @@ export default function PresetManager({
         </div>
       )}
       {tab === "groups" && (
-        <Pagination paging={groupPaging} label="Preset groups" />
+        <RowControls paging={groupPaging} label="Preset groups" />
       )}
       <p className="hint">
         {browser
@@ -551,11 +675,14 @@ export default function PresetManager({
       )}
       {editor?.kind === "group" && (
         <PresetGroupEditor
+          library={library}
+          presetKey={presetKey}
           key={editor.value.id}
           browser={browser}
-          onOpenPreset={(p) =>
-            setMemberEditor({ value: p, hash: state?.profileHash })
-          }
+          onOpenPreset={(p) => {
+            library.used(presetKey(p.id));
+            setMemberEditor({ value: p, hash: state?.profileHash });
+          }}
           group={{
             ...editor.value,
             editable: editor.value.editable && editable,
@@ -583,8 +710,33 @@ export default function PresetManager({
           const quick = target.kind === "quick";
           return (
             <PresetEditor
-              key={target.value.id}
+              key={quick ? `quick-${target.player ?? 0}` : target.value.id}
               quick={quick}
+              library={library}
+              initialDraft={quick ? quickDrafts[target.player ?? 0] : null}
+              quickDraftPlayers={Object.keys(quickDrafts).map(Number)}
+              onDraft={
+                quick
+                  ? (value, baseline) =>
+                      setQuickDrafts((previous) => {
+                        const player = target.player ?? 0;
+                        if (
+                          JSON.stringify(value) === JSON.stringify(baseline)
+                        ) {
+                          if (!(player in previous)) return previous;
+                          const next = { ...previous };
+                          delete next[player];
+                          return next;
+                        }
+                        if (
+                          JSON.stringify(previous[player]) ===
+                          JSON.stringify({ value, baseline })
+                        )
+                          return previous;
+                        return { ...previous, [player]: { value, baseline } };
+                      })
+                  : undefined
+              }
               quickPlayers={state.quickSetups || []}
               quickPlayer={target.player ?? 0}
               onQuickPlayer={(player) => {

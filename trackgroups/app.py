@@ -86,6 +86,11 @@ def make_server(service):
                     return self.reply(200, result)
                 if action == "live-save-preset":
                     return self.reply(200, service.save_live_preset(body))
+                if action == "library-preferences":
+                    from .library_preferences import save
+                    value = save(body)
+                    with service.lock: service.library_preferences = value
+                    return self.reply(200, {'saved':True})
                 if action == "refresh-appearances":
                     service.appearance.refresh(service.game, force=True)
                     return self.reply(200, {'message':'Scanning installed appearances.'})

@@ -12,6 +12,7 @@ import { fixture } from "./test-fixture.js";
 import { readProfile } from "../web/profile.js";
 import { presetState, exportPresets } from "./model.js";
 beforeEach(() => {
+  localStorage.clear();
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
   };
@@ -185,7 +186,7 @@ it("keeps actions in footer and displays save errors inside the editor without l
   fireEvent.change(screen.getByLabelText("Search vehicle"), {
     target: { value: "Blue" },
   });
-  fireEvent.click(screen.getByRole("button", { name: /Kart · Blue/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Kart · Blue/ }));
   const save = screen.getByRole("button", {
     name: "Save changes",
     exact: true,
@@ -294,7 +295,7 @@ it("preserves unsaved choices when the game changes the same preset", async () =
   fireEvent.change(screen.getByLabelText("Search vehicle"), {
     target: { value: "Blue" },
   });
-  fireEvent.click(screen.getByRole("button", { name: /Kart Blue/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Kart Blue/ }));
   const next = structuredClone(initial);
   next.presets[0].data.iVehicleMaterialID_Modded = 7;
   rerender(<PresetManager state={next} onChange={onChange} />);
@@ -326,4 +327,112 @@ it("opens Quick Setup without treating it as a saved or grouped preset", () => {
   expect(
     screen.queryByRole("button", { name: "Delete", exact: true }),
   ).toBeNull();
+});
+
+it("keeps favorites consistent between a group member and All presets without editing the save", () => {
+  const onChange = vi.fn();
+  const data = state();
+  render(<PresetManager state={data} onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: /Preset groups/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Sönic/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Favorite Setup 1" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close preset group" }));
+  fireEvent.click(screen.getByRole("button", { name: /All presets/ }));
+  expect(
+    screen
+      .getByRole("button", { name: "Unfavorite Setup 1" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Favorites", exact: true }),
+  );
+  expect(screen.getByRole("button", { name: /^Setup 1/ })).toBeTruthy();
+  expect(onChange).not.toHaveBeenCalled();
+});
+it("keeps separate player drafts across switching and reopening Quick Setup", async () => {
+  const data = state();
+  data.quickSetups = [0, 1].map((player) => ({
+    id: 338088,
+    player,
+    data: structuredClone(data.presets[0].data),
+  }));
+  data.quickSetup = data.quickSetups[0];
+  data.appearance = {
+    items: {
+      vehicles: {
+        2: {
+          name: "Kart",
+          label: "Kart Red",
+          entity: "Kart",
+          skin: "Red",
+          source: "official",
+        },
+        5: {
+          name: "Kart",
+          label: "Kart Blue",
+          entity: "Kart",
+          skin: "Blue",
+          source: "official",
+        },
+      },
+    },
+  };
+  render(<PresetManager state={data} onChange={vi.fn()} />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Quick Setup", exact: true }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Vehicle", exact: true }));
+  fireEvent.change(screen.getByLabelText("Search vehicle"), {
+    target: { value: "Blue" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^Kart Blue/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit Player 2" }));
+  expect(await screen.findByText("No changes")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edit Player 1, unsaved draft" }),
+  );
+  expect(await screen.findByText("Unsaved changes")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: /Vehicle Kart Blue/ }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Close preset" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /Quick Setup · 1 draft/ }),
+  );
+  expect(await screen.findByText("Unsaved changes")).toBeTruthy();
+});
+
+it("favorites one character skin without starring every skin of the same character", () => {
+  const data = state();
+  const original = data.presets[0].data.iCharacterSkinMaterialID_Modded;
+  data.appearance = {
+    items: {
+      characters: {
+        [original]: {
+          name: "Bobby",
+          label: "Bobby Red",
+          entity: "Bobby",
+          skin: "Red",
+          variant: "Default",
+        },
+        7: {
+          name: "Bobby",
+          label: "Bobby Blue",
+          entity: "Bobby",
+          skin: "Blue",
+          variant: "Default",
+        },
+      },
+    },
+  };
+  render(<PresetManager state={data} />);
+  fireEvent.click(screen.getByRole("button", { name: /^Bobby · Setup 1/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Skin: Red/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Favorite Red" }));
+  expect(screen.getByRole("button", { name: "Unfavorite Red" })).toBeTruthy();
+  expect(
+    screen
+      .getByRole("button", { name: "Favorite Blue" })
+      .getAttribute("aria-pressed"),
+  ).toBe("false");
 });

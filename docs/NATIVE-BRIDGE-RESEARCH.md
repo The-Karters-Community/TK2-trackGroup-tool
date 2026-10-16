@@ -38,9 +38,22 @@ installed GameAssembly.dll. The platform mechanism is described in Microsoft's
 
 An owned hidden-window fixture verified that the DLL callback ran on exactly its
 window thread and that the private mapping returned a result. Its expected
-`No GameAssembly` result verifies transport only, not game integration. Actual
-game-thread, profile, Quick Setup and managed-call checks await the requested
-main-menu launch. No experimental DLL is included in the normal app.
+`No GameAssembly` result verifies transport only, not game integration. On 2026-10-16 the real game at its main menu passed the read-only test:
+
+- Game PID 16160, window thread 15840 and callback thread 15840 matched.
+- IL2CPP reported the callback thread attached; Unity `GameObject.Find` completed
+  without its off-main-thread exception and created no game object.
+- Player 1 Quick Setup ID 338088 and Player 2 ID 253303 were read from the live
+  profile through field APIs. The expected local profile filename suffix matched;
+  this suffix check alone is not an exact Steam-account identity check.
+- The six cosmetic IDs were returned without a native/managed error. A repeated
+  probe left all local profile bytes unchanged (SHA-256 comparison).
+- After helper exit, the game's module list contained zero instances of
+  `BobbyGarageProbe.dll`. Hooks, mappings and handles were cleaned up.
+
+This proves main-thread read access and transport in this build. It does not
+prove safe live saves, in-menu refresh, race-return behavior or multiplayer
+synchronization. No experimental DLL is included in the normal app.
 
 ## Remaining live-save proof
 

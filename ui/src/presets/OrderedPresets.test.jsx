@@ -47,19 +47,23 @@ it("paginates 200 setups and preserves other pages when saving a drag", async ()
   const onChange = vi.fn().mockResolvedValue(true);
   render(<PresetManager state={state} onChange={onChange} />);
   const list = screen.getByRole("list", { name: "Preset order" });
-  expect(within(list).getAllByRole("checkbox")).toHaveLength(24);
-  expect(screen.getAllByRole("checkbox")).toHaveLength(24);
+  expect(within(list).getAllByRole("checkbox")).toHaveLength(12);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(12);
   const instance = instances[0];
   instance.node.appendChild(instance.node.children[0]);
-  instance.options.onEnd({ oldIndex: 0, newIndex: 23 });
+  instance.options.onEnd({ oldIndex: 0, newIndex: 11 });
   await screen.findByText("Unsaved preset order");
   expect(onChange).not.toHaveBeenCalled();
-  expect(list.children[23].dataset.id).toBe("100");
+  expect(list.children[11].dataset.id).toBe("100");
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(onChange).toHaveBeenCalledWith({
       mode: "order",
-      order: [...Array.from({ length: 23 }, (_, i) => 101 + i), 100, ...Array.from({ length: 176 }, (_, i) => 124 + i)],
+      order: [
+        ...Array.from({ length: 11 }, (_, i) => 101 + i),
+        100,
+        ...Array.from({ length: 188 }, (_, i) => 112 + i),
+      ],
     }),
   );
 }, 15000);

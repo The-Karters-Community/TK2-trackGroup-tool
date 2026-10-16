@@ -1,6 +1,6 @@
 import { useState } from "react";
 import TrackPreview, { trackName } from "./TrackPreview.jsx";
-import Pagination, { usePagination } from "./Pagination.jsx";
+import { RowControls, useRowPagination } from "./RowPage.jsx";
 
 export const trackKey = (track) =>
   track.kind === "official"
@@ -28,7 +28,7 @@ export default function TrackPicker({
         (filter === "official" && t.kind === "official") ||
         (filter === "workshop" && t.kind === "workshop")),
   );
-  const paging = usePagination(filtered, `${query}:${filter}`);
+  const paging = useRowPagination(filtered, `${query}:${filter}`, 150, 12);
   function toggle(track) {
     const key = trackKey(track);
     onChange(
@@ -38,7 +38,11 @@ export default function TrackPicker({
     );
   }
   return (
-    <div className="track-picker">
+    <div
+      className="track-picker"
+      ref={paging.host}
+      style={{ "--collection-columns": paging.columns }}
+    >
       <div className="toolbar">
         <input
           aria-label="Find tracks"
@@ -72,7 +76,7 @@ export default function TrackPicker({
         {filtered.length} tracks · {selected.length} selected. Tracks join the
         group in selection order.
       </p>
-      <Pagination paging={paging} label="Tracks" />
+      <RowControls paging={paging} label="Tracks" />
       <div className="track-picker-grid">
         {paging.items.map((track) => (
           <label

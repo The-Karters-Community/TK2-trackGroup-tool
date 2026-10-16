@@ -48,6 +48,9 @@ test("batch group export retains selections across pages and searches", () => {
   fireEvent.click(
     screen.getByRole("button", { name: "Next Track groups page" }),
   );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Next Track groups page" }),
+  );
   fireEvent.click(screen.getByLabelText("Select Collection 25"));
   fireEvent.change(screen.getByLabelText("Search groups"), {
     target: { value: "Collection 25" },

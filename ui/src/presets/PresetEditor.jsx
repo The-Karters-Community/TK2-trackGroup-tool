@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Cross2Icon,
   CopyIcon,
@@ -11,6 +11,7 @@ import { slots, setupTitle } from "./appearance.js";
 import AppearanceChoice from "./AppearanceChoice.jsx";
 import LivePresetPreview from "./LivePresetPreview.jsx";
 import PresetPreview from "./PresetPreview.jsx";
+import LocalPlayers from "./LocalPlayers.jsx";
 
 export default function PresetEditor({
   preset,
@@ -36,17 +37,32 @@ export default function PresetEditor({
   quickPlayers = [],
   quickPlayer = 0,
   onQuickPlayer,
+  library,
+  initialDraft,
+  onDraft,
+  quickDraftPlayers = [],
 }) {
-  const [value, setValue] = useState(() => cosmetic(preset.data));
-  const [baseline, setBaseline] = useState(() => cosmetic(preset.data));
+  const [value, setValue] = useState(
+    () => initialDraft?.value || cosmetic(preset.data),
+  );
+  const [baseline, setBaseline] = useState(
+    () => initialDraft?.baseline || cosmetic(preset.data),
+  );
   const [version, setVersion] = useState("modded");
   const [category, setCategory] = useState(0);
   const [sticker, setSticker] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [error, setError] = useState("");
   const saved = JSON.stringify(cosmetic(preset.data));
   const base = JSON.stringify(baseline);
   const dirty = JSON.stringify(value) !== base;
   const conflict = saved !== base && dirty;
+  const draftReporter = useRef(onDraft);
+  draftReporter.current = onDraft;
+  const serializedDraft = JSON.stringify(value);
+  useEffect(() => {
+    draftReporter.current?.(value, baseline);
+  }, [serializedDraft, base]);
   useEffect(() => {
     if (saved !== base && !dirty) {
       setValue(cosmetic(preset.data));
@@ -70,6 +86,10 @@ export default function PresetEditor({
       ? appearance.staleViews[preset.id]?.includes(version)
       : appearance?.stalePreviews?.includes(preset.id));
   function close() {
+    if (quick) {
+      if (!busy) onClose();
+      return;
+    }
     if (
       !busy &&
       (!dirty || window.confirm("Discard the unsaved preset changes?"))
@@ -112,29 +132,21 @@ export default function PresetEditor({
           <h2>
             {quick ? "Quick Setup" : setupTitle(preset, appearance, position)}
           </h2>
-          {quick && quickPlayers.length > 1 && (
-            <select
-              aria-label="Local player"
-              value={quickPlayer}
-              disabled={busy}
-              onChange={(e) => {
-                if (
-                  !dirty ||
-                  window.confirm(
-                    "Discard this Quick Setup draft and switch local player?",
-                  )
-                )
-                  onQuickPlayer(Number(e.target.value));
-              }}
-            >
-              {quickPlayers.map((p) => (
-                <option key={p.player} value={p.player}>
-                  Player {p.player + 1}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
+        {quick && quickPlayers.length > 1 && (
+          <LocalPlayers
+            players={quickPlayers}
+            selected={quickPlayer}
+            drafts={quickDraftPlayers}
+            busy={busy}
+            onSelect={(player) => {
+              draftReporter.current?.(value, baseline);
+              onQuickPlayer(player);
+            }}
+            appearance={appearance}
+            loadImage={loadImage}
+          />
+        )}
         <button
           className="icon-button"
           aria-label="Close preset"
@@ -145,7 +157,17 @@ export default function PresetEditor({
         </button>
       </header>
       <div className="editor-body customization-layout">
-        <aside className="setup-inspector">
+        <button
+          className="mobile-preview-toggle"
+          type="button"
+          aria-expanded={previewOpen}
+          onClick={() => setPreviewOpen(!previewOpen)}
+        >
+          {previewOpen ? "Hide 3D preview" : "Show 3D preview"}
+        </button>
+        <aside
+          className={`setup-inspector${previewOpen ? " preview-open" : ""}`}
+        >
           <LivePresetPreview
             data={value}
             view={version}
@@ -161,24 +183,6 @@ export default function PresetEditor({
             appearanceLoading={appearance?.loading}
             revision={appearance?.revision}
           />
-          <div className="tabs" aria-label="Customization version">
-            {["modded", "original"].map((view) => (
-              <button
-                key={view}
-                className={version === view ? "active" : ""}
-                aria-pressed={version === view}
-                onClick={() => setVersion(view)}
-              >
-                {view === "modded" ? "Modded" : "Original"}
-              </button>
-            ))}
-          </div>
-          <p className="hint">
-            {modded
-              ? "Edit your installed modded appearances."
-              : "Edit the originals other players see without your mods."}{" "}
-            Choose which version to use inside the game.
-          </p>
           <div className="setup-components">
             {slots.map(([title, k, f], i) => {
               const id = value[modded ? `${f}_Modded` : f];
@@ -187,6 +191,7 @@ export default function PresetEditor({
                 <button
                   key={k}
                   className={category === i ? "selected" : ""}
+                  title={info?.label || title}
                   onClick={() => setCategory(i)}
                 >
                   <PresetPreview
@@ -210,17 +215,36 @@ export default function PresetEditor({
               preset requires the game to be closed.
             </p>
           )}
-          <div className="tabs category-tabs" aria-label="Appearance category">
-            {["Character", "Vehicle", "Wheels", "Stickers"].map((title, i) => (
-              <button
-                key={title}
-                className={category === i ? "active" : ""}
-                aria-pressed={category === i}
-                onClick={() => setCategory(i)}
-              >
-                {title}
-              </button>
-            ))}
+          <div className="customization-picker-heading">
+            <div
+              className="tabs category-tabs"
+              aria-label="Appearance category"
+            >
+              {["Character", "Vehicle", "Wheels", "Stickers"].map(
+                (title, i) => (
+                  <button
+                    key={title}
+                    className={category === i ? "active" : ""}
+                    aria-pressed={category === i}
+                    onClick={() => setCategory(i)}
+                  >
+                    {title}
+                  </button>
+                ),
+              )}
+            </div>
+            <div className="tabs" aria-label="Customization version">
+              {["modded", "original"].map((view) => (
+                <button
+                  key={view}
+                  className={version === view ? "active" : ""}
+                  aria-pressed={version === view}
+                  onClick={() => setVersion(view)}
+                >
+                  {view === "modded" ? "Modded" : "Original"}
+                </button>
+              ))}
+            </div>
           </div>
           {category === 3 && (
             <>
@@ -270,6 +294,7 @@ export default function PresetEditor({
               data={category === 3 ? value.stickersData[sticker] : value}
               presets={presets}
               appearance={appearance}
+              library={library}
               loadImage={loadImage}
               onChange={(id) =>
                 setValue(
@@ -362,7 +387,19 @@ export default function PresetEditor({
               className="primary"
               disabled={busy || !canSavePreset || !dirty || conflict}
               onClick={() =>
-                act(() => onSave(value, { id: preset.id, data: baseline }))
+                quick
+                  ? (async () => {
+                      setError("");
+                      try {
+                        if (
+                          await onSave(value, { id: preset.id, data: baseline })
+                        )
+                          setBaseline(value);
+                      } catch (err) {
+                        setError(err.message);
+                      }
+                    })()
+                  : act(() => onSave(value, { id: preset.id, data: baseline }))
               }
             >
               {browser

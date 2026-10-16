@@ -504,6 +504,7 @@ export default function WebApp() {
           />
         ) : page === "presets" ? (
           <PresetManager
+            libraryScope={source?.filename || "browser"}
             openQuickRequest={quickRequest}
             onQuickOpened={() => setQuickRequest(0)}
             state={presets}

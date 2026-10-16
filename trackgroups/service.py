@@ -23,6 +23,8 @@ class Service:
     def __init__(self):
         self.lock = threading.RLock()
         self.updates = Updates()
+        from .library_preferences import load
+        self.library_preferences = load()
         self.on_update = None
         try: self.preferences = json.loads((DATA / "preferences.json").read_text(encoding="utf-8"))
         except (OSError, ValueError): self.preferences = {}
@@ -157,7 +159,7 @@ class Service:
                 group['missingTracks'] = sum(not self.track_status.get(t.get('workshopId'), {}).get('ready', False) or not self.track_status.get(t.get('workshopId'), {}).get('subscribed', False) for t in workshop) if self.account else None
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
             from .track_library import library, summary
-            return {"version": VERSION, "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
+            return {"version": VERSION, "libraryPreferences":getattr(self,'library_preferences',{'favorites':[],'activity':{}}), "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
                 "tracks":library(self.items, self.track_status), "trackSummary":summary(self.items, self.track_status, local), "libraryLoading":self.library_loading,
                 "groups": reviewed, "localGroups": local,
                 "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]) + self.preset_state.get('quickSetups', []))}), "profileHash": getattr(self, 'local_hash', ''),

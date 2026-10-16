@@ -3,6 +3,7 @@ import GroupList from "../components/GroupList.jsx";
 import { assetUrl } from "../assets.js";
 import { useState } from "react";
 import Pagination, { usePagination } from "../components/Pagination.jsx";
+import { RowControls, useRowPagination } from "../components/RowPage.jsx";
 
 export default function Library({
   local,
@@ -22,9 +23,20 @@ export default function Library({
   onExportMany,
 }) {
   const [checked, setChecked] = useState([]);
-  const paging = usePagination(groups, `${local}:${category}:${query}`);
+  const listPaging = usePagination(groups, `${local}:${category}:${query}`);
+  const gridPaging = useRowPagination(
+    groups,
+    `${local}:${category}:${query}`,
+    250,
+    16,
+  );
+  const paging = gallery ? gridPaging : listPaging;
   return (
-    <section className="library-main">
+    <section
+      className="library-main"
+      ref={gridPaging.host}
+      style={{ "--collection-columns": gridPaging.columns }}
+    >
       <div className="library-heading">
         <h1>{local ? "My track groups" : "Discover track groups"}</h1>
         {!local && (
@@ -152,7 +164,11 @@ export default function Library({
         gallery={gallery}
         onSelect={onSelect}
       />
-      <Pagination paging={paging} label="Track groups" />
+      {gallery ? (
+        <RowControls paging={paging} label="Track groups" />
+      ) : (
+        <Pagination paging={paging} label="Track groups" />
+      )}
     </section>
   );
 }

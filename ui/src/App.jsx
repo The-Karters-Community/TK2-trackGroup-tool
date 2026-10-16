@@ -39,6 +39,10 @@ export default function App() {
     (body, signal) => api("preset-model", body, signal),
     [],
   );
+  const saveLibraryPreferences = useCallback(
+    (value) => api("library-preferences", value),
+    [],
+  );
   const refreshModels = useCallback(async () => {
     await api("refresh-appearances", {});
     for (let i = 0; i < 120; i++) {
@@ -363,6 +367,9 @@ export default function App() {
           />
         ) : page === "presets" ? (
           <PresetManager
+            initialLibraryPreferences={state.libraryPreferences}
+            saveLibraryPreferences={saveLibraryPreferences}
+            libraryScope={state.settings?.profile || "local"}
             openQuickRequest={quickRequest}
             onQuickOpened={() => setQuickRequest(0)}
             refreshModels={refreshModels}

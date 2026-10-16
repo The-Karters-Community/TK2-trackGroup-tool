@@ -1,4 +1,4 @@
-# TK2 Garage
+# Bobby’s Garage
 
 ## Register
 Product: a desktop and browser companion for The Karters 2 players.

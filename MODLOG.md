@@ -344,3 +344,11 @@
   Steam, detected six Quick Setup slots, loaded Broly geometry/Victory clip,
   preserved the profile hash and released its folder on shutdown. Development
   Garage reopened and healthy. No release, push or hosted deployment performed.
+
+
+## 2026-10-16 - Compact library navigation and native read proof
+
+- Complete-row pagination uses measured columns; compact bars, flat appearance steps, independently scrolling desktop preview/picker and mobile preview disclosure.
+- Local player controller-slot buttons preserve separate in-session drafts. Favorites and Garage activity are private app metadata, not profile edits or exported assets. Installation/first discovery and Garage picking activity are explicitly labeled.
+- Real read-only hook probe: PID 16160, callback/window thread 15840, IL2CPP attached, Unity GameObject.Find accepted. Read P1 338088/P2 253303; repeated probe preserved local profile SHA-256; DLL absent from game module list afterward. No writes or BepInEx calls. See docs/NATIVE-BRIDGE-RESEARCH.md for limits.
+- Verification: 109 frontend and 100 Python tests pass; desktop/browser builds pass; static web isolation verified. REA screenshots checked at 1180/820/390 px with no page errors. Frozen startup with Windows-only PATH verified six Quick Setup slots and 107 downloaded tracks, Broly model/Victory clip; local profile hash unchanged, clean shutdown and folder rename succeeded. Flat dev ZIP remains 29.2 MiB. Final frontend-only correction refreshed packaged assets and manifest/checksum. No release or push.

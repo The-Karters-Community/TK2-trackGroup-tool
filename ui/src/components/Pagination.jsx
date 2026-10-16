@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 
 export function usePagination(items, scope, initialSize = 24) {
   const [position, setPosition] = useState({
@@ -32,7 +33,7 @@ export default function Pagination({ paging, label = "items" }) {
           : "0 results"}
       </span>
       <label>
-        Per page
+        <span>Items</span>
         <select
           aria-label={`${label} per page`}
           value={size}
@@ -52,10 +53,9 @@ export default function Pagination({ paging, label = "items" }) {
           disabled={page === 1}
           onClick={() => setPage(page - 1)}
         >
-          Previous
+          <ChevronLeftIcon />
         </button>
         <label>
-          Page
           <select
             aria-label={`${label} page`}
             value={page}
@@ -63,11 +63,10 @@ export default function Pagination({ paging, label = "items" }) {
           >
             {Array.from({ length: pages }, (_, i) => (
               <option key={i} value={i + 1}>
-                {i + 1}
+                {i + 1} / {pages}
               </option>
             ))}
           </select>
-          <span>of {pages}</span>
         </label>
         <button
           type="button"
@@ -75,7 +74,7 @@ export default function Pagination({ paging, label = "items" }) {
           disabled={page === pages}
           onClick={() => setPage(page + 1)}
         >
-          Next
+          <ChevronRightIcon />
         </button>
       </div>
     </nav>

@@ -12,10 +12,22 @@ Current development changes are collected in [CHANGELOG.md](CHANGELOG.md) for th
 
 ## Use the app
 
+Appearance choices use a compact Character → Skin → Variant rail with search,
+sorting and stars. Choose 1–4 complete rows; resizing recalculates how many tiles
+fit each page. Recent/most-picked sorts use Garage activity, while added dates
+come from installation or first discovery. Favorites are saved separately from
+player profiles and shared across All presets and group members.
+
+Quick Setup has six player-slot buttons with separate in-session drafts and
+unsaved indicators. Switching slots or reopening the editor preserves drafts;
+closing Garage discards them. These are saved player slots, not detection or
+assignment of connected controllers. The 3D preview can be collapsed on phones.
+
+
 Home opens first, with the garage artwork and direct shortcuts. Track collections
 are under **Discover track groups** and **My track groups**; **My tracks** lists
 installed tracks. Collection and appearance browsers use page navigation with an
-adjustable page size. Preset selections survive page changes, and **Move selected**
+adjustable row count for galleries and item count for lists. Preset selections survive page changes, and **Move selected**
 places them anywhere in the library before **Save changes** commits the order.
 
 Select several track groups and choose **Export selected** to save one

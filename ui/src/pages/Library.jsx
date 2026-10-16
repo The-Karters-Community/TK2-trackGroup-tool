@@ -3,6 +3,7 @@ import { ReloadIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import GroupList from "../components/GroupList.jsx";
 import GroupDetails from "../components/GroupDetails.jsx";
 import Pagination, { usePagination } from "../components/Pagination.jsx";
+import { RowControls, useRowPagination } from "../components/RowPage.jsx";
 import { unpackGroups } from "../components/groupPack.js";
 
 export default function Library({
@@ -40,7 +41,14 @@ export default function Library({
   const groups = categorySource.filter((g) =>
     g.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
-  const paging = usePagination(groups, `${search}:${category}:${local}`);
+  const listPaging = usePagination(groups, `${search}:${category}:${local}`);
+  const gridPaging = useRowPagination(
+    groups,
+    `${search}:${category}:${local}`,
+    250,
+    16,
+  );
+  const paging = gallery ? gridPaging : listPaging;
   const selectedGroups = source.filter((g) => checked.includes(g.id));
   async function openFile(event) {
     const file = event.target.files[0];
@@ -67,7 +75,11 @@ export default function Library({
   }
   return (
     <div className={`library ${selected ? "with-details" : ""}`}>
-      <section className="library-main">
+      <section
+        className="library-main"
+        ref={gridPaging.host}
+        style={{ "--collection-columns": gridPaging.columns }}
+      >
         <header className="library-heading">
           <h1>{local ? "My track groups" : "Discover track groups"}</h1>
           {!local && (
@@ -239,7 +251,11 @@ export default function Library({
             </p>
           </div>
         )}
-        <Pagination paging={paging} label="Track groups" />
+        {gallery ? (
+          <RowControls paging={paging} label="Track groups" />
+        ) : (
+          <Pagination paging={paging} label="Track groups" />
+        )}
       </section>
       {selected && (
         <GroupDetails

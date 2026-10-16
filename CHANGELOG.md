@@ -22,9 +22,20 @@ a release is requested; development builds do not advance the release version.
 - Open on a dedicated Home page with BobbysGarageV4 artwork and shortcuts to
   Quick Setup, presets, track groups, downloaded tracks and settings. Restore
   the game logo in the sidebar; rename track navigation explicitly.
-- Add page navigation and 12/24/48/96 item sizes for presets, preset groups,
-  group membership, track groups, downloaded tracks and appearance choices.
+- Paginate visual libraries by 1–4 complete rows, calculated from the current
+  column count. Use one compact count/rows/page bar; keep item counts for lists.
   Preserve selections across pages and add moving selected presets to a position.
+- Replace stacked appearance accordions with a Character/Skin/Variant step rail.
+  Keep desktop preview and picker scrolling separate; offer a collapsible preview
+  on phones, with close/save/discard always accessible.
+- Add alphabetical, newest/oldest added, recently picked, most picked and
+  favorites-first sorting. Added dates use installation/first discovery; picking
+  history records Garage use, not Steam-wide popularity or in-game history.
+- Star presets, preset groups and appearances. Group-member stars are shared with
+  All presets; preferences remain in Garage data and never enter exported packs.
+- Replace the Quick Setup player dropdown with six controller-slot buttons,
+  saved thumbnails and separate in-session drafts. Switching slots or closing and
+  reopening Quick Setup retains these drafts; it does not change game controllers.
 - Export several track groups as one versioned `.tk2groups.json` file. Open packs
   in either edition and review groups individually before importing.
 - Rescan installed appearances before retrying model failures; identify saved
@@ -48,6 +59,10 @@ a release is requested; development builds do not advance the release version.
 - Keep optional native game-reference images and guarded live saving for existing
   ordinary presets. Quick Setup and structural save edits still require the game
   closed; extracted game assets are never distributed.
+
+- Verify a temporary native hook can read two local-player Quick Setup slots on
+  the real game's Unity thread without BepInEx. It leaves save bytes unchanged
+  and unloads afterward. This is research only; native live saving is not enabled.
 
 ### Steam and track groups
 

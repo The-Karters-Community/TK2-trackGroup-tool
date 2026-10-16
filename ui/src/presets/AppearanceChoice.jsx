@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { PagedCollection } from "../components/Pagination.jsx";
+import { useEffect, useState } from "react";
+import { StarIcon, StarFilledIcon } from "@radix-ui/react-icons";
+import RowPage from "../components/RowPage.jsx";
 import PresetPreview from "./PresetPreview.jsx";
+import { sortEntries, sortOptions } from "./libraryState.js";
 
-// Each thumbnail represents a real material configuration, never a Workshop cover.
 export default function AppearanceChoice({
   label,
   kind,
@@ -12,9 +13,12 @@ export default function AppearanceChoice({
   appearance,
   loadImage,
   onChange,
+  library,
 }) {
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState(0);
+  const [sort, setSort] = useState("alphabetical"),
+    [favoritesOnly, setFavoritesOnly] = useState(false);
   const known = appearance?.items?.[kind] || {};
   const choices = new Map();
   const values =
@@ -24,51 +28,32 @@ export default function AppearanceChoice({
           ...presets.flatMap((p) => p.data.stickersData.map((s) => s[field])),
         ]
       : presets.map((p) => p.data[field]);
-  [data[field], ...values].forEach((id) => {
-    if (!choices.has(id))
-      choices.set(
-        id,
-        known[id] || {
-          name:
-            id === -1
-              ? "No sticker"
-              : `Unavailable saved ${label.toLowerCase()}`,
-          available: id === -1,
-        },
-      );
-  });
+  [data[field], ...values].forEach((id) =>
+    choices.set(
+      id,
+      known[id] || {
+        name:
+          id === -1 ? "No sticker" : `Unavailable saved ${label.toLowerCase()}`,
+        available: id === -1,
+      },
+    ),
+  );
   Object.entries(known).forEach(([id, entry]) => {
     if (field.endsWith("_Modded") || entry.source === "official")
       choices.set(Number(id), entry);
   });
-  const entries = [...choices]
-    .map(([id, e]) => {
-      const parts = (e.label || e.name).split(" · ");
-      return {
-        ...e,
-        id,
-        entity: e.entity || e.name,
-        skin: e.skin || parts[1] || "Default",
-        variant: e.variant || parts[2] || "Default",
-      };
-    })
-    .sort((a, b) =>
-      (a.label || a.name).localeCompare(b.label || b.name, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }),
-    );
+  const entries = [...choices].map(([id, e]) => {
+    const parts = (e.label || e.name).split(" · ");
+    return {
+      ...e,
+      id,
+      entity: e.entity || e.name,
+      skin: e.skin || parts[1] || "Default",
+      variant: e.variant || parts[2] || "Default",
+    };
+  });
   const selected = entries.find((e) => e.id === data[field]);
   const view = field.endsWith("_Modded") ? "modded" : "original";
-  function source(entry) {
-    if (entry.image) return entry.image;
-    const example = presets.find((p) =>
-      kind === "stickers"
-        ? p.data.stickersData.some((s) => s[field] === entry.id)
-        : p.data[field] === entry.id,
-    );
-    return appearance?.previews?.[example?.id]?.[view];
-  }
   const levels =
     kind === "characters"
       ? [
@@ -82,96 +67,116 @@ export default function AppearanceChoice({
             [label, "entity"],
             ["Skin", "skin"],
           ];
+  const recordKey = (entry, exact) =>
+    `appearance:${kind}:${exact ? entry.id : entry.entity}`;
+  const skinKey = (entry) =>
+    `appearance:${kind}:skin:${entry.entity}:${entry.skin}`;
+  const observed = entries
+    .map((e) => [recordKey(e, true), recordKey(e, false), skinKey(e)])
+    .flat()
+    .join("\n");
+  useEffect(() => {
+    library?.observe(observed.split("\n"));
+  }, [observed]);
+  const exact = Boolean(query) || stage === levels.length - 1;
+  const key = levels[stage]?.[1] || "id";
+  let items = entries.filter((e) =>
+    query
+      ? (e.label || e.name).toLowerCase().includes(query.toLowerCase())
+      : stage === 0 ||
+        (e.entity === selected?.entity &&
+          (stage < 2 || e.skin === selected?.skin)),
+  );
+  if (!query) {
+    const unique = new Map();
+    items.forEach((e) => {
+      const identity = exact ? e.id : e[key];
+      if (!unique.has(identity) || e.id === selected?.id)
+        unique.set(identity, e);
+    });
+    items = [...unique.values()];
+  }
+  const keyFor = (entry) =>
+    !exact && stage === 1 ? skinKey(entry) : recordKey(entry, exact);
+  if (favoritesOnly) items = items.filter((e) => library?.favorite(keyFor(e)));
+  items = sortEntries(items, sort, {
+    key: keyFor,
+    name: (e) => (exact ? e.label || e.name : String(e[key])),
+    added: (e) => e.addedAt,
+    ...library?.data,
+  });
+  function source(entry) {
+    if (entry.image) return entry.image;
+    const example = presets.find((p) =>
+      kind === "stickers"
+        ? p.data.stickersData.some((s) => s[field] === entry.id)
+        : p.data[field] === entry.id,
+    );
+    return appearance?.previews?.[example?.id]?.[view];
+  }
   return (
     <div className="appearance-picker">
       {selected?.available === false && !appearance?.loading && (
-        <p className="notice" role="status">
-          This saved {label.toLowerCase()} is not in the installed content.
-          Choose an available appearance below, or rescan after installing its
-          mod. Retrying alone cannot restore missing content.
+        <p className="notice">
+          Saved {label.toLowerCase()} is unavailable. Choose an installed
+          appearance, or rescan after installing its mod.
         </p>
       )}
-      <input
-        type="search"
-        aria-label={`Search ${label.toLowerCase()}`}
-        placeholder={`Find ${label.toLowerCase()}…`}
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-        }}
-      />
-      {query ? (
-        <section aria-label={`${label} search results`}>
-          <p className="hint">
-            Select an appearance to apply it to this draft.
-          </p>
-          {grid(
-            entries.filter((e) =>
-              `${e.label || e.name}`
-                .toLowerCase()
-                .includes(query.toLowerCase()),
-            ),
-            true,
-          )}
-        </section>
-      ) : (
-        levels.map(([title, key], level) => {
-          const candidates = entries.filter(
-            (e) =>
-              level === 0 ||
-              (e.entity === selected?.entity &&
-                (level < 2 || e.skin === selected?.skin)),
-          );
-          const unique = new Map();
-          candidates.forEach((e) => {
-            const k = level === levels.length - 1 ? e.id : e[key];
-            if (!unique.has(k) || e.id === selected?.id) unique.set(k, e);
-          });
-          return (
-            <details
-              key={key}
-              open={stage === level}
-              className="appearance-section"
+      <div className="appearance-toolbar">
+        <input
+          type="search"
+          aria-label={`Search ${label.toLowerCase()}`}
+          placeholder={`Find ${label.toLowerCase()}…`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          aria-label={`Sort ${label} appearances`}
+          title="Recent and most picked reflect Garage choices. Added dates use installation or first discovery."
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          {sortOptions.map(([id, title]) => (
+            <option key={id} value={id}>
+              {title}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Favorite appearances only"
+          aria-pressed={favoritesOnly}
+          title="Favorites only"
+          onClick={() => setFavoritesOnly(!favoritesOnly)}
+        >
+          {favoritesOnly ? <StarFilledIcon /> : <StarIcon />}
+        </button>
+      </div>
+      {!query && (
+        <div
+          className="appearance-steps"
+          aria-label={`${label} selection steps`}
+        >
+          {levels.map(([title, k], index) => (
+            <button
+              type="button"
+              key={k}
+              aria-pressed={stage === index}
+              aria-label={`${title}: ${selected?.[k] === selected?.id ? selected?.name : selected?.[k] || "None"}`}
+              onClick={() => setStage(index)}
             >
-              <summary
-                onClick={(e) => {
-                  e.preventDefault();
-                  setStage(stage === level ? -1 : level);
-                }}
-              >
-                {title}
-                <span>
-                  {selected?.[key] === selected?.id
-                    ? selected?.name
-                    : selected?.[key]}
-                </span>
-              </summary>
-              <div className="accordion-content">
-                <div>
-                  {grid(
-                    [...unique.values()],
-                    level === levels.length - 1,
-                    key,
-                    Math.min(level + 1, levels.length - 1),
-                  )}
-                </div>
-              </div>
-            </details>
-          );
-        })
+              <span>{title}</span>
+              <small>
+                {selected?.[k] === selected?.id ? selected.name : selected?.[k]}
+              </small>
+            </button>
+          ))}
+        </div>
       )}
-      {appearance?.loading && (
-        <p role="status" className="hint">
-          Reading installed appearances…
-        </p>
-      )}
-    </div>
-  );
-  function grid(items, exact, key = "id", nextStage = stage) {
-    return (
-      <PagedCollection
+      <RowPage
         items={items}
-        scope={`${kind}:${field}:${query}:${key}:${selected?.entity}:${selected?.skin}`}
+        scope={`${kind}:${field}:${query}:${stage}:${sort}:${favoritesOnly}:${stage ? selected?.entity + selected?.skin : ""}`}
         label={`${label} appearances`}
       >
         {(visible) => (
@@ -185,38 +190,55 @@ export default function AppearanceChoice({
                 ? entry.id === selected?.id
                 : entry[key] === selected?.[key];
               const title = exact ? entry.label || entry.name : entry[key];
-              const image = source(entry);
+              const image = source(entry),
+                favorite = library?.favorite(keyFor(entry));
               return (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
-                  className={`appearance-tile ${active ? "selected" : ""}`}
-                  aria-pressed={active}
-                  disabled={entry.available === false}
-                  title={title}
-                  onClick={() => {
-                    onChange(entry.id);
-                    setStage(nextStage);
-                  }}
+                  className={`appearance-choice ${active ? "selected" : ""}`}
                 >
-                  <PresetPreview
-                    source={image}
-                    loadImage={loadImage}
-                    alt={entry.image ? title : `Saved setup using ${title}`}
-                  />
-                  <span>{title}</span>
-                  {!entry.image && image && <small>Saved setup example</small>}
-                  {!image && (
-                    <small>
-                      {entry.id === -1 ? "Empty slot" : "No cached image"}
-                    </small>
+                  <button
+                    type="button"
+                    className={`appearance-tile ${active ? "selected" : ""}`}
+                    aria-pressed={active}
+                    disabled={entry.available === false}
+                    title={title}
+                    onClick={() => {
+                      library?.used(recordKey(entry, false));
+                      library?.used(recordKey(entry, true));
+                      onChange(entry.id);
+                      setStage(Math.min(stage + 1, levels.length - 1));
+                    }}
+                  >
+                    <PresetPreview
+                      source={image}
+                      loadImage={loadImage}
+                      alt={entry.image ? title : `Saved setup using ${title}`}
+                    />
+                    <span>{title}</span>
+                  </button>
+                  {library && entry.available !== false && (
+                    <button
+                      type="button"
+                      className="favorite-button icon-button"
+                      aria-label={`${favorite ? "Unfavorite" : "Favorite"} ${title}`}
+                      aria-pressed={Boolean(favorite)}
+                      onClick={() => library.toggle(keyFor(entry))}
+                    >
+                      {favorite ? <StarFilledIcon /> : <StarIcon />}
+                    </button>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
         )}
-      </PagedCollection>
-    );
-  }
+      </RowPage>
+      {appearance?.loading && (
+        <p role="status" className="hint">
+          Reading installed appearances…
+        </p>
+      )}
+    </div>
+  );
 }

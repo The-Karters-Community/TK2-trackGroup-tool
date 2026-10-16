@@ -23,6 +23,8 @@ export default function PresetGroupEditor({
   loadImage,
   onOpenPreset,
   browser = false,
+  library,
+  presetKey = (id) => `preset:${id}`,
 }) {
   const [name, setName] = useState(group.name);
   const [members, setMembers] = useState(group.members);
@@ -114,6 +116,10 @@ export default function PresetGroupEditor({
         )}
         <OrderedPresets
           items={memberPaging.items}
+          isFavorite={(id) => library?.favorite(presetKey(id))}
+          onFavorite={
+            library ? (id) => library.toggle(presetKey(id)) : undefined
+          }
           offset={memberPaging.start}
           disabled={busy || !group.editable}
           onChange={(changed) => {

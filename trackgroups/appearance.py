@@ -214,7 +214,7 @@ class Appearance:
             try:
                 saved = json.loads(cache.read_text(encoding="utf-8"))
                 if (
-                    saved.get("version") == 10
+                    saved.get("version") == 11
                     and saved.get("signature") == signature
                     and not saved.get("previewError")
                 ):
@@ -338,6 +338,7 @@ class Appearance:
                                     "name": parts[0] if parts else "Custom appearance",
                                     "label": " · ".join(parts),
                                     "source": "mod",
+                                    "addedAt": int(getattr(file.parent.stat(), "st_birthtime", file.parent.stat().st_mtime) * 1000),
                                     "entity": parts[0] if parts else "Custom appearance",
                                     "skin": parts[1] if len(parts) > 1 else "Default",
                                     "variant": parts[2] if len(parts) > 2 else "Default",
@@ -372,7 +373,7 @@ class Appearance:
             write_json(
                 cache,
                 {
-                    "version": 10,
+                    "version": 11,
                     "signature": signature,
                     "items": result,
                     "modelRefs": model_refs,
