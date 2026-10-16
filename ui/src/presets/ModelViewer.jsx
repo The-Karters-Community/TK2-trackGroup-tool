@@ -5,6 +5,7 @@ export default function ModelViewer({
   kind,
   id,
   loadModel,
+  refreshModels,
   preset,
   view,
   revision = "",
@@ -28,7 +29,7 @@ export default function ModelViewer({
   playing.current = animated;
   const load = useMemo(
     () => createModelLoader(loadModel),
-    [loadModel, revision],
+    [loadModel, revision, retry],
   );
   const identity = `${revision}:${view}:${preset?.[view === "modded" ? "iCharacterSkinMaterialID_Modded" : "iCharacterSkinMaterialID"]}`;
   const selected = selection?.identity === identity ? selection.clip : "";
@@ -117,7 +118,22 @@ export default function ModelViewer({
             {loading && <span className="loading-spinner" />}
             {message}
             {!loading && (
-              <button onClick={() => setRetry((n) => n + 1)}>Try again</button>
+              <button
+                disabled={loading}
+                onClick={async () => {
+                  setLoading(true);
+                  setMessage("Checking installed assets…");
+                  try {
+                    await refreshModels?.();
+                    setRetry((n) => n + 1);
+                  } catch (err) {
+                    setMessage(err.message);
+                    setLoading(false);
+                  }
+                }}
+              >
+                Rescan & retry
+              </button>
             )}
           </div>
         )}

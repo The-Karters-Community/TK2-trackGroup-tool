@@ -45,7 +45,7 @@ export default function HowTo({ onOpen }) {
           <p>
             Browse Speedrun groups or open a shared .tk2group.json file. Review
             its numbered tracks. If your save already has the same name,
-            explicitly choose whether to update it or add a copy. In My groups,
+            explicitly choose whether to update it or add a copy. In My track groups,
             you can also rename and reorder your existing tracks.
           </p>
         </li>

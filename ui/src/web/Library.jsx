@@ -1,6 +1,8 @@
 import { FilePlusIcon, GridIcon, ListBulletIcon } from "@radix-ui/react-icons";
 import GroupList from "../components/GroupList.jsx";
 import { assetUrl } from "../assets.js";
+import { useState } from "react";
+import Pagination, { usePagination } from "../components/Pagination.jsx";
 
 export default function Library({
   local,
@@ -11,16 +13,20 @@ export default function Library({
   gallery,
   onGallery,
   groups,
+  allGroups = groups,
   selected,
   onSelect,
   onGroupFile,
   hasProfile,
   onOpenSave,
+  onExportMany,
 }) {
+  const [checked, setChecked] = useState([]);
+  const paging = usePagination(groups, `${local}:${category}:${query}`);
   return (
     <section className="library-main">
       <div className="library-heading">
-        <h1>{local ? "My groups" : "Browse groups"}</h1>
+        <h1>{local ? "My track groups" : "Discover track groups"}</h1>
         {!local && (
           <div className="category-tabs" aria-label="Group category">
             {["speedrun", "community"].map((id) => (
@@ -101,8 +107,42 @@ export default function Library({
           )}
         </div>
       )}
+      <div className="selection-toolbar">
+        <button
+          disabled={!paging.items.length}
+          onClick={() =>
+            setChecked([
+              ...new Set([...checked, ...paging.items.map((g) => g.id)]),
+            ])
+          }
+        >
+          Select this page
+        </button>
+        {checked.length > 0 && (
+          <>
+            <span>{checked.length} selected</span>
+            <button onClick={() => setChecked([])}>Clear</button>
+          </>
+        )}
+        <button
+          disabled={!checked.length}
+          onClick={() =>
+            onExportMany(allGroups.filter((g) => checked.includes(g.id)))
+          }
+        >
+          Export selected{checked.length ? ` · ${checked.length}` : ""}
+        </button>
+      </div>
       <GroupList
-        groups={groups.map((g) => ({
+        checked={checked}
+        onCheck={(id) =>
+          setChecked(
+            checked.includes(id)
+              ? checked.filter((v) => v !== id)
+              : [...checked, id],
+          )
+        }
+        groups={paging.items.map((g) => ({
           ...g,
           statusText: local
             ? "In selected save"
@@ -112,6 +152,7 @@ export default function Library({
         gallery={gallery}
         onSelect={onSelect}
       />
+      <Pagination paging={paging} label="Track groups" />
     </section>
   );
 }

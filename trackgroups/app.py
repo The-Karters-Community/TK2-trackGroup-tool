@@ -86,6 +86,9 @@ def make_server(service):
                     return self.reply(200, result)
                 if action == "live-save-preset":
                     return self.reply(200, service.save_live_preset(body))
+                if action == "refresh-appearances":
+                    service.appearance.refresh(service.game, force=True)
+                    return self.reply(200, {'message':'Scanning installed appearances.'})
                 if action == "preset-model":
                     from .models import model, setup, setup_plan
                     builder = {'setup': setup, 'setup-plan': setup_plan}.get(body.get('kind'))
@@ -125,6 +128,18 @@ def make_server(service):
                             result = {'saved': True, 'message': 'Preset pack exported.'}
                         else: result = {'saved': False, 'message': 'Export cancelled.'}
                     else: result = {'pack': pack}
+                elif action == "export-groups":
+                    pack = service.export_groups(body.get('ids'))
+                    try: import webview
+                    except ImportError: webview = None
+                    if webview and webview.windows:
+                        chosen = webview.windows[0].create_file_dialog(webview.FileDialog.SAVE,
+                            save_filename='track-groups.tk2groups.json', file_types=('Track group packs (*.tk2groups.json)',))
+                        if chosen:
+                            write_json(Path(chosen[0]), pack)
+                            result = {'saved':True, 'message':f"{len(pack['groups'])} track groups exported."}
+                        else: result = {'saved':False, 'message':'Export cancelled.'}
+                    else: result = {'pack':pack}
                 elif action == "export":
                     group = service.export(body["id"])
                     try: import webview

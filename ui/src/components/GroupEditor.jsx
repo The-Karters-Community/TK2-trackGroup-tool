@@ -38,7 +38,7 @@ export default function GroupEditor({
   return (
     <section className="workflow-page">
       <header className="page-heading">
-        <span className="eyebrow">My groups</span>
+        <span className="eyebrow">My track groups</span>
         <h1>{rename ? "Rename group" : "Create a track group"}</h1>
         <p>
           {rename

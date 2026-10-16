@@ -30,6 +30,32 @@ afterEach(() => {
   sortableInstances.length = 0;
 });
 
+test("batch group export retains selections across pages and searches", () => {
+  const groups = Array.from({ length: 30 }, (_, i) => ({
+    ...group,
+    id: `group-${i}`,
+    name: `Collection ${i + 1}`,
+  }));
+  const onExportMany = vi.fn();
+  render(
+    <Library
+      local
+      state={{ localGroups: groups }}
+      onExportMany={onExportMany}
+    />,
+  );
+  fireEvent.click(screen.getByLabelText("Select Collection 1"));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Next Track groups page" }),
+  );
+  fireEvent.click(screen.getByLabelText("Select Collection 25"));
+  fireEvent.change(screen.getByLabelText("Search groups"), {
+    target: { value: "Collection 25" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Export selected · 2" }));
+  expect(onExportMany).toHaveBeenCalledWith([groups[0], groups[24]]);
+});
+
 test("desktop details dismiss outside while keeping edits and inside interactions", () => {
   const close = vi.fn();
   const { rerender } = render(
@@ -181,7 +207,7 @@ test("search and details preserve track order", () => {
   });
   expect(screen.getByText("No matching groups")).toBeTruthy();
 });
-test("catalog categories filter groups and file importing is only in My groups", () => {
+test("catalog categories filter groups and file importing is only in My track groups", () => {
   const state = {
     groups: [
       { ...group, category: "speedrun" },
@@ -252,7 +278,9 @@ test("review names each track and shows download progress in the same view", () 
     />,
   );
   expect(screen.getByText("Downloading · 25%")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Add to My groups" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Add to My track groups" }),
+  ).toBeNull();
   rerender(
     <ImportReview
       preview={preview}
@@ -263,7 +291,7 @@ test("review names each track and shows download progress in the same view", () 
   );
   expect(screen.getByText("Installed")).toBeTruthy();
   expect(
-    screen.getByRole("button", { name: "View in My groups" }),
+    screen.getByRole("button", { name: "View in My track groups" }),
   ).toBeTruthy();
 });
 test("creating and renaming submit distinct drafts for review", () => {
@@ -378,7 +406,7 @@ test("polling keeps an unsaved draft bound to its original save hash", () => {
   );
 });
 
-test("Browse groups has independent gallery and list controls", () => {
+test("Discover track groups has independent gallery and list controls", () => {
   localStorage.removeItem("browse-groups-view");
   render(
     <Library

@@ -303,3 +303,44 @@
   Victory animation, unchanged profile hash, clean exit and folder rename/restore.
   Development GUI reopened and health/Steam/appearance readiness confirmed.
   No release, hosted deployment or Git push performed.
+
+### 2026-10-16 - Garage home, collection navigation and native bridge research
+
+- Add a real Home entrance using user-supplied BobbysGarageV4.png; restore
+  logo.png in the sidebar. Rename track navigation and import action labels.
+- Shared bounded pagination covers track/preset libraries, appearance grids and
+  group membership. Keep batch selections across pages/search and merge page
+  reorders into the full order. Add Move selected to position for long libraries.
+- Versioned tk2-track-groups v1 packs export selected groups in one file, with
+  backend validation and a native Save dialog. Both editions reopen packs for
+  individual review; export never includes unrelated profile fields/assets.
+- Audit all 686 installed vehicle variants: every indexed model dependency
+  resolves. Saved vehicle IDs -2103725914 and 2109459607 are absent from all
+  132 installed cosmetic metadata packages. Mark unavailable saved choices
+  explicitly; rescan/retry rebuilds the index and resets viewer part caches.
+- REA browser checks at 1180, 780 and 390 pixels exercised Home, direct Quick
+  Setup, vehicle pagination, track pagination and four-group batch download
+  (browser harness cancels downloads by design). Fix phone toast sizing found
+  in the screenshot pass. No game save mutations used for these checks.
+- User authorized investigating an optional native integration without BepInEx.
+  Native GetQuickPreset reads the in-memory array. LoadProfileLocalData is
+  reached from platform initialization, not focus or race-return file watching.
+  QuickPresetEditingApproved copies approved fields, updates the target player,
+  and calls SaveProfileLocalData. A race-safe deferred path must only update
+  the quick slot, not replace the active racer.
+- Compiled a 153600-byte read-only thread-hook probe in ignored local/. All
+  required IL2CPP exports are present in installed GameAssembly.dll. Uses
+  a thread-specific WH_GETMESSAGE hook and current-owner shared mapping, no
+  BepInEx reference, game binary patch or save write. Actual game-thread and
+  Quick Setup runtime verification awaits the requested main-menu game launch.
+  This probe is not bundled or exposed as a working live-save feature.
+- Controlled native transport fixture: hook callback thread matched the owned
+  window thread exactly; private mapping returned the expected No GameAssembly
+  error. This does not establish game integration. Research limits and specific
+  game save/menu methods are recorded in docs/NATIVE-BRIDGE-RESEARCH.md.
+- Final UI milestone verification: 104 frontend tests, 97 Python tests, desktop
+  and browser builds. Flat portable ZIP is 29.2 MiB; hashes/manifest verified,
+  old fan-art copy removed, no experimental bridge bundled. Frozen app connected
+  Steam, detected six Quick Setup slots, loaded Broly geometry/Victory clip,
+  preserved the profile hash and released its folder on shutdown. Development
+  Garage reopened and healthy. No release, push or hosted deployment performed.

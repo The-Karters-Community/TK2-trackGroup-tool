@@ -458,3 +458,17 @@ class Service:
         from .presets import export
         if not self.profile: raise ValueError('Select a profile first.')
         return export(Profile((PROFILE_DIR / self.profile).read_bytes()), body.get('ids', []), body.get('groups', []))
+
+    def export_groups(self, identities):
+        from .groups import validate
+        if not isinstance(identities, list) or not 1 <= len(identities) <= 256 or any(not isinstance(i,str) for i in identities) or len(set(identities)) != len(identities):
+            raise ValueError('Select 1-256 distinct track groups.')
+        with self.lock:
+            reviewed = {g['id']:g for g in self.groups}
+            result = []
+            for identity in identities:
+                if identity in reviewed:
+                    group = {k:v for k,v in reviewed[identity].items() if k in ('format','version','id','revision','name','description','tracks')}
+                    result.append(validate(group))
+                else: result.append(self.export(identity))
+            return {'format':'tk2-track-groups', 'version':1, 'groups':result}

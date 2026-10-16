@@ -14,12 +14,16 @@ export default function GroupList({
   selected,
   local = false,
   gallery = false,
+  checked = [],
+  onCheck,
 }) {
   return (
     <div className={`group-list ${gallery ? "group-gallery" : ""}`}>
       {groups.map((group) => {
         const { official, workshop } = counts(group);
         return (
+          <div className="group-choice" key={group.id}>
+          {onCheck && <input type="checkbox" aria-label={`Select ${group.name}`} checked={checked.includes(group.id)} onChange={() => onCheck(group.id)} />}
           <button
             className={`group-row ${selected?.id === group.id ? "selected" : ""}`}
             key={group.id}
@@ -69,6 +73,7 @@ export default function GroupList({
             </span>
             <ArrowRightIcon aria-hidden="true" />
           </button>
+          </div>
         );
       })}
     </div>

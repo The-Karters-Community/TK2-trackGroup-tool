@@ -1527,8 +1527,8 @@ progress {
   position: fixed;
   z-index: 10;
   bottom: 18px;
-  left: 212px;
-  max-width: min(540px, calc(100vw - 238px));
+  left: calc(var(--sidebar-size, 192px) + 20px);
+  max-width: min(540px, calc(100vw - var(--sidebar-size, 192px) - 48px));
   margin: 0;
   box-shadow: 0 6px 24px #0003;
 }
@@ -2210,4 +2210,283 @@ dialog[open][data-motion="pointer"]::backdrop {
   z-index: 3;
   background: var(--surface);
   padding: 12px;
+}
+
+/* Shared collection navigation and the Garage entrance. */
+.pagination,
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pagination {
+  padding-block: 20px;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+.pagination label,
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.pagination select {
+  width: auto;
+  min-width: 64px;
+  padding: 8px;
+}
+.pagination button {
+  padding: 8px 12px;
+}
+.pagination .hint {
+  margin: 0;
+}
+.selection-toolbar {
+  margin-block: 12px;
+  min-height: 40px;
+}
+.selection-toolbar button {
+  padding: 8px 12px;
+}
+.group-choice {
+  position: relative;
+  min-width: 0;
+}
+.group-choice .group-row {
+  width: 100%;
+  height: 100%;
+}
+.group-choice > input {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+.group-choice:has(> input) .group-row {
+  padding-left: 44px;
+}
+.group-gallery .group-choice > input {
+  top: 20px;
+  right: 20px;
+  left: auto;
+  transform: none;
+}
+.group-gallery .group-choice:has(> input) .group-row {
+  padding-left: 16px;
+}
+.group-choice:has(> input:checked) .group-row {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.pack-import {
+  padding: 20px;
+  margin: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pack-import button {
+  margin: 4px;
+}
+.garage-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 1fr);
+  align-items: center;
+  gap: 32px;
+  padding: 32px;
+  min-height: calc(100dvh - 74px);
+}
+.home-art {
+  min-width: 0;
+}
+.home-art img {
+  width: 100%;
+  max-height: calc(100dvh - 160px);
+  object-fit: contain;
+  display: block;
+}
+.home-menu {
+  min-width: 0;
+  max-width: 540px;
+}
+.home-menu h1 {
+  font-size: 30px;
+  margin: 0 0 8px;
+  line-height: 1.15;
+}
+.home-menu header > p {
+  margin: 0 0 24px;
+  color: var(--muted);
+}
+.home-destinations {
+  display: flex;
+  flex-direction: column;
+}
+.home-destinations button {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 14px;
+  padding: 16px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+.home-destinations button > span {
+  flex: 1;
+  min-width: 0;
+}
+.home-destinations strong,
+.home-destinations small {
+  display: block;
+}
+.home-destinations strong {
+  font-size: 16px;
+}
+.home-destinations small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.home-destinations svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+.home-destinations .home-primary {
+  background: var(--selected);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  padding-inline: 14px;
+}
+.home-destinations button:hover {
+  background: var(--surface);
+}
+.home-destinations button > svg:last-child {
+  transition: transform 180ms ease-out;
+}
+.home-destinations button:hover > svg:last-child {
+  transform: translateX(3px);
+}
+.home-settings {
+  margin-top: 24px;
+}
+.sidebar .brand-logo {
+  object-fit: contain;
+  width: 146px;
+  height: 62px;
+  border: 0;
+  border-radius: 0;
+}
+.nav-items button {
+  text-align: left;
+  white-space: normal;
+  line-height: 1.35;
+}
+@media (max-width: 950px) {
+  .garage-home {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+    padding: 24px;
+  }
+  .home-art img {
+    height: 260px;
+    max-height: none;
+  }
+  .home-menu {
+    max-width: none;
+  }
+}
+@media (max-width: 650px) {
+  .nav-items {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .nav-items button {
+    flex: 1 1 130px;
+    justify-content: flex-start;
+    padding: 10px;
+  }
+  .garage-home {
+    padding: 20px 18px;
+  }
+  .home-art img {
+    height: 210px;
+  }
+  .home-menu h1 {
+    font-size: 26px;
+  }
+  .pagination {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .page-controls {
+    flex-wrap: wrap;
+  }
+  .appearance-picker .pagination {
+    font-size: 12px;
+  }
+  .connection-bar .preset-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-destinations button > svg:last-child {
+    transition: none;
+    transform: none;
+  }
+}
+
+.preview-loading-overlay {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 100%;
+  overflow: auto;
+}
+.preview-loading-overlay button {
+  align-self: flex-start;
+}
+.home-destinations .home-primary {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+@media (max-width: 1000px) {
+  .app-shell {
+    --sidebar-size: 160px;
+  }
+}
+@media (max-width: 650px) {
+  .app-shell {
+    --sidebar-size: 0px;
+  }
+  .feedback.toast {
+    left: 18px;
+    right: 18px;
+    max-width: none;
+  }
+}
+
+.selection-move,
+.selection-move label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.selection-move input {
+  width: 76px;
+  padding: 8px;
 }

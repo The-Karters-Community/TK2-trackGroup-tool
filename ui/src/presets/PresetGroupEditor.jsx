@@ -9,6 +9,7 @@ import Dialog from "../components/Dialog.jsx";
 import OrderedPresets from "./OrderedPresets.jsx";
 import PresetPreview from "./PresetPreview.jsx";
 import { setupTitle, setupMatches } from "./appearance.js";
+import Pagination, { usePagination } from "../components/Pagination.jsx";
 
 export default function PresetGroupEditor({
   group,
@@ -38,6 +39,15 @@ export default function PresetGroupEditor({
     .map((id) => presets.find((p) => p.id === id))
     .filter(Boolean);
   const missing = members.filter((id) => !presets.some((p) => p.id === id));
+  const memberPaging = usePagination(selected, group.id);
+  const availablePaging = usePagination(
+    presets.filter(
+      (p) =>
+        !members.includes(p.id) &&
+        setupMatches(p, appearance, presets.indexOf(p), query),
+    ),
+    `${group.id}:${query}`,
+  );
   function close() {
     if (
       !busy &&
@@ -103,9 +113,16 @@ export default function PresetGroupEditor({
           </p>
         )}
         <OrderedPresets
-          items={selected}
+          items={memberPaging.items}
+          offset={memberPaging.start}
           disabled={busy || !group.editable}
-          onChange={setMembers}
+          onChange={(changed) => {
+            const ids = new Set(changed);
+            let index = 0;
+            setMembers(
+              members.map((id) => (ids.has(id) ? changed[index++] : id)),
+            );
+          }}
           onOpen={onOpenPreset}
           onRemove={(id) =>
             setMembers(members.filter((member) => member !== id))
@@ -114,6 +131,7 @@ export default function PresetGroupEditor({
           loadImage={loadImage}
           positions={Object.fromEntries(presets.map((p, i) => [p.id, i]))}
         />
+        <Pagination paging={memberPaging} label="Group members" />
         {!members.length && (
           <p className="empty-state">
             Add at least one preset to save this group.
@@ -131,29 +149,24 @@ export default function PresetGroupEditor({
             onChange={(e) => setQuery(e.target.value)}
           />
           <div className="membership-list">
-            {presets
-              .filter(
-                (p) =>
-                  !members.includes(p.id) &&
-                  setupMatches(p, appearance, presets.indexOf(p), query),
-              )
-              .map((p) => (
-                <button
-                  className="membership-add"
-                  key={p.id}
-                  disabled={busy || !group.editable}
-                  onClick={() => setMembers([...members, p.id])}
-                >
-                  <PresetPreview
-                    source={appearance?.previews?.[p.id]?.modded}
-                    loadImage={loadImage}
-                    alt="Saved modded setup"
-                  />
-                  <span>{setupTitle(p, appearance, presets.indexOf(p))}</span>
-                  <PlusIcon />
-                </button>
-              ))}
+            {availablePaging.items.map((p) => (
+              <button
+                className="membership-add"
+                key={p.id}
+                disabled={busy || !group.editable}
+                onClick={() => setMembers([...members, p.id])}
+              >
+                <PresetPreview
+                  source={appearance?.previews?.[p.id]?.modded}
+                  loadImage={loadImage}
+                  alt="Saved modded setup"
+                />
+                <span>{setupTitle(p, appearance, presets.indexOf(p))}</span>
+                <PlusIcon />
+              </button>
+            ))}
           </div>
+          <Pagination paging={availablePaging} label="Available presets" />
         </details>
       </div>
       <footer className="editor-footer">

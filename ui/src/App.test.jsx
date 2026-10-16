@@ -85,10 +85,11 @@ test("import review stays visible through completion and opens the saved local g
     return { message: "Operation started." };
   });
   render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "Discover track groups", exact: true }));
   fireEvent.click(await screen.findByText(group.name));
   fireEvent.click(screen.getByRole("button", { name: "Preview import" }));
-  await screen.findByText("Review before adding to My groups");
-  fireEvent.click(screen.getByRole("button", { name: "Add to My groups" }));
+  await screen.findByText("Review before adding to My track groups");
+  fireEvent.click(screen.getByRole("button", { name: "Add to My track groups" }));
   await screen.findByText("Downloading · 30%");
   expect(
     within(screen.getByRole("dialog")).getByText("Track One"),
@@ -104,7 +105,7 @@ test("import review stays visible through completion and opens the saved local g
     },
   };
   fireEvent.click(
-    await screen.findByRole("button", { name: "View in My groups" }),
+    await screen.findByRole("button", { name: "View in My track groups" }),
   );
   await waitFor(() => expect(screen.getByLabelText("Group name")).toBeTruthy());
   expect(

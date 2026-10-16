@@ -12,6 +12,18 @@ Current development changes are collected in [CHANGELOG.md](CHANGELOG.md) for th
 
 ## Use the app
 
+Home opens first, with the garage artwork and direct shortcuts. Track collections
+are under **Discover track groups** and **My track groups**; **My tracks** lists
+installed tracks. Collection and appearance browsers use page navigation with an
+adjustable page size. Preset selections survive page changes, and **Move selected**
+places them anywhere in the library before **Save changes** commits the order.
+
+Select several track groups and choose **Export selected** to save one
+`.tk2groups.json` pack. Import group file opens either a single group or a pack;
+review each group before importing. Exports contain group metadata and ordered
+track references, not profile data or assets.
+
+
 Bobby’s Garage manages track groups and customization presets in one app. The repository URL, portable asset names, executable filename (`TK2 Track Groups.exe`), updater manifest identity and data folder keep their previous names so installed updaters remain compatible. The window title and website use Bobby’s Garage.
 
 Portable builds contain the runtime and compiled interface. Extract the ZIP into one chosen folder and run **TK2 Track Groups.exe**. Users do **not** install Python, Node.js, or npm. Requires Windows x64, Microsoft Edge WebView2 Runtime, the installed supported game, and the running Steam client. Steam Cloud must be enabled for imports.

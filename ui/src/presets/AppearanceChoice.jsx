@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PagedCollection } from "../components/Pagination.jsx";
 import PresetPreview from "./PresetPreview.jsx";
 
 // Each thumbnail represents a real material configuration, never a Workshop cover.
@@ -14,7 +15,6 @@ export default function AppearanceChoice({
 }) {
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState(0);
-  const [limit, setLimit] = useState(60);
   const known = appearance?.items?.[kind] || {};
   const choices = new Map();
   const values =
@@ -32,7 +32,8 @@ export default function AppearanceChoice({
           name:
             id === -1
               ? "No sticker"
-              : `Saved ${label.toLowerCase()} ${choices.size + 1}`,
+              : `Unavailable saved ${label.toLowerCase()}`,
+          available: id === -1,
         },
       );
   });
@@ -83,6 +84,13 @@ export default function AppearanceChoice({
           ];
   return (
     <div className="appearance-picker">
+      {selected?.available === false && !appearance?.loading && (
+        <p className="notice" role="status">
+          This saved {label.toLowerCase()} is not in the installed content.
+          Choose an available appearance below, or rescan after installing its
+          mod. Retrying alone cannot restore missing content.
+        </p>
+      )}
       <input
         type="search"
         aria-label={`Search ${label.toLowerCase()}`}
@@ -90,7 +98,6 @@ export default function AppearanceChoice({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          setLimit(60);
         }}
       />
       {query ? (
@@ -162,53 +169,54 @@ export default function AppearanceChoice({
   );
   function grid(items, exact, key = "id", nextStage = stage) {
     return (
-      <>
-        <div
-          className="appearance-grid"
-          role="group"
-          aria-label={`${label} choices`}
-        >
-          {items.slice(0, limit).map((entry) => {
-            const active = exact
-              ? entry.id === selected?.id
-              : entry[key] === selected?.[key];
-            const title = exact ? entry.label || entry.name : entry[key];
-            const image = source(entry);
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                className={`appearance-tile ${active ? "selected" : ""}`}
-                aria-pressed={active}
-                title={title}
-                onClick={() => {
-                  onChange(entry.id);
-                  setStage(nextStage);
-                }}
-              >
-                <PresetPreview
-                  source={image}
-                  loadImage={loadImage}
-                  alt={entry.image ? title : `Saved setup using ${title}`}
-                />
-                <span>{title}</span>
-                {!entry.image && image && <small>Saved setup example</small>}
-                {!image && (
-                  <small>
-                    {entry.id === -1 ? "Empty slot" : "No cached image"}
-                  </small>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        {items.length > limit && (
-          <button onClick={() => setLimit(limit + 60)}>
-            Show more ({items.length - limit})
-          </button>
+      <PagedCollection
+        items={items}
+        scope={`${kind}:${field}:${query}:${key}:${selected?.entity}:${selected?.skin}`}
+        label={`${label} appearances`}
+      >
+        {(visible) => (
+          <div
+            className="appearance-grid"
+            role="group"
+            aria-label={`${label} choices`}
+          >
+            {visible.map((entry) => {
+              const active = exact
+                ? entry.id === selected?.id
+                : entry[key] === selected?.[key];
+              const title = exact ? entry.label || entry.name : entry[key];
+              const image = source(entry);
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`appearance-tile ${active ? "selected" : ""}`}
+                  aria-pressed={active}
+                  disabled={entry.available === false}
+                  title={title}
+                  onClick={() => {
+                    onChange(entry.id);
+                    setStage(nextStage);
+                  }}
+                >
+                  <PresetPreview
+                    source={image}
+                    loadImage={loadImage}
+                    alt={entry.image ? title : `Saved setup using ${title}`}
+                  />
+                  <span>{title}</span>
+                  {!entry.image && image && <small>Saved setup example</small>}
+                  {!image && (
+                    <small>
+                      {entry.id === -1 ? "Empty slot" : "No cached image"}
+                    </small>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         )}
-        {!items.length && <p className="empty-state">No appearances match.</p>}
-      </>
+      </PagedCollection>
     );
   }
 }

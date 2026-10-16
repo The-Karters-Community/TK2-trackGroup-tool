@@ -6,6 +6,7 @@ import {
   FilePlusIcon,
   Cross2Icon,
   LockClosedIcon,
+  HomeIcon,
 } from "@radix-ui/react-icons";
 import { assetUrl } from "../assets.js";
 import { catalog, trackMapping, withPreviews } from "./catalog.js";
@@ -27,6 +28,8 @@ import HowTo from "./HowTo.jsx";
 import Library from "./Library.jsx";
 import GroupDetails from "./GroupDetails.jsx";
 import PresetManager from "../presets/PresetManager.jsx";
+import Home from "../pages/Home.jsx";
+import { groupPack, unpackGroups } from "../components/groupPack.js";
 import {
   applyPresetChange,
   presetState,
@@ -34,7 +37,9 @@ import {
 } from "../presets/model.js";
 
 export default function WebApp() {
-  const [page, setPage] = useState("browse");
+  const [page, setPage] = useState("home");
+  const [quickRequest, setQuickRequest] = useState(0);
+  const [fileGroups, setFileGroups] = useState([]);
   const [category, setCategory] = useState("speedrun");
   const [gallery, setGallery] = useState(true);
   const [query, setQuery] = useState("");
@@ -180,9 +185,23 @@ export default function WebApp() {
     if (!file) return;
     setError("");
     try {
-      if (file.size > 1024 * 1024)
-        throw new Error("Group file exceeds the 1 MB limit.");
-      const group = validateGroup(JSON.parse(await file.text()));
+      if (file.size > 16 * 1024 * 1024)
+        throw new Error("Group file exceeds the 16 MB limit.");
+      const imported = unpackGroups(JSON.parse(await file.text())).map(
+        validateGroup,
+      );
+      if (imported.length > 1) {
+        const identities = new Set(imported.map((g) => g.id));
+        const nextShared = [
+          ...shared.filter((g) => !identities.has(g.id)),
+          ...imported,
+        ];
+        trackMapping([...catalog, ...nextShared]);
+        setShared(nextShared);
+        setFileGroups(imported);
+        return;
+      }
+      const group = imported[0];
       const nextShared = [...shared.filter((g) => g.id !== group.id), group];
       trackMapping([...catalog, ...nextShared]);
       setShared(nextShared);
@@ -300,8 +319,9 @@ export default function WebApp() {
     }
   }
   const navigation = [
-    ["browse", StackIcon, "Browse groups"],
-    ["local", PersonIcon, "My groups"],
+    ["home", HomeIcon, "Home"],
+    ["browse", StackIcon, "Discover track groups"],
+    ["local", StackIcon, "My track groups"],
     ["presets", PersonIcon, "Presets"],
     ["help", QuestionMarkCircledIcon, "How to import"],
   ];
@@ -344,8 +364,8 @@ export default function WebApp() {
         <div className="brand">
           <img
             className="brand-logo"
-            src={assetUrl("/bobbys-garage.png")}
-            alt="Bobby’s Garage"
+            src={assetUrl("/logo.png")}
+            alt="The Karters 2"
           />
           <strong>
             Bobby’s<span>GARAGE</span>
@@ -471,8 +491,21 @@ export default function WebApp() {
             onHelp={() => navigate("help")}
           />
         )}
-        {page === "presets" ? (
+        {page === "home" ? (
+          <Home
+            browser
+            onNavigate={navigate}
+            onQuickSetup={() => {
+              setQuickRequest((n) => n + 1);
+              navigate("presets");
+            }}
+            presetCount={presets?.presets?.length}
+            groupCount={localGroups.length}
+          />
+        ) : page === "presets" ? (
           <PresetManager
+            openQuickRequest={quickRequest}
+            onQuickOpened={() => setQuickRequest(0)}
             state={presets}
             browser
             available={Boolean(profile)}
@@ -514,7 +547,23 @@ export default function WebApp() {
                 </button>
               </div>
             )}
+            {fileGroups.length > 0 && (
+              <section
+                className="pack-import"
+                aria-label="Groups in shared file"
+              >
+                <strong>{fileGroups.length} groups in this file</strong>
+                <p>Choose a group to review before importing.</p>
+                {fileGroups.map((g) => (
+                  <button key={g.id} onClick={() => prepare(g)}>
+                    {g.name} · {g.tracks.length} tracks
+                  </button>
+                ))}
+                <button onClick={() => setFileGroups([])}>Close file</button>
+              </section>
+            )}
             <Library
+              key={`${page}:${category}`}
               local={page === "local"}
               category={category}
               onCategory={(value) => {
@@ -526,6 +575,7 @@ export default function WebApp() {
               gallery={gallery}
               onGallery={setGallery}
               groups={groups}
+              allGroups={all}
               selected={selected}
               hasProfile={Boolean(profile)}
               onSelect={(group) => {
@@ -535,6 +585,22 @@ export default function WebApp() {
                 if (leaveEditor()) groupInput.current.click();
               }}
               onOpenSave={() => openSave()}
+              onExportMany={(selected) => {
+                try {
+                  download(
+                    "track-groups.tk2groups.json",
+                    JSON.stringify(
+                      groupPack(selected.map(portableGroup)),
+                      null,
+                      2,
+                    ),
+                    "application/json",
+                  );
+                  setMessage(`${selected.length} track groups exported.`);
+                } catch (err) {
+                  setError(err.message);
+                }
+              }}
             />
           </>
         )}

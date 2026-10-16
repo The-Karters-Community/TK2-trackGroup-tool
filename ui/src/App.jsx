@@ -5,11 +5,13 @@ import {
   GearIcon,
   ReloadIcon,
   Cross2Icon,
+  HomeIcon,
 } from "@radix-ui/react-icons";
 import { api, download, loadPreview } from "./api.js";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
 import Tracks from "./pages/Tracks.jsx";
+import Home from "./pages/Home.jsx";
 import ImportDialog from "./components/ImportDialog.jsx";
 import GroupEditor from "./components/GroupEditor.jsx";
 import PresetManager from "./presets/PresetManager.jsx";
@@ -17,7 +19,8 @@ import { download as downloadFile } from "./web/download.js";
 
 export default function App() {
   const [state, setState] = useState(null);
-  const [page, setPage] = useState("browse");
+  const [page, setPage] = useState("home");
+  const [quickRequest, setQuickRequest] = useState(0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState(null);
@@ -36,6 +39,18 @@ export default function App() {
     (body, signal) => api("preset-model", body, signal),
     [],
   );
+  const refreshModels = useCallback(async () => {
+    await api("refresh-appearances", {});
+    for (let i = 0; i < 120; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const next = await api("state");
+      setState(next);
+      if (!next.presetState?.appearance?.loading) return;
+    }
+    throw new Error(
+      "The installed asset scan is still running. Please try again shortly.",
+    );
+  }, []);
   const refresh = useCallback(async () => {
     if (polling.current) return;
     polling.current = true;
@@ -111,6 +126,22 @@ export default function App() {
       setError(err.message);
     }
   }
+  async function exportGroups(groups) {
+    try {
+      const result = await api("export-groups", {
+        ids: groups.map((g) => g.id),
+      });
+      if (result.pack)
+        downloadFile(
+          "track-groups.tk2groups.json",
+          JSON.stringify(result.pack, null, 2),
+          "application/json",
+        );
+      setMessage(result.message || `${groups.length} track groups exported.`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
   async function changePresets(change, edit = {}) {
     try {
       if (change.mode === "preset" && state?.gameRunning) {
@@ -179,8 +210,9 @@ export default function App() {
     setEditor(null);
   }
   const nav = [
-    ["browse", StackIcon, "Browse groups"],
-    ["local", PersonIcon, "My groups"],
+    ["home", HomeIcon, "Home"],
+    ["browse", StackIcon, "Discover track groups"],
+    ["local", StackIcon, "My track groups"],
     ["presets", PersonIcon, "Presets"],
     ["tracks", StackIcon, "My tracks"],
     ["settings", GearIcon, "Settings"],
@@ -189,11 +221,7 @@ export default function App() {
     <div className="app-shell">
       <nav className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <img
-            className="brand-logo"
-            src="/bobbys-garage.png"
-            alt="Bobby’s Garage"
-          />
+          <img className="brand-logo" src="/logo.png" alt="The Karters 2" />
           <strong>
             Bobby’s<span>GARAGE</span>
           </strong>
@@ -323,8 +351,21 @@ export default function App() {
             onCancel={() => setEditor(null)}
             onSubmit={prepare}
           />
+        ) : page === "home" ? (
+          <Home
+            onNavigate={setPage}
+            onQuickSetup={() => {
+              setQuickRequest((n) => n + 1);
+              setPage("presets");
+            }}
+            presetCount={state.presetState?.presets?.length}
+            groupCount={state.localGroups?.length}
+          />
         ) : page === "presets" ? (
           <PresetManager
+            openQuickRequest={quickRequest}
+            onQuickOpened={() => setQuickRequest(0)}
+            refreshModels={refreshModels}
             state={state.presetState}
             loadImage={loadPreview}
             renderPreview={renderPreview}
@@ -363,6 +404,7 @@ export default function App() {
             run={run}
             onPreview={(group) => prepare("preview", { group })}
             onExport={exportGroup}
+            onExportMany={exportGroups}
             onCreate={() => setEditor({})}
             onEdit={(body) => run("edit", body)}
             onRepair={(group) => prepare("repair", { id: group.id })}

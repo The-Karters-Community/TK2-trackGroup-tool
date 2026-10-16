@@ -12,6 +12,7 @@ export default function LivePresetPreview({
   loadImage,
   renderPreview,
   loadModel,
+  refreshModels,
   modelKind,
   modelId,
   modelAvailable = false,
@@ -108,6 +109,7 @@ export default function LivePresetPreview({
             kind={mode === "setup" ? "setup" : modelKind}
             id={modelId}
             loadModel={loadModel}
+            refreshModels={refreshModels}
             preset={data}
             view={view}
             revision={revision}

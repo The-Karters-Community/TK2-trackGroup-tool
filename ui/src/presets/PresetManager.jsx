@@ -15,6 +15,7 @@ import PresetGroupEditor from "./PresetGroupEditor.jsx";
 import OrderedPresets from "./OrderedPresets.jsx";
 import PresetPreview from "./PresetPreview.jsx";
 import { setupTitle, setupDescription, setupMatches } from "./appearance.js";
+import Pagination, { usePagination } from "../components/Pagination.jsx";
 
 export default function PresetManager({
   state,
@@ -34,6 +35,9 @@ export default function PresetManager({
   previewImages,
   onPreviewImages,
   onConnectFolder,
+  openQuickRequest = 0,
+  onQuickOpened,
+  refreshModels,
 }) {
   const [tab, setTab] = useState("presets");
   const [ids, setIds] = useState([]);
@@ -43,6 +47,7 @@ export default function PresetManager({
   const [memberDirty, setMemberDirty] = useState(false);
   const [review, setReview] = useState(null);
   const [query, setQuery] = useState("");
+  const [moveTarget, setMoveTarget] = useState(1);
   const fileInput = useRef();
   const imageInput = useRef();
   const [localImages, setImages] = useState({});
@@ -65,6 +70,33 @@ export default function PresetManager({
   const filtered = ordered.filter((p) =>
     setupMatches(p, appearance, positions[p.id], query),
   );
+  const paging = usePagination(filtered, `presets:${query}`);
+  const groupPaging = usePagination(
+    groups.filter((g) => g.name.toLowerCase().includes(query.toLowerCase())),
+    `groups:${query}`,
+  );
+  const openedQuick = useRef(0);
+  useEffect(() => {
+    if (
+      openQuickRequest &&
+      openedQuick.current !== openQuickRequest &&
+      state?.quickSetup
+    ) {
+      openedQuick.current = openQuickRequest;
+      setEditor({
+        kind: "quick",
+        value: state.quickSetup,
+        player: state.quickSetups?.[0]?.player ?? 0,
+        hash: state.profileHash,
+      });
+      onQuickOpened?.();
+    }
+  }, [openQuickRequest, state?.quickSetup]);
+  function reorderPage(pageOrder) {
+    const ids = new Set(pageOrder);
+    let index = 0;
+    setDraftOrder(order.map((id) => (ids.has(id) ? pageOrder[index++] : id)));
+  }
   useEffect(() => {
     onDirty?.(orderDirty || editorDirty || memberDirty);
     return () => onDirty?.(false);
@@ -307,23 +339,23 @@ export default function PresetManager({
               disabled={!filtered.length}
               onClick={() =>
                 setIds(
-                  filtered.every((p) => selectedIds.includes(p.id))
+                  paging.items.every((p) => selectedIds.includes(p.id))
                     ? selectedIds.filter(
-                        (id) => !filtered.some((p) => p.id === id),
+                        (id) => !paging.items.some((p) => p.id === id),
                       )
                     : [
                         ...new Set([
                           ...selectedIds,
-                          ...filtered.map((p) => p.id),
+                          ...paging.items.map((p) => p.id),
                         ]),
                       ],
                 )
               }
             >
               {filtered.length &&
-              filtered.every((p) => selectedIds.includes(p.id))
+              paging.items.every((p) => selectedIds.includes(p.id))
                 ? "Clear selection"
-                : "Select all shown"}
+                : "Select this page"}
             </button>
             <span className="hint">
               {selectedIds.length
@@ -332,6 +364,45 @@ export default function PresetManager({
             </span>
             {query && (
               <span className="hint">Clear search to reorder the library.</span>
+            )}
+            {selectedIds.length > 0 && (
+              <div className="selection-move">
+                <label>
+                  Position{" "}
+                  <input
+                    type="number"
+                    aria-label="Move selected presets to position"
+                    min="1"
+                    max={order.length}
+                    value={moveTarget}
+                    onChange={(e) => setMoveTarget(e.target.value)}
+                  />
+                </label>
+                <button
+                  disabled={
+                    !editable ||
+                    !Number.isInteger(Number(moveTarget)) ||
+                    Number(moveTarget) < 1 ||
+                    Number(moveTarget) > order.length
+                  }
+                  onClick={() => {
+                    const selected = order.filter((id) =>
+                      selectedIds.includes(id),
+                    );
+                    const next = order.filter(
+                      (id) => !selectedIds.includes(id),
+                    );
+                    next.splice(
+                      Math.min(next.length, Number(moveTarget) - 1),
+                      0,
+                      ...selected,
+                    );
+                    setDraftOrder(next);
+                  }}
+                >
+                  Move selected
+                </button>
+              </div>
             )}
             <div className="preset-save-slot library-save-slot">
               <div
@@ -356,10 +427,12 @@ export default function PresetManager({
               </div>
             </div>
           </div>
+          <Pagination paging={paging} label="Presets" />
           <OrderedPresets
-            items={filtered}
+            items={paging.items}
+            offset={paging.start}
             disabled={!editable || Boolean(query)}
-            onChange={setDraftOrder}
+            onChange={reorderPage}
             onOpen={(p) =>
               setEditor({ kind: "preset", value: p, hash: state?.profileHash })
             }
@@ -379,69 +452,70 @@ export default function PresetManager({
         </>
       ) : (
         <div className="preset-cards">
-          {groups
-            .filter((g) => g.name.toLowerCase().includes(query.toLowerCase()))
-            .map((g) => (
-              <article key={g.id}>
-                <label className="check-label">
-                  <input
-                    type="checkbox"
-                    checked={selectedGroups.includes(g.id)}
-                    aria-label={`Select ${g.name}`}
-                    onChange={() => toggle(g.id, selectedGroups, setGroupIds)}
-                  />
-                  Select group
-                </label>
+          {groupPaging.items.map((g) => (
+            <article key={g.id}>
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={selectedGroups.includes(g.id)}
+                  aria-label={`Select ${g.name}`}
+                  onChange={() => toggle(g.id, selectedGroups, setGroupIds)}
+                />
+                Select group
+              </label>
+              <button
+                onClick={() =>
+                  setEditor({
+                    kind: "group",
+                    value: g,
+                    hash: state?.profileHash,
+                  })
+                }
+              >
+                <span className="preset-group-previews">
+                  {g.members.slice(0, 4).map((id) => (
+                    <PresetPreview
+                      key={id}
+                      source={appearance?.previews?.[id]?.modded}
+                      loadImage={loadImage}
+                      alt="Group setup preview"
+                    />
+                  ))}
+                </span>
+                <strong>{g.name}</strong>
+                <small>
+                  {g.members.length} presets · edit name, membership & order
+                </small>
+              </button>
+              <div className="preset-group-order">
                 <button
-                  onClick={() =>
-                    setEditor({
-                      kind: "group",
-                      value: g,
-                      hash: state?.profileHash,
-                    })
-                  }
+                  className="icon-button"
+                  disabled={!editable || groups[0]?.id === g.id}
+                  aria-label={`Move ${g.name} up`}
+                  onClick={() => moveGroup(g.id, -1)}
                 >
-                  <span className="preset-group-previews">
-                    {g.members.slice(0, 4).map((id) => (
-                      <PresetPreview
-                        key={id}
-                        source={appearance?.previews?.[id]?.modded}
-                        loadImage={loadImage}
-                        alt="Group setup preview"
-                      />
-                    ))}
-                  </span>
-                  <strong>{g.name}</strong>
-                  <small>
-                    {g.members.length} presets · edit name, membership & order
-                  </small>
+                  <ChevronUpIcon />
                 </button>
-                <div className="preset-group-order">
-                  <button
-                    className="icon-button"
-                    disabled={!editable || groups[0]?.id === g.id}
-                    aria-label={`Move ${g.name} up`}
-                    onClick={() => moveGroup(g.id, -1)}
-                  >
-                    <ChevronUpIcon />
-                  </button>
-                  <button
-                    className="icon-button"
-                    disabled={!editable || groups.at(-1)?.id === g.id}
-                    aria-label={`Move ${g.name} down`}
-                    onClick={() => moveGroup(g.id, 1)}
-                  >
-                    <ChevronDownIcon />
-                  </button>
-                </div>
-              </article>
-            ))}
+                <button
+                  className="icon-button"
+                  disabled={!editable || groups.at(-1)?.id === g.id}
+                  aria-label={`Move ${g.name} down`}
+                  onClick={() => moveGroup(g.id, 1)}
+                >
+                  <ChevronDownIcon />
+                </button>
+              </div>
+            </article>
+          ))}
           {!groups.length && (
             <p className="empty-state">
               Create a group from your favorite setups.
             </p>
           )}
         </div>
+      )}
+      {tab === "groups" && (
+        <Pagination paging={groupPaging} label="Preset groups" />
       )}
       <p className="hint">
         {browser
@@ -537,6 +611,7 @@ export default function PresetManager({
               browser={browser}
               renderPreview={renderPreview}
               loadModel={loadModel}
+              refreshModels={refreshModels}
               canSave={editable}
               canSavePreset={editable || (!quick && liveSaveAvailable)}
               saveToRunningGame={!quick && gameRunning && liveSaveAvailable}

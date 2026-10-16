@@ -17,6 +17,20 @@ a release is requested; development builds do not advance the release version.
 - Replace numeric customization dropdowns with named character, skin and variant
   grids. Keep modal headers, close buttons, save/discard and actions accessible.
 
+### Navigation and large collections
+
+- Open on a dedicated Home page with BobbysGarageV4 artwork and shortcuts to
+  Quick Setup, presets, track groups, downloaded tracks and settings. Restore
+  the game logo in the sidebar; rename track navigation explicitly.
+- Add page navigation and 12/24/48/96 item sizes for presets, preset groups,
+  group membership, track groups, downloaded tracks and appearance choices.
+  Preserve selections across pages and add moving selected presets to a position.
+- Export several track groups as one versioned `.tk2groups.json` file. Open packs
+  in either edition and review groups individually before importing.
+- Rescan installed appearances before retrying model failures; identify saved
+  appearances absent from local content and keep preview feedback readable.
+- Improve phone navigation, pagination and toast sizing.
+
 ### Independent previews
 
 - Add local Three.js models and full setups from installed official, Workshop and

@@ -29,6 +29,7 @@ export default function PresetEditor({
   loadImage,
   renderPreview,
   loadModel,
+  refreshModels,
   position = 0,
   browser = false,
   quick = false,
@@ -153,6 +154,7 @@ export default function PresetEditor({
             loadImage={loadImage}
             renderPreview={renderPreview}
             loadModel={loadModel}
+            refreshModels={refreshModels}
             modelKind={kind}
             modelId={modelId}
             modelAvailable={modelAvailable}

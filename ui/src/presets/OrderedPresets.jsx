@@ -22,6 +22,7 @@ export default function OrderedPresets({
   onSelect,
   layout = "list",
   positions,
+  offset = 0,
 }) {
   const list = useRef();
   const sortable = useRef();
@@ -81,7 +82,7 @@ export default function OrderedPresets({
                 <DragHandleDots2Icon />
               </button>
               <span className="ordinal">
-                {String(index + 1).padStart(2, "0")}
+                {String(offset + index + 1).padStart(2, "0")}
               </span>
               {onSelect && (
                 <input

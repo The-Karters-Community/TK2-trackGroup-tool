@@ -38,7 +38,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("keeps 200 setups in one selectable gallery and saves a long drag only after confirmation", async () => {
+it("paginates 200 setups and preserves other pages when saving a drag", async () => {
   const state = presetState(readProfile(fixture()));
   state.presets = Array.from({ length: 200 }, (_, i) => ({
     ...state.presets[0],
@@ -47,19 +47,19 @@ it("keeps 200 setups in one selectable gallery and saves a long drag only after 
   const onChange = vi.fn().mockResolvedValue(true);
   render(<PresetManager state={state} onChange={onChange} />);
   const list = screen.getByRole("list", { name: "Preset order" });
-  expect(within(list).getAllByRole("checkbox")).toHaveLength(200);
-  expect(screen.getAllByRole("checkbox")).toHaveLength(200);
+  expect(within(list).getAllByRole("checkbox")).toHaveLength(24);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(24);
   const instance = instances[0];
   instance.node.appendChild(instance.node.children[0]);
-  instance.options.onEnd({ oldIndex: 0, newIndex: 199 });
+  instance.options.onEnd({ oldIndex: 0, newIndex: 23 });
   await screen.findByText("Unsaved preset order");
   expect(onChange).not.toHaveBeenCalled();
-  expect(list.children[199].dataset.id).toBe("100");
+  expect(list.children[23].dataset.id).toBe("100");
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(onChange).toHaveBeenCalledWith({
       mode: "order",
-      order: [...Array.from({ length: 199 }, (_, i) => 101 + i), 100],
+      order: [...Array.from({ length: 23 }, (_, i) => 101 + i), 100, ...Array.from({ length: 176 }, (_, i) => 124 + i)],
     }),
   );
 }, 15000);

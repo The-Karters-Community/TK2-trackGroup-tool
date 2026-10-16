@@ -1,5 +1,6 @@
 import { useState } from "react";
 import TrackPreview, { trackName } from "./TrackPreview.jsx";
+import Pagination, { usePagination } from "./Pagination.jsx";
 
 export const trackKey = (track) =>
   track.kind === "official"
@@ -18,7 +19,6 @@ export default function TrackPicker({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("downloaded");
-  const [limit, setLimit] = useState(48);
   const keys = new Set(selected.map(trackKey));
   const filtered = tracks.filter(
     (t) =>
@@ -28,6 +28,7 @@ export default function TrackPicker({
         (filter === "official" && t.kind === "official") ||
         (filter === "workshop" && t.kind === "workshop")),
   );
+  const paging = usePagination(filtered, `${query}:${filter}`);
   function toggle(track) {
     const key = trackKey(track);
     onChange(
@@ -45,7 +46,6 @@ export default function TrackPicker({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            setLimit(48);
           }}
         />
         <div className="view-switch" aria-label="Track source">
@@ -61,7 +61,6 @@ export default function TrackPicker({
               aria-pressed={filter === id}
               onClick={() => {
                 setFilter(id);
-                setLimit(48);
               }}
             >
               {label}
@@ -73,8 +72,9 @@ export default function TrackPicker({
         {filtered.length} tracks · {selected.length} selected. Tracks join the
         group in selection order.
       </p>
+      <Pagination paging={paging} label="Tracks" />
       <div className="track-picker-grid">
-        {filtered.slice(0, limit).map((track) => (
+        {paging.items.map((track) => (
           <label
             className={`track-picker-card ${keys.has(trackKey(track)) ? "selected" : ""}`}
             key={trackKey(track)}
@@ -105,11 +105,6 @@ export default function TrackPicker({
           No matching tracks. Refresh Steam after subscribing, or paste Workshop
           links below.
         </p>
-      )}
-      {filtered.length > limit && (
-        <button type="button" onClick={() => setLimit((n) => n + 48)}>
-          Show more tracks
-        </button>
       )}
     </div>
   );

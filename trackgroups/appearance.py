@@ -184,8 +184,11 @@ class Appearance:
                     result.append((file, package.name))
         return result
 
-    def refresh(self, game):
+    def refresh(self, game, *, force=False):
         with self.lock:
+            if force:
+                self.signature = ''
+                (self.folder / 'index.json').unlink(missing_ok=True)
             self.requested_game = game
             if self.loading:
                 return

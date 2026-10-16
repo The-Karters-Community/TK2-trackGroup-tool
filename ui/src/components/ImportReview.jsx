@@ -39,14 +39,14 @@ export default function ImportReview({
                 ? "Restoring Workshop tracks"
                 : "Review missing tracks"
             : done
-              ? "Saved to My groups"
+              ? "Saved to My track groups"
               : running
                 ? rename
                   ? "Saving group name"
-                  : "Adding to My groups"
+                  : "Adding to My track groups"
                 : rename
                   ? "Review name change"
-                  : "Review before adding to My groups"}
+                  : "Review before adding to My track groups"}
         </span>
         <h1>{preview.destinationName}</h1>
         <p>
@@ -55,10 +55,10 @@ export default function ImportReview({
             : rename
               ? "Track references and order stay unchanged."
               : preview.outcome === "unchanged"
-                ? "Already in My groups. This checks and downloads any missing tracks without adding another copy."
+                ? "Already in My track groups. This checks and downloads any missing tracks without adding another copy."
                 : preview.outcome === "updated"
                   ? "Update your existing group in its current position."
-                  : "Add this collection to My groups and the game's custom Track Groups. The curated library stays unchanged."}
+                  : "Add this collection to My track groups and the game's custom Track Groups. The curated library stays unchanged."}
         </p>
       </header>
       {preview.previousName &&
@@ -131,14 +131,14 @@ export default function ImportReview({
       <div className="workflow-actions">
         {done ? (
           <button className="primary" onClick={onDone}>
-            View in My groups
+            View in My track groups
           </button>
         ) : running ? (
           <button disabled={job?.phase === "saving"} onClick={onCancel}>
             Cancel import
           </button>
         ) : failed ? (
-          <button onClick={onBack}>Back to My groups</button>
+          <button onClick={onBack}>Back to My track groups</button>
         ) : (
           <>
             <button onClick={onBack}>Back</button>
@@ -150,8 +150,8 @@ export default function ImportReview({
                   : preview.outcome === "unchanged"
                     ? "Check installed tracks"
                     : preview.outcome === "updated"
-                      ? "Update My groups"
-                      : "Add to My groups"}
+                      ? "Update My track groups"
+                      : "Add to My track groups"}
             </button>
           </>
         )}

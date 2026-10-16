@@ -79,7 +79,7 @@ it("opens the modded view with named variant choices and hides technical IDs", (
       .getByRole("button", { name: "Modded", exact: true })
       .classList.contains("active"),
   ).toBe(true);
-  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Vehicle" })).toBeNull();
   expect(
     screen
       .getByRole("button", { name: "Character", exact: true })

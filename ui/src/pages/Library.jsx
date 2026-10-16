@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { ReloadIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import GroupList from "../components/GroupList.jsx";
 import GroupDetails from "../components/GroupDetails.jsx";
+import Pagination, { usePagination } from "../components/Pagination.jsx";
+import { unpackGroups } from "../components/groupPack.js";
 
 export default function Library({
   state,
@@ -10,6 +12,7 @@ export default function Library({
   run,
   onPreview,
   onExport,
+  onExportMany,
   onCreate,
   onEdit,
   onRepair,
@@ -18,6 +21,8 @@ export default function Library({
   const [search, setSearch] = useState("");
   const [selectedId, select] = useState(null);
   const [category, setCategory] = useState("speedrun");
+  const [checked, setChecked] = useState([]);
+  const [fileGroups, setFileGroups] = useState([]);
   const [gallery, setGallery] = useState(
     () =>
       localStorage.getItem(local ? "my-groups-view" : "browse-groups-view") !==
@@ -35,12 +40,21 @@ export default function Library({
   const groups = categorySource.filter((g) =>
     g.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
+  const paging = usePagination(groups, `${search}:${category}:${local}`);
+  const selectedGroups = source.filter((g) => checked.includes(g.id));
   async function openFile(event) {
     const file = event.target.files[0];
+    event.target.value = "";
     if (!file) return;
     try {
-      if (file.size > 1024 * 1024) throw new Error("Group file exceeds 1 MiB.");
-      const group = JSON.parse(await file.text());
+      if (file.size > 16 * 1024 * 1024)
+        throw new Error("Group file exceeds 16 MiB.");
+      const imported = unpackGroups(JSON.parse(await file.text()));
+      if (imported.length > 1) {
+        setFileGroups(imported);
+        return;
+      }
+      const group = imported[0];
       // Backend validates every field. Never trust a file's display shape before parsing.
       if (!group.name || !Array.isArray(group.tracks))
         throw new Error("Invalid group file.");
@@ -55,7 +69,7 @@ export default function Library({
     <div className={`library ${selected ? "with-details" : ""}`}>
       <section className="library-main">
         <header className="library-heading">
-          <h1>{local ? "My groups" : "Browse groups"}</h1>
+          <h1>{local ? "My track groups" : "Discover track groups"}</h1>
           {!local && (
             <div className="category-tabs" aria-label="Group categories">
               {[
@@ -140,6 +154,43 @@ export default function Library({
             onChange={openFile}
           />
         </div>
+        {fileGroups.length > 0 && (
+          <section className="pack-import" aria-label="Groups in shared file">
+            <strong>{fileGroups.length} groups in this file</strong>
+            <p>Choose a group to review its tracks before importing.</p>
+            {fileGroups.map((g) => (
+              <button key={g.id} disabled={busy} onClick={() => onPreview(g)}>
+                {g.name} · {g.tracks.length} tracks
+              </button>
+            ))}
+            <button onClick={() => setFileGroups([])}>Close file</button>
+          </section>
+        )}
+        <div className="selection-toolbar">
+          <button
+            disabled={!paging.items.length}
+            onClick={() =>
+              setChecked([
+                ...new Set([...checked, ...paging.items.map((g) => g.id)]),
+              ])
+            }
+          >
+            Select this page
+          </button>
+          {selectedGroups.length > 0 && (
+            <>
+              <span>{selectedGroups.length} selected</span>
+              <button onClick={() => setChecked([])}>Clear</button>
+            </>
+          )}
+          <button
+            disabled={busy || !selectedGroups.length}
+            onClick={() => onExportMany?.(selectedGroups)}
+          >
+            Export selected
+            {selectedGroups.length ? ` · ${selectedGroups.length}` : ""}
+          </button>
+        </div>
         <div className="list-heading">
           <span>
             {groups.length} {groups.length === 1 ? "group" : "groups"}
@@ -154,7 +205,15 @@ export default function Library({
         </div>
         {groups.length ? (
           <GroupList
-            groups={groups}
+            groups={paging.items}
+            checked={checked}
+            onCheck={(id) =>
+              setChecked(
+                checked.includes(id)
+                  ? checked.filter((v) => v !== id)
+                  : [...checked, id],
+              )
+            }
             selected={selected}
             onSelect={(g) => {
               select(g.id);
@@ -180,6 +239,7 @@ export default function Library({
             </p>
           </div>
         )}
+        <Pagination paging={paging} label="Track groups" />
       </section>
       {selected && (
         <GroupDetails
