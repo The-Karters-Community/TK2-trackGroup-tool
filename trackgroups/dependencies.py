@@ -15,6 +15,9 @@ class Dependencies:
 
     def remember(self, values, *, save=True):
         for item, value in values.items():
+            if isinstance(value, dict) and value.get('kind') == 'cosmetic':
+                self.items.pop(item, None)
+                continue
             if not isinstance(item, str) or not item.isdecimal() or not 0 < int(item) < 2**64:
                 continue
             if not isinstance(value, dict) or not value.get('modId') or value.get('available') is False:

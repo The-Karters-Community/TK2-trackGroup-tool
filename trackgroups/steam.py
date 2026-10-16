@@ -159,14 +159,22 @@ class Steam:
         return {"subscribed": bool(state & 1), "ready": bool(state & 4) and not bool(state & (8 | 16 | 32)),
                 "downloaded": downloaded.value, "total": total.value}
 
-    def installed(self, item):
+    def install_directory(self, item):
         size, timestamp = U64(), U32()
         directory = C.create_string_buffer(4096)
         if not self.ugc_call("GetItemInstallInfo", int(item), C.byref(size), directory, len(directory), C.byref(timestamp)):
-            return False
+            return None
+        path = Path(directory.value.decode("utf-8")).resolve()
+        if path.name != str(item) or path.parent.name != str(GAME_APP_ID):
+            raise ValueError('Steam returned a different Workshop item directory.')
+        return path
+
+    def installed(self, item):
+        path = self.install_directory(item)
+        if path is None: return False
         # Verify Steam's installation exists, without exposing arbitrary file paths to the UI.
         from .content import verify_installation
-        return verify_installation(Path(directory.value.decode("utf-8")), item)
+        return verify_installation(path, item)
 
     def subscribe(self, item, cancelled=lambda: False):
         # RemoteStorageSubscribePublishedFileResult_t: EResult + padding + PublishedFileId.

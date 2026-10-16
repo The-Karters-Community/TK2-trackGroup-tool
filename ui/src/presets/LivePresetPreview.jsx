@@ -15,6 +15,8 @@ export default function LivePresetPreview({
   modelKind,
   modelId,
   modelAvailable = false,
+  appearanceLoading = false,
+  revision = "",
 }) {
   const [mode, setMode] = useState("setup");
   const [rotation, setRotation] = useState(0);
@@ -95,7 +97,12 @@ export default function LivePresetPreview({
           )}
         </div>
       )}
-      {showModel ? (
+      {showModel && appearanceLoading && !revision ? (
+        <p className="preview-loading" role="status">
+          <span className="loading-spinner" />
+          Reading installed appearances…
+        </p>
+      ) : showModel ? (
         <Suspense fallback={<p className="hint">Opening 3D viewer…</p>}>
           <ModelViewer
             kind={mode === "setup" ? "setup" : modelKind}
@@ -103,6 +110,7 @@ export default function LivePresetPreview({
             loadModel={loadModel}
             preset={data}
             view={view}
+            revision={revision}
           />
         </Suspense>
       ) : frame ? (

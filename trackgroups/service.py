@@ -44,6 +44,12 @@ class Service:
         self.previews = {}
         self.local_groups = []
         self.preset_state = {'presets': [], 'groups': [], 'error': ''}
+        self.local_hash = ''
+        self.library_loading = False
+        self.library_cancel = threading.Event()
+        self.library_thread = None
+        self._workshop_stamp = None
+        self._library_retry_at = 0
         from .appearance import Appearance
         self.appearance = Appearance(DATA/'appearance', PROFILE_DIR)
         self.appearance.refresh(self.game)
@@ -51,6 +57,7 @@ class Service:
 
     def load_local(self, *, external=False):
         if not self.profile:
+            self.local_hash = ''
             self.local_groups = []
             self.preset_state = {'presets': [], 'groups': [], 'error': 'Select a game profile in Settings.'}
             return
@@ -123,6 +130,8 @@ class Service:
 
     def state(self):
         from .live_preview import companion_state
+        self.appearance.observe(self.game)
+        self.observe_workshop()
         # The public state deliberately excludes save contents and full Steam account IDs.
         with self.lock:
             self.observe_profile()
@@ -147,13 +156,43 @@ class Service:
                 workshop = [t for t in group['tracks'] if t['kind'] == 'workshop']
                 group['missingTracks'] = sum(not self.track_status.get(t.get('workshopId'), {}).get('ready', False) or not self.track_status.get(t.get('workshopId'), {}).get('subscribed', False) for t in workshop) if self.account else None
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
+            from .track_library import library, summary
             return {"version": VERSION, "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
+                "tracks":library(self.items, self.track_status), "trackSummary":summary(self.items, self.track_status, local), "libraryLoading":self.library_loading,
                 "groups": reviewed, "localGroups": local,
-                "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]))}), "profileHash": getattr(self, 'local_hash', ''),
+                "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]) + self.preset_state.get('quickSetups', []))}), "profileHash": getattr(self, 'local_hash', ''),
                 "settings": {"game": self.game, "profile": self.profile, "profiles": self.profiles,
                     "profileDirectory": str(PROFILE_DIR), "dataDirectory": str(DATA)},
                 "steamConnected": bool(self.account), "cloudEnabled": self.cloud_enabled, "trackStatus": copy.deepcopy(self.track_status),
                 "gameRunning": game_running(), "syncError": self.sync_error, "job": copy.deepcopy(self.job)}
+
+    def observe_workshop(self):
+        if time.monotonic() < self._library_retry_at: return
+        try:
+            info = (Path(self.game).parent.parent/'workshop/appworkshop_2269950.acf').stat()
+            stamp = (info.st_mtime_ns, info.st_size)
+        except OSError: return
+        if self._workshop_stamp is None:
+            self._workshop_stamp = stamp; return
+        if stamp == self._workshop_stamp or self.library_loading or not self.account or self.job and self.job.get('state') == 'running': return
+        previous = self._workshop_stamp
+        self._workshop_stamp = stamp
+        self.library_loading = True
+        game, account = self.game, self.account
+        def refresh():
+            try:
+                result = Worker(game).request('library-snapshot', {'ids':list(self.dependencies.items)}, lambda value:None, self.library_cancel.is_set)
+                with self.lock:
+                    if result['account'] != account or self.game != game or self.account != account: return
+                    self.items, self.track_status = result['items'], result['status']
+                    self.dependencies.remember(result['items'])
+                self.appearance.refresh(self.game)
+            except (OSError, ValueError):
+                self._workshop_stamp = previous
+                self._library_retry_at = time.monotonic() + 10
+            finally: self.library_loading = False
+        self.library_thread = threading.Thread(target=refresh, daemon=True)
+        self.library_thread.start()
 
     def start_job(self, action, body):
         with self.lock:
@@ -282,15 +321,19 @@ class Service:
             ids = []  # A rename never subscribes or changes track references.
         else:
             group = catalog.decode(json.dumps(body['group']).encode()) if action == 'preview' else None
-            ids = parse_items(body['items']) if action == 'create' else list(dict.fromkeys(t['workshopId'] for t in group['tracks'] if t['kind'] == 'workshop'))
+            selected = body.get('tracks') if action == 'create' else None
+            if selected is not None:
+                from .groups import validate
+                group = validate({'format':'tk2-track-group', 'version':1, 'revision':1, 'id':str(uuid.uuid4()), 'name':body['name'], 'tracks':selected})
+            ids = (parse_items(body['items']) if action == 'create' and selected is None else list(dict.fromkeys(t['workshopId'] for t in group['tracks'] if t['kind'] == 'workshop')))
             self.progress({'message':'Looking up track names and checking Workshop status…'})
             r = Worker(self.game).request('details', {'ids':ids}, self.progress, self.cancel.is_set)
             if r['account'] != self.account: raise ValueError("Steam account changed. Refresh first.")
-            if action == 'create': group = create_group(body['name'], ids, r['items'])
+            if action == 'create' and selected is None: group = create_group(body['name'], ids, r['items'])
             for track in group['tracks']:
                 if track['kind'] == 'workshop':
                     detail = r['items'].get(track['workshopId'], {})
-                    if not detail.get('available') or detail.get('modId') != track['modId']:
+                    if not detail.get('available') or detail.get('modId') != track['modId'] or detail.get('kind') == 'cosmetic':
                         raise ValueError("Unavailable or mismatched Workshop track: " + track.get('title', track['modId']))
                     track['title'] = detail.get('title', track.get('title', track['modId']))
             p.validate_official_tracks(group)
@@ -338,7 +381,8 @@ class Service:
                 self.progress({"message": "Connecting to Steam and reading public track metadata…"})
                 self.dependencies.remember(Dependencies(DATA / "dependencies.json").items, save=False)
                 self.dependencies.catalog(catalog.load())
-                r = Worker(self.game).request("snapshot", {"profile": self.profile, "ids": list(self.dependencies.items)}, self.progress, self.cancel.is_set)
+                track_ids = {t['workshopId'] for g in self.groups for t in g['tracks'] if t['kind']=='workshop'}
+                r = Worker(self.game).request("snapshot", {"profile": self.profile, "ids": list(self.dependencies.items), 'trackIds':list(track_ids)}, self.progress, self.cancel.is_set)
                 with self.lock:
                     self.account = r["account"]; self.items = r["items"]; self.cloud_enabled = r["cloudEnabled"]
                     self.dependencies.remember(r['items'])
@@ -351,8 +395,9 @@ class Service:
                     except ValueError as exc:
                         self.sync_error = str(exc)
                         raise
-                missing = sum(not s['ready'] or not s['subscribed'] for s in self.track_status.values())
-                result = {"message": f"Steam refreshed. {missing} known Workshop tracks need subscription or download." if missing else "Steam refreshed. Known Workshop tracks are installed."}
+                from .track_library import summary
+                local_groups = [{'tracks':self.native_display(g)} for g in self.local_groups]
+                result = summary(self.items, self.track_status, local_groups)
             elif action == 'repair':
                 result = self.make_preview('preview', {'group':self.export(body['id'])})
                 self.previews[result['preview']['token']]['mode'] = 'repair'

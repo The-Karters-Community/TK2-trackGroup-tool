@@ -274,6 +274,7 @@ test("creating and renaming submit distinct drafts for review", () => {
   fireEvent.change(screen.getByLabelText("Group name"), {
     target: { value: "New race" },
   });
+  fireEvent.click(screen.getByRole("button", { name: "Paste Workshop links" }));
   fireEvent.change(screen.getByLabelText(/Workshop item IDs/), {
     target: { value: "123\n456" },
   });

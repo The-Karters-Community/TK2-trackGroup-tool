@@ -50,6 +50,18 @@ it("fits only visible geometry, excluding hidden preview helpers", () => {
   ).toEqual([2, 2, 2]);
 });
 
+it("ignores distant negligible authoring surfaces when framing a character", () => {
+  const root = new THREE.Group();
+  root.add(new THREE.Mesh(new THREE.BoxGeometry(2, 6, 2)));
+  const helper = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 0.004));
+  helper.position.set(14, 0, 0);
+  root.add(helper);
+  const box = visibleBounds(THREE, root);
+  expect(box.getCenter(new THREE.Vector3()).toArray()).toEqual([0, 0, 0]);
+  expect(box.getSize(new THREE.Vector3()).toArray()).toEqual([2, 6, 2]);
+  expect(helper.visible).toBe(true);
+});
+
 it("labels a clip requiring unsupported retargeting and restores the rest pose", () => {
   const surface = () => ({
     positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],

@@ -23,7 +23,7 @@ def _body_offset(raw):
     return 32 + (length + 3) // 4 * 4
 
 
-def character_presentation(game, character_type, root):
+def character_presentation(game, character_type, root, selected=None):
     import UnityPy
     from UnityPy.classes.PPtr import PPtr
     directory = Path(game) / 'TheKarters2_Data'
@@ -47,6 +47,8 @@ def character_presentation(game, character_type, root):
     file = env.assets[0]
     animations = []
     standing = []
+    chosen = []
+    choices = {}
     for index, (external, identity) in enumerate(refs):
         if not identity or index >= len(root['children']):
             continue
@@ -55,9 +57,12 @@ def character_presentation(game, character_type, root):
         controller = file.objects[identity].read()
         for entry in controller.m_Clips:
             name = entry.m_OriginalClip.read().m_Name
-            if name in ('jazda_idle', 'idle_w_menu'):
+            choices[name] = {'id':name, 'category':'Game animations', 'name':{'jazda_idle':'Seated idle','idle_w_menu':'Standing menu idle','wybor_w_menu':'Menu selection'}.get(name,name.replace('_',' '))}
+            if selected == name or selected is None and name in ('jazda_idle', 'idle_w_menu'):
                 animation = decode_clip(entry.m_OverrideClip.deref(), root, root['children'][index]['path'])
-                if animation: (animations if name == 'jazda_idle' else standing).append(animation)
+                if animation: (chosen if selected is not None else animations if name == 'jazda_idle' else standing).append(animation)
+    if selected is not None:
+        return {'selectedAnimations':chosen}
     if not animations:
         raise ValueError('The original character idle pose could not be decoded.')
     # The character-worker array supplies the exact seated offset/scale used by
@@ -81,7 +86,7 @@ def character_presentation(game, character_type, root):
             continue
         go = worker.parse_monobehaviour_head().m_GameObject.read()
         transform = go.m_Component[0].component.read()
-        return {'animations':animations, 'standingAnimations':standing,
+        return {'animations':animations, 'standingAnimations':standing, 'animationChoices':list(choices.values()),
                 'offset':[getattr(transform.m_LocalPosition, axis) for axis in 'xyz'],
                 'rotation':[getattr(transform.m_LocalRotation, axis) for axis in 'xyzw'],
                 'scale':[getattr(transform.m_LocalScale, axis) for axis in 'xyz']}

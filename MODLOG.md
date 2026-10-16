@@ -252,3 +252,54 @@
   app decoded all three skinned Tikal surfaces and both idle clips without
   developer runtimes on PATH. Clean shutdown released the portable folder for
   rename/restore. Profile hash unchanged; updated development Garage reopened.
+
+
+### 2026-10-16 - Bobby's Garage discovery, Quick Setup and animation showcase
+
+- User confirmed the prior viewer fixes feel smooth. Added CHANGELOG.md with
+  user-facing highlights since stable 0.1.0, keeping this development version
+  0.1.1-dev and deferring release/publication until explicitly requested.
+- Verified the real Steam library contains 132 cosmetic items and 107 subscribed
+  tracks, all 107 downloaded. Previous track-only validation incorrectly marked
+  those cosmetics missing. Classify installed public catalog paths, exclude
+  cosmetic identities from track dependency storage, and scope warnings to
+  subscribed downloads and tracks actually used by My groups.
+- Watch the Steam Workshop manifest and completed package/catalog revisions;
+  refresh metadata in a cancellable background worker and rebuild appearance
+  indexes without app restart. Queue retries after transient Steam failures.
+  Gate initial model requests until the index is ready and retry after revision
+  changes. Loading feedback stays visible while previous geometry remains usable.
+- Native GetQuickPreset (0x180558db0) and GetTargetQuickPreset (0x1807c8330)
+  confirm QuickCreationPresets[localPlayer].QuickPreset, not the stale legacy
+  QuickCreationPreset object. Verified player 1 ID 338088 and all six appearance
+  IDs against its supplied .hash. Support six initialized player slots, legacy
+  fallback only without the slot array, targeted edits and Save as new preset.
+  Ordinary live-save companion lookup does not include Quick Setup: its writes
+  remain game-closed transactions, while viewing stays independent.
+- Broly retains tiny helper surfaces scattered around his prefab. Their extent
+  is below 0.2 percent of the main body but previously dominated framing bounds.
+  Exclude negligible surfaces from framing only and keep centering outside
+  animated roots. Real standing bounds now center near zero and measure
+  1.20 x 1.80 x 0.68 normalized units rather than 1.80 x 0.70 x 0.26.
+- Add lazy, categorized installed character clips (88 choices verified for
+  Tikal, Broly and Oxide), with pause, scrubbing and speed controls. Decode only
+  the selected clip and reuse cached character geometry. Separate weapon-model
+  clips and unsupported retargeting are not advertised as full simulations.
+- Add My tracks and shared visual track selection for mixed official/Workshop
+  groups, with names, thumbnails, status filters and draggable racing order.
+  Preserve paste-links entry and validate mixed drafts on the backend.
+- Rebrand window/browser UI as Bobby's Garage using the supplied fan art. Keep
+  legacy executable/updater/storage identities for installed-update compatibility.
+  Add accordion expansion motion and reduced-motion behavior without dependencies.
+
+- Final verification: 96 Python tests and 100 frontend tests passed; desktop
+  and static web builds passed. REA exercised mixed official/Workshop selection
+  through My tracks into the ordered builder without page errors. Real browser
+  checks centered standing Broly and played Oxide Victory. All 88 listed clips
+  decoded for both Tikal and Broly. No subscription/save mutations were used.
+- Rebuilt flat portable ZIP is 28.4 MiB, still 0.1.1-dev. Verified checksum and
+  every manifest file hash, no bundled game assets, startup with only Windows
+  on PATH, six Quick Setup slots, 107 ready tracks, frozen Broly geometry and
+  Victory animation, unchanged profile hash, clean exit and folder rename/restore.
+  Development GUI reopened and health/Steam/appearance readiness confirmed.
+  No release, hosted deployment or Git push performed.

@@ -148,3 +148,44 @@ class PresetTests(unittest.TestCase):
             self.assertEqual(steam.data,before);self.assertEqual(file.read_bytes(),before)
             commit(steam,file,{'mode':'duplicate','presetId':100},digest(before),'account',**args)
             self.assertEqual(steam.data,file.read_bytes()); self.assertEqual(len(read(Profile(steam.data))),2)
+
+
+class QuickSetupTests(unittest.TestCase):
+    def test_quick_setup_edits_only_its_native_object_and_reserves_dynamic_id(self):
+        profile = Profile(fixture())
+        quick = copy.deepcopy(read(profile)[0]); quick['iPresetID'] = 338088
+        profile.data['QuickCreationPreset'] = quick
+        profile = Profile(profile.serialize(profile.data))
+        state = view(profile); baseline = state['quickSetup']
+        self.assertEqual(baseline['id'],338088)
+        changed = copy.deepcopy(baseline['data']); changed['iVehicleMaterialID_Modded'] = 7
+        change = {'mode':'quick','presetId':338088,'data':changed}
+        verify_edit_base(profile,change,baseline)
+        after = Profile(apply(profile,change)[0])
+        self.assertEqual(after.spans[:2],profile.spans[:2])
+        self.assertEqual(after.data['QuickCreationPreset']['iVehicleMaterialID_Modded'],7)
+        self.assertEqual(after.data['QuickCreationPreset']['futureNativeField'],{'keep':42})
+        with self.assertRaises(ValueError): verify_edit_base(after,change,baseline)
+        duplicated = Profile(apply(after,{'mode':'save-quick-preset'})[0])
+        self.assertEqual(len(read(duplicated)),2)
+        self.assertEqual(duplicated.data,after.data)
+        self.assertNotEqual(read(duplicated)[1]['iPresetID'],338088)
+
+
+    def test_player_slot_wins_over_stale_legacy_quick_and_preserves_other_players(self):
+        profile=Profile(fixture()); base=copy.deepcopy(read(profile)[0])
+        legacy={**copy.deepcopy(base),'iPresetID':338088}
+        first={**copy.deepcopy(legacy),'iCharacterSkinMaterialID_Modded':-1279875073}
+        second={**copy.deepcopy(base),'iPresetID':606594}
+        profile.data['QuickCreationPreset']=legacy
+        profile.data['QuickCreationPresets']=[{'BQuickPresetInitialized':True,'QuickPreset':first}, {'BQuickPresetInitialized':True,'QuickPreset':second}]
+        profile=Profile(profile.serialize(profile.data))
+        state=view(profile)
+        self.assertEqual(state['quickSetup']['data']['iCharacterSkinMaterialID_Modded'],-1279875073)
+        self.assertEqual([p['player'] for p in state['quickSetups']],[0,1])
+        change={'mode':'quick','player':1,'presetId':606594,'data':{**state['quickSetups'][1]['data'],'iVehicleMaterialID_Modded':88}}
+        after=Profile(apply(profile,change)[0])
+        self.assertEqual(after.data['QuickCreationPreset'],legacy)
+        self.assertEqual(after.data['QuickCreationPresets'][0]['QuickPreset'],first)
+        self.assertEqual(after.data['QuickCreationPresets'][1]['QuickPreset']['iVehicleMaterialID_Modded'],88)
+        self.assertEqual(after.spans[:2],profile.spans[:2])

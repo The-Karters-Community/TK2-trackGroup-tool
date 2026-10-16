@@ -313,3 +313,17 @@ it("preserves unsaved choices when the game changes the same preset", async () =
   await waitFor(() => expect(screen.getByText("No changes")).toBeTruthy());
   expect(onChange).not.toHaveBeenCalled();
 });
+
+it("opens Quick Setup without treating it as a saved or grouped preset", () => {
+  const data = state();
+  data.quickSetup = { id: 338088, data: data.presets[0].data };
+  render(<PresetManager state={data} onChange={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Quick Setup" }));
+  expect(screen.getByRole("heading", { name: "Quick Setup" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Save as new preset" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Delete", exact: true }),
+  ).toBeNull();
+});

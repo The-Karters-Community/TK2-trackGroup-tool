@@ -265,7 +265,7 @@ def _source(appearance, kind, identity):
     if not bundles or sum(p.stat().st_size for p in bundles) > MAX_PACKAGE or any(p.stat().st_size > 64 * 1024 * 1024 for p in bundles):
         raise ValueError("This model package is too large for the lightweight viewer.")
     native_files = [root / 'TheKarters2_Data' / name for name in ('level5','sharedassets5.assets','sharedassets1.assets','sharedassets0.assets')] if 'characterType' in reference else []
-    signature = hashlib.sha256(json.dumps([12, reference,
+    signature = hashlib.sha256(json.dumps([13, reference,
         *[(p.name,p.stat().st_size,p.stat().st_mtime_ns) for p in native_files],
         *[(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in bundles]]).encode()).hexdigest()
     cache = appearance.folder / "models" / (signature + ".json.gz")
@@ -297,7 +297,7 @@ def _cache(cache, raw):
         temporary.write_bytes(raw)
         with CACHE_LOCK:
             temporary.replace(cache)
-            files = sorted(cache.parent.glob('*.json.gz'), key=lambda p:p.stat().st_mtime_ns, reverse=True)
+            files = sorted(cache.parent.glob('*.gz'), key=lambda p:p.stat().st_mtime_ns, reverse=True)
             total = 0
             for file in files:
                 total += file.stat().st_size
@@ -336,6 +336,9 @@ def model(appearance, kind, identity):
     if not tree or mesh_count(tree) == 0:
         raise ValueError("This prefab does not contain a supported mesh.")
     rig = _rig(prefab, tree)
+    if kind == 'characters':
+        from .animation_library import choices
+        rig['animationChoices'] = choices(prefab, tree)
     if kind == 'characters' and 'characterType' in reference:
         from .native_menu import character_presentation
         rig.update(character_presentation(root, reference['characterType'], tree))

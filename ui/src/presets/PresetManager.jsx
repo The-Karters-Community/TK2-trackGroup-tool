@@ -160,7 +160,8 @@ export default function PresetManager({
         />
       )}
       <header className="page-heading">
-        <h1>Presets</h1>
+        <span className="eyebrow">Bobby’s Garage</span>
+        <h1>Presets & Quick Setup</h1>
         <p>Browse your setups, arrange them, and share your favorites.</p>
       </header>
       {browser && !available ? (
@@ -178,6 +179,21 @@ export default function PresetManager({
       )}
       <div className="preset-toolbar">
         <div className="tabs">
+          {state?.quickSetup && (
+            <button
+              onClick={() =>
+                setEditor({
+                  kind: "quick",
+                  value: state.quickSetup,
+                  player: state.quickSetups?.[0]?.player ?? 0,
+                  hash: state.profileHash,
+                })
+              }
+            >
+              <PersonIcon />
+              Quick Setup
+            </button>
+          )}
           <button
             className={tab === "presets" ? "active" : ""}
             onClick={() => {
@@ -485,24 +501,45 @@ export default function PresetManager({
           onExport={() => onExport([], [editor.value.id])}
         />
       )}
-      {(memberEditor || editor?.kind === "preset") &&
+      {(memberEditor ||
+        editor?.kind === "preset" ||
+        editor?.kind === "quick") &&
         (() => {
           const target = memberEditor || editor;
+          const quick = target.kind === "quick";
           return (
             <PresetEditor
               key={target.value.id}
+              quick={quick}
+              quickPlayers={state.quickSetups || []}
+              quickPlayer={target.player ?? 0}
+              onQuickPlayer={(player) => {
+                const slot = state.quickSetups.find((p) => p.player === player);
+                if (slot)
+                  setEditor({
+                    kind: "quick",
+                    value: slot,
+                    player,
+                    hash: state.profileHash,
+                  });
+              }}
               preset={
-                presets.find((p) => p.id === target.value.id) || target.value
+                (quick
+                  ? state.quickSetups?.find(
+                      (p) => p.player === (target.player ?? 0),
+                    ) || state.quickSetup
+                  : presets.find((p) => p.id === target.value.id)) ||
+                target.value
               }
               presets={presets}
-              position={positions[target.value.id]}
+              position={positions[target.value.id] || 0}
               busy={busy}
               browser={browser}
               renderPreview={renderPreview}
               loadModel={loadModel}
               canSave={editable}
-              canSavePreset={editable || liveSaveAvailable}
-              saveToRunningGame={gameRunning && liveSaveAvailable}
+              canSavePreset={editable || (!quick && liveSaveAvailable)}
+              saveToRunningGame={!quick && gameRunning && liveSaveAvailable}
               gameRunning={gameRunning}
               onDirty={memberEditor ? setMemberDirty : setEditorDirty}
               appearance={appearance}
@@ -512,11 +549,20 @@ export default function PresetManager({
               }
               onSave={(data, baseline) =>
                 onChange(
-                  { mode: "preset", presetId: target.value.id, data },
+                  {
+                    mode: quick ? "quick" : "preset",
+                    ...(quick ? { player: target.player ?? 0 } : {}),
+                    presetId: baseline.id,
+                    data,
+                  },
                   { expectedHash: state?.profileHash, baseline },
                 )
               }
-              onChange={onChange}
+              onChange={(change) =>
+                onChange(
+                  quick ? { ...change, player: target.player ?? 0 } : change,
+                )
+              }
               onExport={() => onExport([target.value.id], [])}
             />
           );

@@ -139,12 +139,16 @@ export default function AppearanceChoice({
                     : selected?.[key]}
                 </span>
               </summary>
-              {grid(
-                [...unique.values()],
-                level === levels.length - 1,
-                key,
-                Math.min(level + 1, levels.length - 1),
-              )}
+              <div className="accordion-content">
+                <div>
+                  {grid(
+                    [...unique.values()],
+                    level === levels.length - 1,
+                    key,
+                    Math.min(level + 1, levels.length - 1),
+                  )}
+                </div>
+              </div>
             </details>
           );
         })

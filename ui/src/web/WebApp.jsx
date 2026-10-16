@@ -344,11 +344,11 @@ export default function WebApp() {
         <div className="brand">
           <img
             className="brand-logo"
-            src={assetUrl("/logo.png")}
-            alt="The Karters 2"
+            src={assetUrl("/bobbys-garage.png")}
+            alt="Bobby’s Garage"
           />
           <strong>
-            TK2<span>GARAGE</span>
+            Bobby’s<span>GARAGE</span>
           </strong>
         </div>
         <div className="nav-items">

@@ -4,6 +4,7 @@ import { modelMaterial } from "./modelMaterials.js";
 // the scene root. IDs are strings because Unity path IDs exceed JS safe ints.
 export function visibleBounds(THREE, root) {
   const bounds = new THREE.Box3();
+  const surfaces = [];
   root.updateMatrixWorld(true);
   root.traverseVisible((object) => {
     if (!object.isMesh) return;
@@ -12,8 +13,19 @@ export function visibleBounds(THREE, root) {
     const box = object.isSkinnedMesh
       ? object.boundingBox
       : object.geometry.boundingBox;
-    bounds.union(box.clone().applyMatrix4(object.matrixWorld));
+    const world = box.clone().applyMatrix4(object.matrixWorld);
+    if (!world.isEmpty())
+      surfaces.push({
+        box: world,
+        size: world.getSize(new THREE.Vector3()).length(),
+      });
   });
+  // Some Workshop prefabs retain millimetre-scale helper meshes metres away
+  // from the character. They render as subpixels but must not shrink/recenter
+  // the entire preview. Compare surface extents, never arbitrary object names.
+  const largest = Math.max(0, ...surfaces.map((s) => s.size));
+  for (const surface of surfaces)
+    if (surface.size >= largest * 0.002) bounds.union(surface.box);
   return bounds;
 }
 

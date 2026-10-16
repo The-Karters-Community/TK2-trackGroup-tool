@@ -56,7 +56,7 @@ if __name__ == '__main__':
     if args.preview_companion:
         (output / 'preview-bridge').mkdir()
         shutil.copy2(args.preview_companion, output / 'preview-bridge/TK2.Garage.Preview.dll')
-    for name in ('README.md', 'CONTRIBUTING.md', 'LICENSE'): shutil.copy2(ROOT / name, output / name)
+    for name in ('README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE'): shutil.copy2(ROOT / name, output / name)
     shutil.copytree(ROOT / 'docs', output / 'docs')
     forbidden = list(output.rglob('steam_api*')) + list(output.rglob('GameAssembly.dll'))
     if forbidden: raise SystemExit('Build contains game files: ' + str(forbidden))

@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import threading
 import tempfile
+import time
 
 from .runtime import write_json
 
@@ -107,6 +108,29 @@ class Appearance:
         self.signature = ""
         self.files = {}
         self.preview_error = ""
+        self._observed = None
+        self._checked = 0
+
+    def observe(self, game):
+        """Notice completed/new Workshop and local packages without decoding them."""
+        now = time.monotonic()
+        if now - self._checked < 2: return
+        self._checked = now
+        root = Path(game)
+        stamps = []
+        for location in (root / 'Mods', root.parent.parent / 'workshop/content/2269950'):
+            try:
+                for package in sorted(location.iterdir())[:2000]:
+                    if not package.is_dir(): continue
+                    for path in (package, package/'catalog_config.json', package/'StandaloneWindows64/catalog_config.json'):
+                        try:
+                            info = path.stat(); stamps.append((str(path), info.st_mtime_ns, info.st_size))
+                        except OSError: pass
+            except OSError: pass
+        stamp = (str(root), tuple(stamps))
+        if stamp != self._observed:
+            self._observed = stamp
+            self.refresh(game)
 
     def sources(self, game):
         root = Path(game).resolve()
@@ -191,10 +215,11 @@ class Appearance:
                     and saved.get("signature") == signature
                     and not saved.get("previewError")
                 ):
-                    self.items = saved["items"]
-                    self.model_refs = saved.get("modelRefs", {})
-                    self.signature = signature
-                    self.game = game
+                    with self.lock:
+                        self.items = saved["items"]
+                        self.model_refs = saved.get("modelRefs", {})
+                        self.signature = signature
+                        self.game = game
                     return
             except (OSError, ValueError, KeyError):
                 pass
@@ -424,6 +449,7 @@ class Appearance:
             result = {
                 "items": self.items,
                 "loading": self.loading,
+                "revision": self.signature,
                 "warning": self.warning,
                 "models": {kind: [int(key.split(":", 1)[1]) for key in self.model_refs if key.startswith(kind + ":")]
                            for kind in ("characters", "vehicles", "wheels")},

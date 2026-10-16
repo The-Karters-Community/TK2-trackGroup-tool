@@ -1,5 +1,5 @@
-import { it, expect, vi } from "vitest";
-import { render, waitFor, act } from "@testing-library/react";
+import { it, expect, vi, beforeEach } from "vitest";
+import { render, waitFor, act, screen } from "@testing-library/react";
 import ModelViewer from "./ModelViewer.jsx";
 
 const viewport = vi.hoisted(() => ({
@@ -9,6 +9,7 @@ const viewport = vi.hoisted(() => ({
 }));
 const create = vi.hoisted(() => vi.fn(() => viewport));
 vi.mock("./modelViewport.js", () => ({ createViewport: create }));
+beforeEach(() => vi.clearAllMocks());
 
 it("keeps one viewport during selection loads and discards obsolete results", async () => {
   let resolve;
@@ -38,4 +39,24 @@ it("keeps one viewport during selection loads and discards obsolete results", as
   expect(create).toHaveBeenCalledTimes(1);
   unmount();
   expect(viewport.dispose).toHaveBeenCalledTimes(1);
+});
+
+it("retries an initially unresolved appearance after the installed index changes", async () => {
+  const load = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Asset not ready"))
+    .mockResolvedValue({ id: 1 });
+  const { rerender, unmount } = render(
+    <ModelViewer kind="characters" id={1} loadModel={load} revision="old" />,
+  );
+  await screen.findByRole("alert");
+  expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  rerender(
+    <ModelViewer kind="characters" id={1} loadModel={load} revision="ready" />,
+  );
+  await waitFor(() =>
+    expect(viewport.show).toHaveBeenCalledWith({ id: 1 }, "characters"),
+  );
+  expect(create).toHaveBeenCalledTimes(1);
+  unmount();
 });

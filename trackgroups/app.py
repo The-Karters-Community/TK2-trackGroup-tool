@@ -89,7 +89,10 @@ def make_server(service):
                 if action == "preset-model":
                     from .models import model, setup, setup_plan
                     builder = {'setup': setup, 'setup-plan': setup_plan}.get(body.get('kind'))
-                    raw = builder(service.appearance, body) if builder else model(service.appearance, body.get("kind"), body.get("id"))
+                    if body.get('kind') == 'animation':
+                        from .animation_library import animation
+                        raw = animation(service.appearance, body.get('id'), body.get('animation'))
+                    else: raw = builder(service.appearance, body) if builder else model(service.appearance, body.get("kind"), body.get("id"))
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json; charset=utf-8")
                     self.send_header("Content-Encoding", "gzip")
@@ -161,7 +164,7 @@ def main():
         if not mutex: raise OSError("Could not create the application lock.")
         if ctypes.get_last_error() == 183:
             if "--no-window" not in sys.argv:
-                ctypes.windll.user32.MessageBoxW(None, "TK2 Garage is already open.", "TK2 Garage", 0)
+                ctypes.windll.user32.MessageBoxW(None, "Bobby’s Garage is already open.", "Bobby’s Garage", 0)
             return
     service = Service()
     service.updates.start()
@@ -170,14 +173,17 @@ def main():
     write_json(DATA / "session.json", {"origin": server.origin, "token": server.token, "pid": os.getpid()})
     if "--no-window" in sys.argv:
         try: server.serve_forever()
-        finally: server.server_close()
+        finally:
+            service.library_cancel.set()
+            if service.library_thread: service.library_thread.join(timeout=3)
+            server.server_close()
         return
     if not (ROOT / "ui/dist/index.html").is_file():
         raise RuntimeError("Build the frontend first: npm ci && npm run build")
     import webview
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    window = webview.create_window("TK2 Garage", server.origin, width=1180, height=820, min_size=(760, 560))
+    window = webview.create_window("Bobby’s Garage", server.origin, width=1180, height=820, min_size=(760, 560))
     server.window = window
     def apply_update(folder):
         service.updates.apply(folder)
@@ -194,6 +200,8 @@ def main():
     window.events.closing += closing
     try: webview.start(gui="edgechromium", icon=str(ROOT / 'assets/app.ico'))
     finally:
+        service.library_cancel.set()
+        if service.library_thread: service.library_thread.join(timeout=3)
         server.shutdown(); server.server_close()
         session = DATA / "session.json"
         try:

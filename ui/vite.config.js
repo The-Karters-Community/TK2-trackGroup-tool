@@ -51,8 +51,8 @@ export default defineConfig(({ command, mode }) => {
             ? html
                 .replace(/\s*<meta name="tk2-session"[^>]*>/, "")
                 .replace(
-                  "<title>TK2 Garage</title>",
-                  '<title>TK2 Garage · Track groups & presets</title><meta name="description" content="Manage The Karters 2 track groups and customization presets locally in your browser. No executable or profile upload required." />',
+                  "<title>Bobby’s Garage</title>",
+                  '<title>Bobby’s Garage · Track groups & presets</title><meta name="description" content="Manage The Karters 2 track groups and customization presets locally in your browser. No executable or profile upload required." />',
                 )
                 .replace(
                   "</head>",

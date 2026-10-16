@@ -2,10 +2,18 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from trackgroups.models import _geometry, _rig, _pack_textures, _material, setup_plan
+from trackgroups.models import _geometry, _rig, _pack_textures, _material, setup_plan, _cache
 
 
 class ModelTests(unittest.TestCase):
+    def test_animation_cache_entries_share_the_model_cache_size_limit(self):
+        import tempfile, os
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as folder, patch('trackgroups.models.CACHE_LIMIT',64):
+            root=Path(folder);old=root/'old-animation.gz';old.write_bytes(b'a'*40);os.utime(old,(10,10))
+            current=root/'new.json.gz';_cache(current,b'b'*40)
+            self.assertFalse(old.exists());self.assertTrue(current.exists())
+
     def test_setup_descriptor_does_not_extract_unused_stickers_or_geometry(self):
         import gzip, json
         from test_presets import fixture

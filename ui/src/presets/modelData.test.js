@@ -72,3 +72,29 @@ it("resolves only mounted stickers and reuses their textures across settings cha
   ).toEqual([4]);
   expect(load.mock.calls.some(([r]) => r.kind === "wheels")).toBe(false);
 });
+
+it("loads selected animation clips lazily without replacing the cached character", async () => {
+  const load = vi.fn(async (r) =>
+    r.kind === "setup-plan"
+      ? { parts: { characters: 1 }, stickers: [] }
+      : r.kind === "animation"
+        ? { animations: [{ name: r.animation }] }
+        : { rig: { hideVehicle: true, animations: [{ name: "idle" }] } },
+  );
+  const model = createModelLoader(load);
+  const first = await model({
+    kind: "setup",
+    data: {},
+    animation: "Events/Victory",
+  });
+  await model({ kind: "setup", data: {}, animation: "Events/Victory" });
+  const idle = await model({ kind: "setup", data: {} });
+  expect(first.parts.characters.rig.animations[0].name).toBe("Events/Victory");
+  expect(idle.parts.characters.rig.animations[0].name).toBe("idle");
+  expect(load.mock.calls.filter(([r]) => r.kind === "animation")).toHaveLength(
+    1,
+  );
+  expect(load.mock.calls.filter(([r]) => r.kind === "characters")).toHaveLength(
+    1,
+  );
+});

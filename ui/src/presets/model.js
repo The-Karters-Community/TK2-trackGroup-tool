@@ -80,8 +80,35 @@ const custom = (g) =>
   number(g.GroupDefinition.SubType) === 4 &&
   g.GroupDefinition.IsDefault === false;
 
+function quickNative(data, player = 0) {
+  if (!Number.isInteger(player) || player < 0 || player > 5)
+    throw new Error("Choose local player 1–6.");
+  const slots = data.QuickCreationPresets;
+  if (Array.isArray(slots) && slots.length)
+    return slots[player]?.BQuickPresetInitialized === true
+      ? slots[player].QuickPreset
+      : null;
+  return player === 0 ? data.QuickCreationPreset : null;
+}
+
 export function presetState(profile) {
+  const quickSetups = Array.from({ length: 6 }, (_, player) => ({
+    player,
+    quick: quickNative(profile.data, player),
+  }))
+    .filter(
+      ({ quick }) => quick && fields.every((k) => Object.hasOwn(quick, k)),
+    )
+    .map(({ player, quick }) => ({
+      player,
+      id: number(quick.iPresetID),
+      data: cosmetic(quick),
+    }));
   return {
+    quickSetup: quickSetups[0]
+      ? { id: quickSetups[0].id, data: quickSetups[0].data }
+      : null,
+    quickSetups,
     presets: nativePresets(profile).map((p) => ({
       id: number(p.iPresetID),
       data: cosmetic(p),
@@ -301,14 +328,31 @@ export function applyPresetChange(profile, change) {
       );
       break;
     }
+    case "quick":
     case "preset": {
-      const p = target();
+      const p =
+        change.mode === "quick"
+          ? quickNative(data, change.player ?? 0)
+          : target();
+      if (!p) throw new Error("Quick Setup is unavailable.");
+      if (change.mode === "quick" && number(p.iPresetID) !== change.presetId)
+        throw new Error(
+          "Quick Setup changed. Reopen this player slot before saving.",
+        );
       const values = cosmetic(change.data, true);
       const stickers = p.stickersData.map((s, i) => ({
         ...s,
         ...values.stickersData[i],
       }));
       Object.assign(p, values, { stickersData: stickers });
+      break;
+    }
+    case "save-quick-preset": {
+      const quick = quickNative(data, change.player ?? 0);
+      if (!quick) throw new Error("Quick Setup is unavailable.");
+      const p = { ...clone(quick), iPresetID: allocate() };
+      cosmetic(p);
+      presets.push(p);
       break;
     }
     case "duplicate": {

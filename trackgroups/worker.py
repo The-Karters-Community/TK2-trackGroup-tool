@@ -9,15 +9,21 @@ from .runtime import write_json
 from .steam import Steam
 
 
-def installation_status(steam, item):
+def installation_status(steam, item, *, track=True):
     status = steam.item_status(item)
-    if status['ready']:
+    if status['ready'] and track:
         try:
             if not steam.installed(item): status['ready'] = False
         except (OSError, ValueError):
             status['ready'] = False
             status['problem'] = 'Downloaded track files are missing or incomplete.'
     return status
+
+
+def content_kind(steam, item):
+    from .content import installed_kind
+    try: return installed_kind(steam.install_directory(item)) if hasattr(steam, 'install_directory') else 'unknown'
+    except (OSError, ValueError): return 'unknown'
 
 
 def run(folder):
@@ -29,18 +35,27 @@ def run(folder):
         action = request["action"]
         cancelled = lambda: (folder / "cancel").exists()
         progress = lambda value: write_json(folder / "progress.json", value)
-        if action == "snapshot":
-            ids = list(dict.fromkeys(steam.subscribed() + request.get('ids', [])))
+        if action in ("snapshot", "library-snapshot"):
+            subscriptions = steam.subscribed()
+            ids = list(dict.fromkeys(subscriptions + request.get('ids', [])))
             details = steam.details(ids, lambda: (folder / "cancel").exists())
+            statuses = {}
+            for item in ids:
+                kind = content_kind(steam, item)
+                if item in request.get('trackIds', []): kind = 'track'
+                if item in details: details[item]['kind'] = kind
+                statuses[item] = installation_status(steam, item, track=kind=='track')
             result = {"account": steam.account, "items": details,
                 "cloudEnabled": bool(steam.storage_call("IsCloudEnabledForAccount") and steam.storage_call("IsCloudEnabledForApp")),
-                "status": {item: installation_status(steam, item) for item in ids}}
-            if request.get("profile"):
+                "status": statuses}
+            if action == 'snapshot' and request.get("profile"):
                 data = steam.read_save(request["profile"])
                 result["save"] = base64.b64encode(data).decode()
                 result["saveHash"] = hashlib.sha256(data).hexdigest()
         elif action == "details":
-            result = {"account": steam.account, "items": steam.details(request["ids"], cancelled),
+            details = steam.details(request['ids'], cancelled)
+            for item,info in details.items(): info['kind'] = content_kind(steam,item)
+            result = {"account": steam.account, "items": details,
                 "status": {item: installation_status(steam, item) for item in request["ids"]}}
         elif action == "subscribe-proof":
             # Idempotent diagnostic for an ALREADY subscribed item only.
@@ -104,6 +119,8 @@ def run(folder):
                 if cancelled(): raise ValueError("Import cancelled. Completed subscriptions remain subscribed.")
                 steam.dll.SteamAPI_RunCallbacks()
                 statuses = {item: installation_status(steam, item) for item in ids}
+                if any(content_kind(steam,item)=='cosmetic' for item in ids):
+                    raise ValueError('A selected Workshop item contains cosmetics, not a track. No group was saved.')
                 for item, status in statuses.items(): status['title'] = details[item].get('title', 'Workshop track ' + item)
                 done = sum(s["ready"] for s in statuses.values())
                 progress({"phase": "downloading", "message": f"Workshop tracks ready: {done}/{len(ids)}", "completed": done,

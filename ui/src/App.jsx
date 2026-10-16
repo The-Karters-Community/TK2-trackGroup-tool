@@ -9,6 +9,7 @@ import {
 import { api, download, loadPreview } from "./api.js";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
+import Tracks from "./pages/Tracks.jsx";
 import ImportDialog from "./components/ImportDialog.jsx";
 import GroupEditor from "./components/GroupEditor.jsx";
 import PresetManager from "./presets/PresetManager.jsx";
@@ -158,7 +159,7 @@ export default function App() {
   if (!state)
     return (
       <div className="loading">
-        <h1>TK2 Garage</h1>
+        <h1>Bobby’s Garage</h1>
         <p role="status">{error || "Opening your group library…"}</p>
       </div>
     );
@@ -181,15 +182,20 @@ export default function App() {
     ["browse", StackIcon, "Browse groups"],
     ["local", PersonIcon, "My groups"],
     ["presets", PersonIcon, "Presets"],
+    ["tracks", StackIcon, "My tracks"],
     ["settings", GearIcon, "Settings"],
   ];
   return (
     <div className="app-shell">
       <nav className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <img className="brand-logo" src="/logo.png" alt="The Karters 2" />
+          <img
+            className="brand-logo"
+            src="/bobbys-garage.png"
+            alt="Bobby’s Garage"
+          />
           <strong>
-            TK2<span>GARAGE</span>
+            Bobby’s<span>GARAGE</span>
           </strong>
         </div>
         <div className="nav-items">
@@ -311,6 +317,8 @@ export default function App() {
           <GroupEditor
             key={editor.group?.id || "create"}
             group={editor.group}
+            tracks={state.tracks}
+            initialTracks={editor.tracks}
             busy={busy}
             onCancel={() => setEditor(null)}
             onSubmit={prepare}
@@ -337,6 +345,12 @@ export default function App() {
             onExport={exportPresets}
             onError={setError}
             onDirty={setPresetDirty}
+          />
+        ) : page === "tracks" ? (
+          <Tracks
+            state={state}
+            busy={busy}
+            onCreate={(tracks) => setEditor({ tracks })}
           />
         ) : page === "settings" ? (
           <Settings state={state} busy={busy} run={run} />

@@ -134,3 +134,69 @@ describe("Portable presets", () => {
     ).toThrow();
   });
 });
+
+it("edits Quick Setup separately and saves it as an independent preset", () => {
+  const profile = open(fixture());
+  profile.data.QuickCreationPreset = {
+    iPresetID: 338088,
+    ...presetState(profile).presets[0].data,
+  };
+  const before = profile.records[0];
+  const quick = presetState(profile).quickSetup;
+  expect(quick.id).toBe(338088);
+  const next = open(
+    applyPresetChange(profile, {
+      mode: "quick",
+      presetId: 338088,
+      data: { ...quick.data, iVehicleMaterialID_Modded: 7 },
+    }),
+  );
+  expect(next.records[0]).toBe(before);
+  expect(presetState(next).quickSetup.data.iVehicleMaterialID_Modded).toBe(7);
+  const duplicate = open(
+    applyPresetChange(next, { mode: "save-quick-preset" }),
+  );
+  expect(presetState(duplicate).presets).toHaveLength(2);
+  expect(presetState(duplicate).quickSetup).toEqual(
+    presetState(next).quickSetup,
+  );
+});
+
+it("uses per-player Quick Setup instead of the stale legacy object", () => {
+  const profile = open(fixture());
+  const data = presetState(profile).presets[0].data;
+  profile.data.QuickCreationPreset = { iPresetID: 338088, ...data };
+  profile.data.QuickCreationPresets = [
+    {
+      BQuickPresetInitialized: true,
+      QuickPreset: {
+        iPresetID: 338088,
+        ...data,
+        iCharacterSkinMaterialID_Modded: -1279875073,
+      },
+    },
+    {
+      BQuickPresetInitialized: true,
+      QuickPreset: { iPresetID: 606594, ...data },
+    },
+  ];
+  const state = presetState(profile);
+  expect(state.quickSetup.data.iCharacterSkinMaterialID_Modded).toBe(
+    -1279875073,
+  );
+  const after = open(
+    applyPresetChange(profile, {
+      mode: "quick",
+      player: 1,
+      presetId: 606594,
+      data: { ...state.quickSetups[1].data, iVehicleMaterialID_Modded: 88 },
+    }),
+  );
+  expect(stringify(after.data.QuickCreationPreset)).toBe(
+    stringify(profile.data.QuickCreationPreset),
+  );
+  expect(presetState(after).quickSetups[0]).toEqual(state.quickSetups[0]);
+  expect(presetState(after).quickSetups[1].data.iVehicleMaterialID_Modded).toBe(
+    88,
+  );
+});

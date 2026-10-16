@@ -31,6 +31,10 @@ export default function PresetEditor({
   loadModel,
   position = 0,
   browser = false,
+  quick = false,
+  quickPlayers = [],
+  quickPlayer = 0,
+  onQuickPlayer,
 }) {
   const [value, setValue] = useState(() => cosmetic(preset.data));
   const [baseline, setBaseline] = useState(() => cosmetic(preset.data));
@@ -101,8 +105,34 @@ export default function PresetEditor({
     >
       <header className="detail-heading editor-header">
         <div>
-          <span className="eyebrow">Your customization</span>
-          <h2>{setupTitle(preset, appearance, position)}</h2>
+          <span className="eyebrow">
+            {quick ? "Current game setup" : "Your customization"}
+          </span>
+          <h2>
+            {quick ? "Quick Setup" : setupTitle(preset, appearance, position)}
+          </h2>
+          {quick && quickPlayers.length > 1 && (
+            <select
+              aria-label="Local player"
+              value={quickPlayer}
+              disabled={busy}
+              onChange={(e) => {
+                if (
+                  !dirty ||
+                  window.confirm(
+                    "Discard this Quick Setup draft and switch local player?",
+                  )
+                )
+                  onQuickPlayer(Number(e.target.value));
+              }}
+            >
+              {quickPlayers.map((p) => (
+                <option key={p.player} value={p.player}>
+                  Player {p.player + 1}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <button
           className="icon-button"
@@ -126,6 +156,8 @@ export default function PresetEditor({
             modelKind={kind}
             modelId={modelId}
             modelAvailable={modelAvailable}
+            appearanceLoading={appearance?.loading}
+            revision={appearance?.revision}
           />
           <div className="tabs" aria-label="Customization version">
             {["modded", "original"].map((view) => (
@@ -170,6 +202,12 @@ export default function PresetEditor({
           </div>
         </aside>
         <section className="customization-picker">
+          {quick && gameRunning && (
+            <p className="notice">
+              Preview Quick Setup freely. Saving Quick Setup or creating a new
+              preset requires the game to be closed.
+            </p>
+          )}
           <div className="tabs category-tabs" aria-label="Appearance category">
             {["Character", "Vehicle", "Wheels", "Stickers"].map((title, i) => (
               <button
@@ -212,7 +250,7 @@ export default function PresetEditor({
               desktop edition reads the full installed cosmetic library.
             </p>
           )}
-          {!canSave && !busy && (
+          {!quick && !canSave && !busy && (
             <p className="notice">
               {gameRunning && saveToRunningGame
                 ? "You can save this preset through the running game. Group and collection changes still need the game closed."
@@ -269,31 +307,40 @@ export default function PresetEditor({
         )}
         <div className="editor-footer-actions">
           <div className="preset-actions">
-            <button disabled={busy || dirty} onClick={onExport}>
-              <DownloadIcon />
-              Export preset
-            </button>
+            {!quick && (
+              <button disabled={busy || dirty} onClick={onExport}>
+                <DownloadIcon />
+                Export preset
+              </button>
+            )}
             <button
               disabled={busy || dirty || !canSave}
               onClick={() =>
-                act(() => onChange({ mode: "duplicate", presetId: preset.id }))
+                act(() =>
+                  onChange({
+                    mode: quick ? "save-quick-preset" : "duplicate",
+                    presetId: preset.id,
+                  }),
+                )
               }
             >
               <CopyIcon />
-              Duplicate
+              {quick ? "Save as new preset" : "Duplicate"}
             </button>
-            <button
-              disabled={busy || dirty || !canSave}
-              onClick={() =>
-                window.confirm(
-                  "Delete this setup from the save and its groups?",
-                ) &&
-                act(() => onChange({ mode: "delete", presetId: preset.id }))
-              }
-            >
-              <TrashIcon />
-              Delete
-            </button>
+            {!quick && (
+              <button
+                disabled={busy || dirty || !canSave}
+                onClick={() =>
+                  window.confirm(
+                    "Delete this setup from the save and its groups?",
+                  ) &&
+                  act(() => onChange({ mode: "delete", presetId: preset.id }))
+                }
+              >
+                <TrashIcon />
+                Delete
+              </button>
+            )}
           </div>
           <div className="preset-actions">
             <span className="hint" role="status">

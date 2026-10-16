@@ -375,6 +375,8 @@
   --accent: #c6dd85;
   --muted: #a0a99a;
   --border: #333b30;
+  --surface: #1c2218;
+  --text: #e9ebe6;
 }
 * {
   box-sizing: border-box;
@@ -1985,4 +1987,227 @@ dialog[open][data-motion="pointer"]::backdrop {
 }
 .preview-rotation input {
   width: 100%;
+}
+
+/* Library selection and quiet feedback share the existing app tokens. */
+.brand-logo {
+  width: 146px;
+  height: 102px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.tracks-page {
+  padding: 24px 28px;
+}
+.track-picker .toolbar {
+  margin: 18px 0 10px;
+  flex-wrap: wrap;
+}
+.track-picker .toolbar input {
+  flex: 1;
+  min-width: 180px;
+}
+.track-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.track-picker-card {
+  display: grid;
+  position: relative;
+  gap: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 9px;
+  cursor: pointer;
+}
+.track-picker-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.track-picker-card input {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 18px;
+  height: 18px;
+  z-index: 1;
+}
+.track-picker-card .track-preview {
+  width: 100%;
+  height: 94px;
+}
+.track-picker-card small {
+  color: var(--muted);
+}
+.selected-tracks {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0;
+  max-height: 300px;
+  overflow: auto;
+}
+.selected-tracks li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 0;
+}
+.selected-tracks li span {
+  flex: 1;
+}
+.selected-tracks button {
+  padding: 5px 10px;
+}
+.track-selection-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+.preview-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  padding: 12px;
+  font-size: 12px;
+}
+.preview-loading-overlay {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+}
+.loading-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: garage-spin 700ms linear infinite;
+}
+@keyframes garage-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.motion-browser {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.motion-browser label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.motion-browser select {
+  min-width: 0;
+  width: 100%;
+  padding: 8px;
+}
+.motion-timeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.motion-timeline input {
+  width: 100%;
+  min-width: 0;
+}
+.motion-timeline select {
+  width: 68px;
+  flex-shrink: 0;
+}
+.appearance-section[open] .accordion-content {
+  animation: garage-unfold 180ms ease-out;
+}
+@keyframes garage-unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@supports (interpolate-size: allow-keywords) {
+  .appearance-section {
+    interpolate-size: allow-keywords;
+  }
+  .appearance-section::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size 180ms ease-out,
+      content-visibility 180ms allow-discrete;
+  }
+  .appearance-section[open]::details-content {
+    block-size: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner,
+  .appearance-section[open] .accordion-content {
+    animation: none;
+  }
+  .appearance-section::details-content {
+    transition: none;
+  }
+}
+@media (max-width: 760px) {
+  .brand-logo {
+    height: 60px;
+    width: 92px;
+  }
+  .tracks-page {
+    padding: 16px;
+  }
+}
+
+.editor-header > div {
+  display: grid;
+  gap: 7px;
+}
+.preset-dialog .editor-header select {
+  width: auto;
+  max-width: 200px;
+  padding: 7px 10px;
+}
+
+.track-selection-footer {
+  z-index: 3;
+}
+.track-picker-card {
+  isolation: isolate;
+}
+.workflow-page:has(.track-picker) form {
+  max-width: none;
+}
+.workflow-page .track-picker-card {
+  margin: 0;
+}
+.workflow-page:has(.track-picker) .workflow-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--surface);
+  padding: 12px;
 }

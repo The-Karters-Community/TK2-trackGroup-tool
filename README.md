@@ -1,4 +1,4 @@
-# TK2 Garage
+# Bobby’s Garage
 
 A desktop and browser companion for **The Karters 2: Turbo Charged**. Share ordered track groups, organize customization presets, and browse installed cosmetic appearances. The desktop app also manages Workshop track subscriptions.
 
@@ -8,9 +8,11 @@ A desktop and browser companion for **The Karters 2: Turbo Charged**. Share orde
 
 ![Speedrun and Community library with ordered Workshop tracks](docs/images/library.png)
 
+Current development changes are collected in [CHANGELOG.md](CHANGELOG.md) for the next release.
+
 ## Use the app
 
-TK2 Garage manages track groups and customization presets in one app. The repository URL, portable asset names, executable filename (`TK2 Track Groups.exe`), updater manifest identity and data folder keep their previous names so installed updaters remain compatible. The window title and website use TK2 Garage.
+Bobby’s Garage manages track groups and customization presets in one app. The repository URL, portable asset names, executable filename (`TK2 Track Groups.exe`), updater manifest identity and data folder keep their previous names so installed updaters remain compatible. The window title and website use Bobby’s Garage.
 
 Portable builds contain the runtime and compiled interface. Extract the ZIP into one chosen folder and run **TK2 Track Groups.exe**. Users do **not** install Python, Node.js, or npm. Requires Windows x64, Microsoft Edge WebView2 Runtime, the installed supported game, and the running Steam client. Steam Cloud must be enabled for imports.
 
@@ -161,3 +163,29 @@ To make a future release compatible with the updater:
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [format/evidence notes](docs/FORMAT.md). Tool code is MIT licensed; tracks, the game logo and game content retain their authors' rights. Branding uses the same supplied logo/icon as the community mod toolkit.
 
 See the [verification record](docs/VERIFICATION.md) for completed real-account/game tests and remaining test limits. The portable smoke check requires Steam and the supported game, and must run with this app and the game closed.
+
+
+### Workshop discovery, Quick Setup and motion previews
+
+The desktop **My tracks** page separates tracks from cosmetic Workshop items.
+Choose downloaded/official tracks by name and thumbnail, then create a group;
+selection order becomes racing order and can be changed with drag grips.
+Workshop links remain an optional entry method. The app observes completed Steam
+Workshop changes and refreshes cosmetic appearances and the track library without
+restarting. Steam notifications count subscribed track downloads and dependencies
+of **My groups**, rather than treating every known community item as missing.
+
+**Quick Setup** reads the supported game's `QuickCreationPresets[player].QuickPreset`
+slots (up to six local players), using their actual profile IDs for saved icons.
+It does not assume that the supplied example ID `338088` exists on another PC.
+An older single `QuickCreationPreset` field is used only when the player-slot
+array is absent. Editing a slot preserves the legacy field and other players;
+**Save as new preset** creates a separate ordinary preset. Viewing is independent
+of the running game. Quick Setup writes currently require the game closed;
+the optional companion's live saving applies to ordinary saved presets.
+
+The desktop animation showcase groups installed character motions, lazily decodes
+the chosen clip, and offers pause, scrub and playback speed controls. Separate
+weapon-model animation and unsupported humanoid retargeting are not simulated.
+The browser edition continues to use permitted local images rather than the
+native asset decoder. Garage artwork was supplied by DarkSlayer.

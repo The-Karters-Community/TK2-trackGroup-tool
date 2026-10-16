@@ -6,6 +6,21 @@ from pathlib import Path
 from . import GAME_APP_ID
 
 
+def installed_kind(directory):
+    """Classify public catalog paths, without interpreting cosmetic assets as tracks."""
+    if not directory: return 'unknown'
+    directory = Path(directory)
+    for catalog in (directory/'catalog_config.json', directory/'StandaloneWindows64/catalog_config.json'):
+        try:
+            if catalog.stat().st_size > 1024 * 1024: continue
+            ids = json.loads(catalog.read_text(encoding='utf-8')).get('m_InternalIds', [])
+            paths = [p.replace('\\', '/') for p in ids if isinstance(p, str)]
+            if any('/Tracks/' in p and p.endswith('.unity') for p in paths): return 'track'
+            if any('/'+kind+'/' in p for p in paths for kind in ('Characters','Vehicles','Wheels','Stickers')): return 'cosmetic'
+        except (OSError, ValueError, AttributeError): pass
+    return 'unknown'
+
+
 def verify_installation(directory, item):
     directory = Path(directory).resolve()
     if directory.name != item or directory.parent.name != str(GAME_APP_ID):

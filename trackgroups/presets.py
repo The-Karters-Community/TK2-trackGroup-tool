@@ -61,9 +61,23 @@ def custom_group(group):
     return d.get('Type') == 1 and d.get('SubType') == 4 and d.get('IsDefault') is False
 
 
+def quick_native(data, player=0):
+    if type(player) is not int or not 0 <= player < 6: raise ValueError('Choose local player 1–6.')
+    slots = data.get('QuickCreationPresets')
+    if isinstance(slots, list) and slots:
+        if player >= len(slots) or not isinstance(slots[player],dict) or slots[player].get('BQuickPresetInitialized') is not True: return None
+        return slots[player].get('QuickPreset')
+    return data.get('QuickCreationPreset') if player == 0 else None
+
+
 def view(profile):
     presets = read(profile)
-    return {'presets': [{'id': p['iPresetID'], 'data': cosmetic(p)} for p in presets],
+    quick = []
+    for player in range(6):
+        native = quick_native(profile.data, player)
+        if isinstance(native, dict) and all(k in native for k in ALLOWED):
+            quick.append({'id':integer(native['iPresetID']), 'data':cosmetic(native), 'player':player})
+    return {'quickSetup':{k:v for k,v in quick[0].items() if k!='player'} if quick else None, 'quickSetups':quick, 'presets': [{'id': p['iPresetID'], 'data': cosmetic(p)} for p in presets],
             'groups': [{'id': g['GroupDefinition']['UniqueID'], 'name': g['GroupDefinition']['Name'],
                         'members': [i['iPresetID'] for i in g.get('groupItems', [])],
                         'editable': g['GroupDefinition'].get('CanBeModified', True)}
@@ -74,7 +88,10 @@ def verify_edit_base(profile, change, baseline):
     """Allow unrelated save changes only when this exact edit target is unchanged."""
     state = view(profile)
     mode = change.get('mode')
-    if mode == 'preset':
+    if mode == 'quick':
+        slot = next((p for p in state['quickSetups'] if p['player']==change.get('player',0)),None)
+        current = {k:v for k,v in slot.items() if k!='player'} if slot else None
+    elif mode == 'preset':
         current = next((p for p in state['presets'] if p['id'] == change.get('presetId')), None)
     elif mode == 'group':
         current = next((g for g in state['groups'] if g['id'] == change.get('groupId')), None)
@@ -190,13 +207,20 @@ def apply(profile, change):
             claimed.add(match['iPresetID'])
         for group in pack['groups']:
             save_group(groups, group['id'], group['name'], [mapping[k] for k in group['presets']], update=change.get('confirmUpdate') is True)
-    elif mode == 'preset':
-        target = next((p for p in presets if p['iPresetID'] == change['presetId']), None)
+    elif mode in ('preset', 'quick'):
+        target = quick_native(data, change.get('player',0)) if mode == 'quick' else next((p for p in presets if p['iPresetID'] == change['presetId']), None)
         if target is None: raise ValueError('Preset no longer exists.')
+        if mode == 'quick' and target.get('iPresetID') != change.get('presetId'):
+            raise ValueError('Quick Setup changed. Reopen this player slot before saving.')
         values = cosmetic(change['data'], strict=True)
         # Preserve native extension fields, including sticker extensions.
         target.update({k:v for k,v in values.items() if k != 'stickersData'})
         target['stickersData'] = [{**old, **new} for old,new in zip(target['stickersData'], values['stickersData'])]
+    elif mode == 'save-quick-preset':
+        target = quick_native(data, change.get('player',0))
+        if not isinstance(target, dict): raise ValueError('Quick Setup is unavailable.')
+        new = copy.deepcopy(target); cosmetic(new)
+        new['iPresetID'] = allocate(reserved_ids(presets, data)); presets.append(new)
     elif mode == 'duplicate':
         target = next((p for p in presets if p['iPresetID'] == change['presetId']), None)
         if target is None: raise ValueError('Preset no longer exists.')

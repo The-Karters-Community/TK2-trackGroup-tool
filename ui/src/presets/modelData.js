@@ -3,8 +3,8 @@ export function createModelLoader(load, limit = 48 * 1024 * 1024) {
   const cache = new Map(),
     pending = new Map();
   let bytes = 0;
-  async function part(kind, id) {
-    const key = `${kind}:${id}`;
+  async function part(kind, id, extra = {}) {
+    const key = `${kind}:${id}:${extra.animation || ""}`;
     if (cache.has(key)) {
       const entry = cache.get(key);
       cache.delete(key);
@@ -12,7 +12,7 @@ export function createModelLoader(load, limit = 48 * 1024 * 1024) {
       return entry.data;
     }
     if (pending.has(key)) return pending.get(key);
-    const task = load({ kind, id })
+    const task = load({ kind, id, ...extra })
       .then((data) => {
         const size = JSON.stringify(data).length * 2;
         if (size <= limit) {
@@ -51,6 +51,15 @@ export function createModelLoader(load, limit = 48 * 1024 * 1024) {
         settings: slot.settings,
       })),
     );
+    if (request.animation) {
+      const clip = await part("animation", plan.parts.characters, {
+        animation: request.animation,
+      });
+      parts.characters = {
+        ...characters,
+        rig: { ...characters.rig, animations: clip.animations },
+      };
+    }
     return { ...plan, parts, stickers };
   };
 }

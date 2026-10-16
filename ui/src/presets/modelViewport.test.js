@@ -1,6 +1,6 @@
 import { it, expect } from "vitest";
 import * as THREE from "three";
-import { framingDistance } from "./modelViewport.js";
+import { framingDistance, centerModel } from "./modelViewport.js";
 
 it("fits every setup corner in narrow and wide previews without clipping", () => {
   for (const aspect of [0.45, 1, 1.8]) {
@@ -25,4 +25,18 @@ it("fits every setup corner in narrow and wide previews without clipping", () =>
           expect(Math.abs(screen.y)).toBeLessThan(1);
         }
   }
+});
+
+it("centers a wrapper without changing an animated root's authored transform", () => {
+  const root = new THREE.Group();
+  root.position.set(1000, 2000, -500);
+  root.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2)));
+  const { asset } = centerModel(root);
+  expect(root.position.toArray()).toEqual([1000, 2000, -500]);
+  root.position.set(1000, 2000, -500); // a subsequent animation frame
+  asset.updateMatrixWorld(true);
+  const center = new THREE.Box3()
+    .setFromObject(asset)
+    .getCenter(new THREE.Vector3());
+  expect(center.length()).toBeLessThan(0.00001);
 });

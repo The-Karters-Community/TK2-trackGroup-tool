@@ -31,7 +31,7 @@ def create_group(name, ids, metadata):
     tracks = []
     for item in ids:
         info = metadata.get(item, {})
-        if not info.get('available') or not info.get('modId'):
+        if not info.get('available') or not info.get('modId') or info.get('kind') == 'cosmetic':
             raise ValueError("Workshop item is unavailable or is not a compatible TK2 track: " + item)
         tracks.append({'kind':'workshop', 'workshopId':item, 'modId':info['modId'],
                        'title':info.get('title', 'Workshop track ' + item)})

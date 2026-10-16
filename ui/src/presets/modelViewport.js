@@ -25,6 +25,26 @@ export function framingDistance(size, quaternion, fov, aspect) {
   return Math.max(0.5, distance * 1.15);
 }
 
+export function centerModel(root) {
+  const asset = new THREE.Group();
+  asset.add(root);
+  const bounds = visibleBounds(THREE, asset);
+  const size = bounds.getSize(new THREE.Vector3());
+  const longest = Math.max(size.x, size.y, size.z);
+  if (!Number.isFinite(longest) || longest <= 0)
+    throw new Error("Invalid model dimensions.");
+  // Animated roots must retain their authored position. Center a parent
+  // wrapper, otherwise the next animation frame undoes the centering.
+  const centered = new THREE.Group();
+  centered.position.sub(bounds.getCenter(new THREE.Vector3()));
+  centered.add(root);
+  asset.add(centered);
+  asset.scale.setScalar(1.8 / longest);
+  asset.scale.x *= -1;
+
+  return { asset, size, longest };
+}
+
 // One renderer and lighting environment per editor. Keep the previous setup
 // interactive while fetching a selection; only model resources are replaced.
 export function createViewport(host, isPlaying) {
@@ -61,7 +81,8 @@ export function createViewport(host, isPlaying) {
   let current,
     frame,
     dirty = true,
-    lastFit = 0;
+    lastFit = 0,
+    speed = 1;
   function reframe(resetZoom = false) {
     if (!current) return;
     const offset = camera.position.clone().sub(controls.target);
@@ -105,7 +126,7 @@ export function createViewport(host, isPlaying) {
     const delta = Math.min(clock.getDelta(), 0.05);
     if (document.hidden) return;
     if (current && isPlaying()) {
-      current.models.forEach((m) => m.mixer.update(delta));
+      current.models.forEach((m) => m.mixer.update(delta * speed));
       current.resources.forEach((r) => {
         if (r.userData?.clock) r.userData.clock.value += delta;
       });
@@ -128,6 +149,21 @@ export function createViewport(host, isPlaying) {
   }
   return {
     reset,
+    setSpeed(value) {
+      speed = value;
+    },
+    seek(fraction) {
+      if (!current) return;
+      current.models.forEach((m) =>
+        m.mixer.setTime(current.duration * fraction),
+      );
+      dirty = true;
+    },
+    progress() {
+      return current?.duration
+        ? (current.models[0].mixer.time % current.duration) / current.duration
+        : 0;
+    },
     show(data, kind) {
       const resources = [];
       resources.invalidate = () => {
@@ -146,16 +182,7 @@ export function createViewport(host, isPlaying) {
               );
         if (!result.meshCount)
           throw new Error("This model contains no supported meshes.");
-        const asset = new THREE.Group();
-        asset.add(result.root);
-        const bounds = visibleBounds(THREE, asset);
-        const size = bounds.getSize(new THREE.Vector3());
-        const longest = Math.max(size.x, size.y, size.z);
-        if (!Number.isFinite(longest) || longest <= 0)
-          throw new Error("Invalid model dimensions.");
-        result.root.position.sub(bounds.getCenter(new THREE.Vector3()));
-        asset.scale.setScalar(1.8 / longest);
-        asset.scale.x *= -1;
+        const { asset, size, longest } = centerModel(result.root);
         const models = result.models || [result];
         const motion =
           models.some((m) => !m.warning && m.animated) ||
@@ -167,6 +194,10 @@ export function createViewport(host, isPlaying) {
           resources,
           motion,
           size: size.multiplyScalar(1.8 / longest),
+          duration: Math.max(
+            ...(models[0].rig.animations || []).map((a) => a.duration),
+            0.01,
+          ),
         };
         scene.add(asset);
         reframe();
@@ -176,6 +207,7 @@ export function createViewport(host, isPlaying) {
         return {
           motion,
           warning: models.find((m) => m.warning)?.warning || "",
+          choices: models[0].rig.animationChoices || [],
         };
       } catch (error) {
         if (result)
