@@ -12,9 +12,11 @@ import json
 from pathlib import Path
 import uuid
 import threading
+from contextvars import ContextVar
 
 CACHE_LIMIT = 96 * 1024 * 1024
 CACHE_LOCK = threading.Lock()
+TEXTURE_CACHE = ContextVar('model_texture_cache', default=None)
 
 
 MAX_PACKAGE = 256 * 1024 * 1024
@@ -37,17 +39,34 @@ def _material(pointer):
         tree = obj.read_typetree()
         props = tree.get("m_SavedProperties", {})
         colors = dict(props.get("m_Colors", []))
-        value = colors.get("_BaseColor") or colors.get("_Color") or {}
+        fire = '_MaskTex' in dict(props.get('m_TexEnvs', [])) and '_FireHeight' in dict(props.get('m_Floats', []))
+        value = (colors.get('_BackgroundColor') or {}) if fire else colors.get("_BaseColor") or colors.get("_Color") or {}
         color = [float(value.get(axis, 1)) for axis in "rgb"]
+        floats = dict(props.get('m_Floats', []))
+        textures = dict(props.get('m_TexEnvs', []))
         texture = None
-        for key, env in props.get("m_TexEnvs", []):
-            if key in ("_MainTex", "_BaseMap") and env.get("m_Texture", {}).get("m_PathID"):
+        uv_scale, uv_offset = [1, 1], [0, 0]
+        for key in ('_AlbedoTex', '_BaseMap', '_MainTex'):
+            env = textures.get(key, {})
+            if env.get("m_Texture", {}).get("m_PathID"):
                 target = _pointer(obj, env["m_Texture"])
                 if target:
                     texture = _texture_ref(target)
                 if texture:
+                    uv_scale = [env.get('m_Scale', {}).get(a, 1) for a in 'xy']
+                    uv_offset = [env.get('m_Offset', {}).get(a, 0) for a in 'xy']
                     break
-        return {"color": color, "texture": texture}
+        transparent = floats.get('_Mode') in (2, 3) or tree.get('m_CustomRenderQueue', -1) >= 3000
+        layers = {}
+        for key in ('_SecondaryTex', '_MaskTex', '_NoiseTex', '_EmissionMap', '_EmissionMap2', '_MetallicTex', '_MetallicGlossMap'):
+            target = _pointer(obj, textures.get(key, {}).get('m_Texture'))
+            if target:
+                layers[key] = _texture_ref(target)
+        return {"color": color, "texture": texture, 'uvScale':uv_scale, 'uvOffset':uv_offset,
+                'layers':layers, 'shaderFloats':floats, 'shaderColors':colors, 'fire':fire,
+                'opacity':value.get('a', 1) if transparent else 1, 'transparent':transparent,
+                'alphaTest':floats.get('_Cutoff', .5) if '_ALPHATEST_ON' in tree.get('m_ShaderKeywords', '') else 0,
+                'metalness':floats.get('_Metallic', 0), 'roughness':1-floats.get('_Glossiness', .15)}
     except (OSError, ValueError, AttributeError, KeyError, TypeError):
         return {"color": [0.75, 0.78, 0.82], "texture": None}
 
@@ -56,13 +75,18 @@ def _texture_ref(obj):
     try:
         if obj.type.name != "Texture2D":
             return None
+        cache = TEXTURE_CACHE.get()
+        key = (obj.assets_file.name, obj.path_id)
+        if cache is not None and key in cache: return cache[key]
         image = obj.read().image
         image.thumbnail((512, 512))
         out = BytesIO()
         image.convert("RGBA").save(out, format="PNG", optimize=True)
         if out.tell() > 768 * 1024:
             return None
-        return base64.b64encode(out.getvalue()).decode("ascii")
+        result = base64.b64encode(out.getvalue()).decode("ascii")
+        if cache is not None: cache[key] = result
+        return result
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -146,6 +170,16 @@ def _node(game_object, depth, visited, count, path=''):
             node = _node(child_go, depth + 1, visited, count, (path + '/' + child_name).lstrip('/'))
             if node:
                 output["children"].append(node)
+    # PTK_ModVehicleInfo.HideSuspensionDebugVisuals disables these authoring
+    # helpers at runtime. Preserve the nodes for rig references, hide surfaces.
+    for component in components:
+        if component.type.name != 'MonoBehaviour': continue
+        script = component.read_typetree()
+        if 'previewMeshes' in script:
+            def hide(node):
+                if 'mesh' in node: node['mesh']['visible'] = False
+                for child in node['children']: hide(child)
+            hide(output)
     return output
 
 
@@ -194,10 +228,13 @@ def _rig(prefab, root):
                 animation_tree = config.read_typetree()
                 for number, category in enumerate(('CharacterA','CharacterB','CharacterC')):
                     if number >= len(root['children']): break
-                    clips = animation_tree.get(category, {}).get('Menu', [])
+                    # inKart_IdleTrigger selects jazda_idle in the native menu
+                    # controller. Its Workshop override is Driving_idle, not the
+                    # standing Idle_Menu clip used by the separate standing state.
+                    clips = animation_tree.get(category, {}).get('Driving', [])
                     for pointer in clips:
                         clip = _pointer(config, pointer)
-                        if clip and clip.peek_name() == 'Idle_Menu':
+                        if clip and clip.peek_name().casefold() == 'driving_idle':
                             animation = decode_clip(clip, root, root['children'][number]['path'])
                             if animation: output['animations'].append(animation)
     return output
@@ -223,7 +260,7 @@ def _source(appearance, kind, identity):
     if not bundles or sum(p.stat().st_size for p in bundles) > MAX_PACKAGE or any(p.stat().st_size > 64 * 1024 * 1024 for p in bundles):
         raise ValueError("This model package is too large for the lightweight viewer.")
     native_files = [root / 'TheKarters2_Data' / name for name in ('level5','sharedassets5.assets','sharedassets1.assets','sharedassets0.assets')] if 'characterType' in reference else []
-    signature = hashlib.sha256(json.dumps([7, reference,
+    signature = hashlib.sha256(json.dumps([11, reference,
         *[(p.name,p.stat().st_size,p.stat().st_mtime_ns) for p in native_files],
         *[(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in bundles]]).encode()).hexdigest()
     cache = appearance.folder / "models" / (signature + ".json.gz")
@@ -282,7 +319,11 @@ def model(appearance, kind, identity):
     env, prefab = _load_asset(reference, bundles)
     if prefab.type.name != 'GameObject':
         raise ValueError('The installed model is not a GameObject.')
-    tree = _node(prefab, 0, set(), [0, 0, 0])
+    context = TEXTURE_CACHE.set({})
+    try:
+        tree = _node(prefab, 0, set(), [0, 0, 0])
+    finally:
+        TEXTURE_CACHE.reset(context)
     def mesh_count(node):
         return (1 if node.get("mesh") else 0) + sum(mesh_count(x) for x in node["children"])
     if not tree or mesh_count(tree) == 0:
@@ -299,11 +340,29 @@ def model(appearance, kind, identity):
     if kind == 'characters' and 'characterType' not in reference and len(infos) == 1:
         offset = infos[0].get('vCharOffsetPosInVehicle', {})
         rig['offset'] = [offset.get(axis, 0) for axis in 'xyz']
-    raw = gzip.compress(json.dumps({"kind": kind, "id": identity, "root": tree, "rig":rig}, separators=(",", ":")).encode(), compresslevel=6)
+    textures = _pack_textures(tree)
+    raw = gzip.compress(json.dumps({"kind": kind, "id": identity, "root": tree, "rig":rig, 'textures':textures}, separators=(",", ":")).encode(), compresslevel=6)
     if len(raw) > 8 * 1024 * 1024:
         raise ValueError("This model exceeds the preview size limit.")
     _cache(cache, raw)
     return raw
+
+
+def _pack_textures(root):
+    """Reference shared images once, including layers used by several surfaces."""
+    textures = {}
+    def ref(value):
+        if not value: return value
+        key = hashlib.sha256(value.encode('ascii')).hexdigest()
+        textures[key] = value
+        return '@' + key
+    def walk(node):
+        for material in node.get('mesh', {}).get('materials', []):
+            material['texture'] = ref(material.get('texture'))
+            material['layers'] = {key:ref(value) for key,value in material.get('layers', {}).items()}
+        for child in node.get('children', []): walk(child)
+    walk(root)
+    return textures
 
 
 def sticker_texture(appearance, identity):

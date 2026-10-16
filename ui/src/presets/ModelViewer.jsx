@@ -25,11 +25,13 @@ export default function ModelViewer({ kind, id, loadModel, preset, view }) {
       setMessage("Loading installed models…");
       setWarning("");
       try {
-        const [THREE, { OrbitControls }, data] = await Promise.all([
-          import("three"),
-          import("three/addons/controls/OrbitControls.js"),
-          loadModel(JSON.parse(request), abort.signal),
-        ]);
+        const [THREE, { OrbitControls }, { RoomEnvironment }, data] =
+          await Promise.all([
+            import("three"),
+            import("three/addons/controls/OrbitControls.js"),
+            import("three/addons/environments/RoomEnvironment.js"),
+            loadModel(JSON.parse(request), abort.signal),
+          ]);
         if (disposed || !host.current) return;
         const canvas = document.createElement("canvas");
         canvas.setAttribute(
@@ -52,13 +54,23 @@ export default function ModelViewer({ kind, id, loadModel, preset, view }) {
         };
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.9;
         const scene = new THREE.Scene();
+        const environment = new RoomEnvironment();
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        const lighting = pmrem.fromScene(environment, 0.04);
+        scene.environment = lighting.texture;
+        scene.environmentIntensity = 0.45;
+        resources.push(lighting);
+        environment.dispose();
+        pmrem.dispose();
         const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100);
-        scene.add(new THREE.HemisphereLight(0xffffff, 0x61756c, 2.2));
-        const key = new THREE.DirectionalLight(0xffffff, 2.1);
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x61756c, 0.8));
+        const key = new THREE.DirectionalLight(0xffe5c7, 2);
         key.position.set(3, 5, 4);
         scene.add(key);
-        const fill = new THREE.DirectionalLight(0xaecaff, 1);
+        const fill = new THREE.DirectionalLight(0xaecaff, 0.5);
         fill.position.set(-3, 1, -2);
         scene.add(fill);
         const asset = new THREE.Group();
@@ -67,9 +79,9 @@ export default function ModelViewer({ kind, id, loadModel, preset, view }) {
             ? createSetup(THREE, data, resources)
             : createModel(THREE, data, resources);
         const models = result.models || [result];
-        const motion = models.some(
-          (m) => !m.warning && m.rig.animations?.length,
-        );
+        const motion =
+          models.some((m) => !m.warning && m.rig.animations?.length) ||
+          resources.some((r) => r.userData?.clock);
         setHasMotion(motion);
         setWarning(models.find((m) => m.warning)?.warning || "");
         asset.add(result.root);
@@ -114,6 +126,11 @@ export default function ModelViewer({ kind, id, loadModel, preset, view }) {
           if (document.hidden) return;
           if (playing.current)
             models.forEach((model) => model.mixer.update(delta));
+          if (playing.current)
+            resources.forEach((resource) => {
+              if (resource.userData?.clock)
+                resource.userData.clock.value += delta;
+            });
           controls.update();
           renderer.render(scene, camera);
         }

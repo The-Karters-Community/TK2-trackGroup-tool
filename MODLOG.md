@@ -184,3 +184,34 @@
   under ignored local/native-smoke-*. Flat ZIP: 27.1 MiB; all 244 manifest entries
   and ZIP SHA-256 matched. No extracted bundles/models, game binaries or steam_api
   DLLs were distributed.
+
+
+## 2026-10-16 — seated-pose and missing-material correction
+
+- User screenshots exposed that the prior menu-idle choice was a standing pose,
+  and texture-only rendering dropped the kart's authored layered shader.
+- Read-only Ghidra string comments: 13758=inKart_IdleTrigger, 1300=driving_idle,
+  17145=jazda_idle, 13120=idle_menu, 13142=idle_w_menu. Installed native menu
+  controller confirms inKart_Idle uses clip index zero, jazda_idle. Use that native
+  override and Workshop Driving_idle instead of the standing menu motion.
+- Added albedo property resolution, secondary alpha/color and emission layers,
+  authored UV scale/offset, transparency/cutout, metallic maps, and animated fire.
+  Inspected installed AnimatedFireOpaque DXBC with Windows D3DDisassemble; flow,
+  distortion, vertical falloff, smooth threshold, HSV shift and fire emission
+  follow those instructions. Three.js lighting and external particles differ.
+- Follow HideSuspensionDebugVisuals for suspension authoring surfaces. Share
+  encoded texture images once per model and decode each once per extraction.
+  Tikal's full payload measured 2.6 MiB; cold extraction measured about 5 seconds.
+- All 38 available Original/Modded saved views decoded seated clips and assembled
+  with finite bounds and zero rest-pose fallbacks. Two views reference missing
+  vehicle assets. Profile hash unchanged. Fresh detached native Tikal reference
+  captured for comparison; no plugin deployment or save write performed.
+- Version remains 0.1.1-dev; no release requested.
+
+- Verification: 86 Python tests, 83 frontend tests and both Vite builds passed.
+  REA captured seated Tikal and Mephiles with no page/shader errors. The frozen
+  app decoded Tikal's Driving_idle and original jazda_idle without developer
+  runtimes on PATH, preserved the profile hash, served its UI assets and shut
+  down cleanly. ZIP is 27.1 MiB; 245 manifest hashes match; flat archive contains
+  no extracted model/prefab/bundle assets. Remaining native particles/lighting
+  differences are documented rather than claimed as pixel-identical rendering.

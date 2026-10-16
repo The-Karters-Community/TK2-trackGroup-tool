@@ -53,7 +53,7 @@ def character_presentation(game, character_type, root):
             raise ValueError('Unsupported menu animation reference.')
         controller = file.objects[identity].read()
         for entry in controller.m_Clips:
-            if entry.m_OriginalClip.read().m_Name == 'idle_w_menu':
+            if entry.m_OriginalClip.read().m_Name == 'jazda_idle':
                 animation = decode_clip(entry.m_OverrideClip.deref(), root, root['children'][index]['path'])
                 if animation: animations.append(animation)
                 break

@@ -1,3 +1,5 @@
+import { modelMaterial } from "./modelMaterials.js";
+
 // Unity-local transforms stay intact until a single handedness conversion at
 // the scene root. IDs are strings because Unity path IDs exceed JS safe ints.
 export function visibleBounds(THREE, root) {
@@ -66,24 +68,9 @@ export function createModel(THREE, data, resources) {
         );
       for (const [start, count, material] of source.groups)
         geometry.addGroup(start, count, material);
-      const materials = source.materials.map((item) => {
-        const material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color().setRGB(...item.color),
-          roughness: 0.85,
-          side: THREE.DoubleSide,
-        });
-        if (item.texture) {
-          const texture = new THREE.TextureLoader().load(
-            `data:image/png;base64,${item.texture}`,
-          );
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-          material.map = texture;
-          resources.push(texture);
-        }
-        resources.push(material);
-        return material;
-      });
+      const materials = source.materials.map((item) =>
+        modelMaterial(THREE, item, resources, data.textures),
+      );
       if (!materials.length) {
         materials.push(
           new THREE.MeshStandardMaterial({

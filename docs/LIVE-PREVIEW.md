@@ -4,7 +4,7 @@
 
 Garage's desktop **Full setup** is an interactive Three.js scene. It reads the
 owner's installed official, Workshop and local assets, preserving the prefab
-hierarchy, skeleton/bind poses, menu idle animation, character seating offset,
+hierarchy, skeleton/bind poses, seated driving-idle animation, character seating offset,
 vehicle seat/wheel sockets and per-wheel scale. Characters that hide the kart
 and vehicles that hide separate wheels are respected. Sticker textures use the
 vehicle's authored surfaces and saved packed position/size/rotation/opacity.
@@ -156,3 +156,29 @@ All 38 resolvable views from the owner's 20 saved setups assembled with finite
 bounds. Two modded views referenced unresolved vehicles. One rocketboard clip
 needs runtime retargeting and displays a labeled rest pose. REA also verified
 the normalized original Puma/quad/wheel setup with no companion-render requests.
+
+
+### Seated poses and material corrections (2026-10-16)
+
+The initial independent preview selected the wrong controller state. A read-only
+Ghidra string lookup established `inKart_IdleTrigger`, and the installed menu
+controller maps `inKart_Idle` to `jazda_idle`. Workshop SetupCharacter overrides
+that motion with `Driving_idle`; `Idle_Menu` belongs to the separate standing
+state. Garage now uses the seated clip for both original and modded characters.
+All 38 resolvable saved views assembled with decoded seated clips and no rest-pose
+fallback. The two unresolved modded views referenced unavailable vehicle assets.
+
+The local material reader includes `_AlbedoTex`, secondary alpha/color, emission,
+metallic textures, authored UV transforms and alpha/cutout properties. The fire
+mask, scrolling/distorted noise, vertical falloff, threshold/edge smoothing and
+HSV hot-color blend follow the owner's compiled AnimatedFireOpaque pixel program,
+inspected using Windows D3DDisassemble. Extracted shader code stays local. Shared
+texture data is encoded once per model to keep the preview payload bounded.
+Suspension authoring guides are hidden following HideSuspensionDebugVisuals.
+
+REA exercised Tikal's seated setup with the pink kart and its selected wheels;
+a fresh game-reference image was captured without changing the preset. These
+fixes do not make Three.js pixel-identical to Unity: lighting/reflections differ,
+and effects spawned separately by the game (such as exhaust smoke) are not part
+of the installed cosmetic prefab renderer. The optional Game reference remains
+the comparison for those engine-specific effects.
