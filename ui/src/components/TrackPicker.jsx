@@ -28,7 +28,13 @@ export default function TrackPicker({
         (filter === "official" && t.kind === "official") ||
         (filter === "workshop" && t.kind === "workshop")),
   );
-  const paging = useRowPagination(filtered, `${query}:${filter}`, 150, 12);
+  const paging = useRowPagination(
+    filtered,
+    `${query}:${filter}`,
+    150,
+    12,
+    "track-picker",
+  );
   function toggle(track) {
     const key = trackKey(track);
     onChange(

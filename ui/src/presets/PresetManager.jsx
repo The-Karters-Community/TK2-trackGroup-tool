@@ -38,7 +38,6 @@ export default function PresetManager({
   onError,
   onDirty,
   loadImage,
-  renderPreview,
   loadModel,
   previewImages,
   onPreviewImages,
@@ -124,6 +123,7 @@ export default function PresetManager({
     `presets:${query}:${sort}:${favoritesOnly}`,
     180,
     12,
+    "preset-gallery",
   );
   const paging = layout === "gallery" ? gridPaging : listPaging;
   const groupPaging = useRowPagination(
@@ -139,6 +139,7 @@ export default function PresetManager({
     `groups:${query}:${sort}:${favoritesOnly}`,
     640,
     14,
+    "preset-groups",
   );
   const openedQuick = useRef(0);
   useEffect(() => {
@@ -863,7 +864,6 @@ export default function PresetManager({
               position={positions[target.value.id] || 0}
               busy={busy}
               browser={browser}
-              renderPreview={renderPreview}
               loadModel={loadModel}
               refreshModels={refreshModels}
               canSave={editable}

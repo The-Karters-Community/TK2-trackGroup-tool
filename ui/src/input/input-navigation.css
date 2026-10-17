@@ -1,0 +1,45 @@
+.input-navigation-help {
+  position: relative;
+  flex: 0 0 auto;
+  color: var(--muted, #abb199);
+  font-size: 0.75rem;
+}
+.input-navigation-help > summary {
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border, #39412f);
+  border-radius: 0.35rem;
+  width: fit-content;
+}
+.input-navigation-help > div {
+  position: absolute;
+  z-index: 20;
+  inset-inline-start: 0;
+  bottom: calc(100% + 0.4rem);
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border, #39412f);
+  border-radius: 0.5rem;
+  background: var(--surface, #20271b);
+  color: var(--text, #e4e8db);
+  box-shadow: 0 6px 24px #10140d55;
+}
+.input-navigation-help p {
+  margin: 0.35rem 0;
+  line-height: 1.6;
+}
+.input-navigation-help kbd {
+  font: inherit;
+  border: 1px solid var(--border, #39412f);
+  border-radius: 3px;
+  padding: 0 0.2rem;
+}
+[data-input-navigation="controller"] :is(button, a, summary):focus {
+  outline: 2px solid var(--accent, #d2e88a);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .input-navigation-help > summary {
+    font-size: 0.6875rem;
+  }
+}

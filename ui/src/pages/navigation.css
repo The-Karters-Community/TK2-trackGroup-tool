@@ -1,0 +1,199 @@
+.tracks-hub {
+  min-width: 0;
+}
+.tracks-hub-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  padding: 24px 30px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.tracks-hub-heading h1 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.2;
+}
+.tracks-hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tracks-hub-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border-color: transparent;
+  background: transparent;
+}
+.tracks-hub-tabs button[aria-current="page"] {
+  color: var(--accent);
+  background: var(--surface);
+  border-color: var(--border);
+}
+.tracks-hub-content .library-main,
+.tracks-hub-content .tracks-page {
+  padding: 20px 30px 28px;
+}
+.tracks-hub-content .library-heading {
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.tracks-hub-content .library-heading h1 {
+  font-size: 21px;
+  margin: 0;
+}
+.tracks-hub-content .library-heading .eyebrow {
+  display: none;
+}
+.tracks-hub-content .speedrun-brand {
+  margin: 0 0 16px;
+}
+.tracks-hub-content .speedrun-brand img {
+  max-height: 74px;
+}
+.tracks-hub-content .library-toolbar {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tracks-hub-content .library-toolbar input:not([hidden]) {
+  flex: 1 1 220px;
+  max-width: 460px;
+}
+.tracks-hub-content .library-toolbar .view-switch {
+  margin-left: auto;
+}
+.tracks-hub-content .selection-toolbar {
+  gap: 8px;
+  margin: 8px 0;
+}
+.garage-main-menu.garage-home {
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 24px;
+  align-items: center;
+  max-width: 1500px;
+  margin: 0 auto;
+  min-height: calc(100dvh - 102px);
+  padding: 28px 40px;
+}
+.garage-main-menu .home-art img {
+  max-height: min(76dvh, 820px);
+  width: 100%;
+  object-fit: contain;
+}
+.garage-main-menu .home-menu {
+  padding: 0;
+  max-width: 430px;
+  width: 100%;
+}
+.garage-main-menu .home-menu h1 {
+  font-size: 34px;
+  line-height: 1.15;
+}
+.garage-main-menu .home-menu header > p {
+  margin: 10px 0 24px;
+}
+.garage-main-menu .home-destinations {
+  gap: 8px;
+}
+.garage-main-menu .home-destinations button {
+  padding: 17px 18px;
+  min-height: 74px;
+  gap: 14px;
+  border-radius: 8px;
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms ease-out;
+}
+.garage-main-menu .home-destinations strong {
+  font-size: 20px;
+}
+.garage-main-menu .home-destinations small {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.garage-main-menu .home-destinations button:hover {
+  transform: translateX(4px);
+}
+.garage-main-menu .home-settings {
+  margin-top: 20px;
+}
+@media (min-width: 1700px) {
+  .garage-main-menu.garage-home {
+    gap: 50px;
+  }
+}
+@media (max-width: 1000px) {
+  .garage-main-menu.garage-home {
+    grid-template-columns: minmax(0, 1fr) minmax(270px, 1fr);
+    padding: 28px 24px;
+    gap: 14px;
+  }
+  .garage-main-menu .home-menu h1 {
+    font-size: 28px;
+  }
+  .garage-main-menu .home-destinations button {
+    padding: 13px;
+  }
+  .garage-main-menu .home-destinations strong {
+    font-size: 18px;
+  }
+}
+@media (max-width: 680px) {
+  .tracks-hub-heading {
+    padding: 18px 16px 12px;
+    gap: 12px;
+  }
+  .tracks-hub-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .web-shell .tracks-hub-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tracks-hub-tabs button {
+    padding: 8px;
+    justify-content: center;
+    gap: 5px;
+    font-size: 12px;
+  }
+  .tracks-hub-content .library-main,
+  .tracks-hub-content .tracks-page {
+    padding: 16px;
+  }
+  .tracks-hub-content .library-toolbar .view-switch {
+    margin-left: 0;
+  }
+  .garage-main-menu.garage-home {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px 30px;
+    gap: 6px;
+    min-height: 0;
+  }
+  .garage-main-menu .home-art {
+    width: 100%;
+    max-width: 430px;
+  }
+  .garage-main-menu .home-art img {
+    height: 190px;
+    min-height: 0;
+  }
+  .garage-main-menu .home-menu h1 {
+    font-size: 27px;
+  }
+  .garage-main-menu .home-menu header > p {
+    margin: 6px 0 16px;
+  }
+  .garage-main-menu .home-destinations button {
+    min-height: 62px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .garage-main-menu .home-destinations button:hover {
+    transform: none;
+  }
+}

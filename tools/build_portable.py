@@ -20,10 +20,7 @@ def run(*args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--preview-companion', type=Path, help='Optional authored TK2.Garage.Preview.dll')
-    args = parser.parse_args()
-    if args.preview_companion and (args.preview_companion.name != 'TK2.Garage.Preview.dll' or not args.preview_companion.is_file()):
-        raise SystemExit('Specify the compiled authored TK2.Garage.Preview.dll.')
+    parser.parse_args()
     if os.name != 'nt': raise SystemExit('Portable builds require Windows x64.')
     run(sys.executable, 'tools/build_native_bridge.py')
     run('npm.cmd', 'ci')
@@ -55,9 +52,6 @@ if __name__ == '__main__':
     for required in ('UnityPy/resources/lzma.tpk', 'archspec/json/cpu/microarchitectures.json',
                      'fmod_toolkit/libfmod/Windows/x64/fmod.dll'):
         if not (output / required).is_file(): raise SystemExit('Missing decoder dependency: ' + required)
-    if args.preview_companion:
-        (output / 'preview-bridge').mkdir()
-        shutil.copy2(args.preview_companion, output / 'preview-bridge/TK2.Garage.Preview.dll')
     for name in ('README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE'): shutil.copy2(ROOT / name, output / name)
     shutil.copytree(ROOT / 'docs', output / 'docs')
     forbidden = list(output.rglob('steam_api*')) + list(output.rglob('GameAssembly.dll'))

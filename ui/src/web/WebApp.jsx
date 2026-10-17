@@ -9,6 +9,7 @@ import {
   HomeIcon,
 } from "@radix-ui/react-icons";
 import { assetUrl } from "../assets.js";
+import InputNavigation from "../input/InputNavigation.jsx";
 import { catalog, trackMapping, withPreviews } from "./catalog.js";
 import {
   MAX_SAVE,
@@ -29,6 +30,7 @@ import Library from "./Library.jsx";
 import GroupDetails from "./GroupDetails.jsx";
 import PresetManager from "../presets/PresetManager.jsx";
 import Home from "../pages/Home.jsx";
+import TracksHub, { TRACK_PAGES } from "../pages/TracksHub.jsx";
 import { groupPack, unpackGroups } from "../components/groupPack.js";
 import {
   applyPresetChange,
@@ -38,6 +40,7 @@ import {
 
 export default function WebApp() {
   const [page, setPage] = useState("home");
+  const [trackPage, setTrackPage] = useState("browse");
   const [quickRequest, setQuickRequest] = useState(0);
   const [fileGroups, setFileGroups] = useState([]);
   const [category, setCategory] = useState("speedrun");
@@ -135,7 +138,9 @@ export default function WebApp() {
   }
   function navigate(next) {
     if (!leaveEditor()) return;
-    setPage(next);
+    const target = next === "track-hub" ? trackPage : next;
+    if (TRACK_PAGES.includes(target)) setTrackPage(target);
+    setPage(target);
     setSelectedId(null);
     setQuery("");
   }
@@ -171,6 +176,7 @@ export default function WebApp() {
       setPendingGroup(null);
       if (!nextReview) {
         setPage(page === "presets" ? "presets" : "local");
+        if (page !== "presets") setTrackPage("local");
         setSelectedId(null);
         setQuery("");
       }
@@ -236,6 +242,7 @@ export default function WebApp() {
       setDirty(result.action !== "unchanged" || dirty);
       setReview(null);
       setPage("local");
+      setTrackPage("local");
       setSelectedId(null);
       setQuery("");
       setMessage(
@@ -320,8 +327,7 @@ export default function WebApp() {
   }
   const navigation = [
     ["home", HomeIcon, "Home"],
-    ["browse", StackIcon, "Discover track groups"],
-    ["local", StackIcon, "My track groups"],
+    ["track-hub", StackIcon, "Tracks"],
     ["presets", PersonIcon, "Presets"],
     ["help", QuestionMarkCircledIcon, "How to import"],
   ];
@@ -375,8 +381,18 @@ export default function WebApp() {
           {navigation.map(([id, Icon, label]) => (
             <button
               key={id}
-              className={page === id ? "active" : ""}
-              aria-current={page === id ? "page" : undefined}
+              className={
+                page === id ||
+                (id === "track-hub" && TRACK_PAGES.includes(page))
+                  ? "active"
+                  : ""
+              }
+              aria-current={
+                page === id ||
+                (id === "track-hub" && TRACK_PAGES.includes(page))
+                  ? "page"
+                  : undefined
+              }
               onClick={() => navigate(id)}
             >
               <Icon />
@@ -387,6 +403,7 @@ export default function WebApp() {
         <div className="sidebar-bottom">
           <span>Browser edition</span>
           <span>Made by DarkSlayer</span>
+          <InputNavigation />
         </div>
       </nav>
       <main>
@@ -522,24 +539,7 @@ export default function WebApp() {
         ) : page === "help" ? (
           <HowTo onOpen={() => openSave()} />
         ) : (
-          <>
-            {!profile && (
-              <div className="web-intro">
-                <strong>
-                  Your next track group, without installing an app.
-                </strong>
-                <p>
-                  Choose a group, open your local save, and download an updated
-                  copy.{" "}
-                  <button
-                    className="text-button"
-                    onClick={() => navigate("help")}
-                  >
-                    See the import steps
-                  </button>
-                </p>
-              </div>
-            )}
+          <TracksHub active={page} onChange={navigate} browser>
             {pendingGroup && !profile && (
               <div className="feedback">
                 <span>{pendingGroup.name} is ready to review.</span>
@@ -603,7 +603,7 @@ export default function WebApp() {
                 }
               }}
             />
-          </>
+          </TracksHub>
         )}
       </main>
       {selected && (

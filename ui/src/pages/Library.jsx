@@ -47,6 +47,7 @@ export default function Library({
     `${search}:${category}:${local}`,
     250,
     16,
+    local ? "my-track-groups" : "discover-track-groups",
   );
   const paging = gallery ? gridPaging : listPaging;
   const selectedGroups = source.filter((g) => checked.includes(g.id));
@@ -81,7 +82,7 @@ export default function Library({
         style={{ "--collection-columns": gridPaging.columns }}
       >
         <header className="library-heading">
-          <h1>{local ? "My track groups" : "Discover track groups"}</h1>
+          {local && <h1>My track groups</h1>}
           {!local && (
             <div className="category-tabs" aria-label="Group categories">
               {[
@@ -178,31 +179,33 @@ export default function Library({
             <button onClick={() => setFileGroups([])}>Close file</button>
           </section>
         )}
-        <div className="selection-toolbar">
-          <button
-            disabled={!paging.items.length}
-            onClick={() =>
-              setChecked([
-                ...new Set([...checked, ...paging.items.map((g) => g.id)]),
-              ])
-            }
-          >
-            Select this page
-          </button>
-          {selectedGroups.length > 0 && (
-            <>
-              <span>{selectedGroups.length} selected</span>
-              <button onClick={() => setChecked([])}>Clear</button>
-            </>
-          )}
-          <button
-            disabled={busy || !selectedGroups.length}
-            onClick={() => onExportMany?.(selectedGroups)}
-          >
-            Export selected
-            {selectedGroups.length ? ` · ${selectedGroups.length}` : ""}
-          </button>
-        </div>
+        {local && (
+          <div className="selection-toolbar">
+            <button
+              disabled={!paging.items.length}
+              onClick={() =>
+                setChecked([
+                  ...new Set([...checked, ...paging.items.map((g) => g.id)]),
+                ])
+              }
+            >
+              Select this page
+            </button>
+            {selectedGroups.length > 0 && (
+              <>
+                <span>{selectedGroups.length} selected</span>
+                <button onClick={() => setChecked([])}>Clear</button>
+              </>
+            )}
+            <button
+              disabled={busy || !selectedGroups.length}
+              onClick={() => onExportMany?.(selectedGroups)}
+            >
+              Export selected
+              {selectedGroups.length ? ` · ${selectedGroups.length}` : ""}
+            </button>
+          </div>
+        )}
         <div className="list-heading">
           <span>
             {groups.length} {groups.length === 1 ? "group" : "groups"}
@@ -219,12 +222,15 @@ export default function Library({
           <GroupList
             groups={paging.items}
             checked={checked}
-            onCheck={(id) =>
-              setChecked(
-                checked.includes(id)
-                  ? checked.filter((v) => v !== id)
-                  : [...checked, id],
-              )
+            onCheck={
+              local
+                ? (id) =>
+                    setChecked(
+                      checked.includes(id)
+                        ? checked.filter((v) => v !== id)
+                        : [...checked, id],
+                    )
+                : undefined
             }
             selected={selected}
             onSelect={(g) => {

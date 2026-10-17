@@ -77,17 +77,12 @@ def make_server(service):
                 if not 0 < length <= 1024 * 1024: raise ValueError("Request size is invalid.")
                 body = json.loads(self.rfile.read(length))
                 action = urlsplit(self.path).path.removeprefix("/api/")
-                if action == "live-preview":
-                    from .live_preview import render
-                    result = render(body)
-                    if result.get('ready') and result.get('png'):
-                        import base64
-                        service.appearance.cache_render(body, base64.b64decode(result['png'], validate=True))
-                    return self.reply(200, result)
+                if action == "lobby":
+                    return self.reply(200, service.lobby_state())
+                if action == "copy-lobby-preset":
+                    return self.reply(200, service.copy_lobby_preset(body))
                 if action == "live-save-quick":
                     return self.reply(200, service.save_live_quick(body))
-                if action == "live-save-preset":
-                    return self.reply(200, service.save_live_preset(body))
                 if action == "library-preferences":
                     from .library_preferences import save
                     value = save(body)
@@ -111,13 +106,6 @@ def make_server(service):
                     self.send_header("X-Content-Type-Options", "nosniff")
                     self.end_headers(); self.wfile.write(raw)
                     return
-                if action == "install-preview-companion":
-                    service.supported_game()
-                    from .live_preview import install
-                    return self.reply(200, install(service.game))
-                if action == "remove-preview-companion":
-                    from .live_preview import remove
-                    return self.reply(200, remove(service.game))
                 if action in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import", "presets"):
                     result = service.start_job(action, body)
                 elif action == "cancel":

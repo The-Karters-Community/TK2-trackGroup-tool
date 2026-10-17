@@ -123,6 +123,31 @@ export default function AppearanceChoice({
     );
     return appearance?.previews?.[example?.id]?.[view];
   }
+  function choose(entry) {
+    library?.used(recordKey(entry, false));
+    library?.used(recordKey(entry, true));
+    onChange(entry.id);
+    // Skip refinements with no choice to make, but keep every step reachable.
+    let next = exact
+      ? levels.length - 1
+      : Math.min(stage + 1, levels.length - 1);
+    while (next < levels.length - 1) {
+      const siblings = entries.filter(
+        (e) => e.entity === entry.entity && (next < 2 || e.skin === entry.skin),
+      );
+      if (new Set(siblings.map((e) => e[levels[next][1]])).size > 1) break;
+      next++;
+    }
+    setStage(next);
+  }
+  const guidance =
+    query || favoritesOnly
+      ? "Choose an appearance, then save your setup."
+      : stage === levels.length - 1
+        ? items.length === 1
+          ? "One appearance available. Ready to save."
+          : "Choose your look. Save changes applies the complete setup."
+        : `Choose ${stage === 0 ? (kind === "characters" ? "a character" : label.toLowerCase()) : "a skin"}${levels.length > stage + 2 ? ", then refine its look." : "."}`;
   return (
     <div className="appearance-picker">
       {selected?.available === false && !appearance?.loading && (
@@ -175,7 +200,9 @@ export default function AppearanceChoice({
               aria-label={`${title}: ${selected?.[k] === selected?.id ? selected?.name : selected?.[k] || "None"}`}
               onClick={() => setStage(index)}
             >
-              <span>{title}</span>
+              <span>
+                <b aria-hidden="true">{index + 1}</b> {title}
+              </span>
               <small>
                 {selected?.[k] === selected?.id ? selected.name : selected?.[k]}
               </small>
@@ -183,27 +210,14 @@ export default function AppearanceChoice({
           ))}
         </div>
       )}
-      {selected && library && (
-        <div className="selected-appearance">
-          <span>
-            <strong>{selected.label || selected.name}</strong>
-            <small>Current {label.toLowerCase()} appearance</small>
-          </span>
-          <button
-            className="favorite-button icon-button"
-            type="button"
-            aria-label={`${library.favorite(recordKey(selected, true)) ? "Unfavorite" : "Favorite"} ${selected.label || selected.name}`}
-            aria-pressed={library.favorite(recordKey(selected, true))}
-            onClick={() => library.toggle(recordKey(selected, true))}
-          >
-            {library.favorite(recordKey(selected, true)) ? (
-              <StarFilledIcon />
-            ) : (
-              <StarIcon />
-            )}
-          </button>
-        </div>
-      )}
+      <p className="appearance-guidance" role="status">
+        <span>{guidance}</span>
+        {selected && (
+          <strong title={selected.label || selected.name}>
+            {selected.label || selected.name}
+          </strong>
+        )}
+      </p>
       <RowPage
         items={items}
         scope={`${kind}:${field}:${query}:${stage}:${sort}:${favoritesOnly}:${stage ? selected?.entity + selected?.skin : ""}`}
@@ -234,12 +248,7 @@ export default function AppearanceChoice({
                     aria-pressed={active}
                     disabled={entry.available === false}
                     title={title}
-                    onClick={() => {
-                      library?.used(recordKey(entry, false));
-                      library?.used(recordKey(entry, true));
-                      onChange(entry.id);
-                      setStage(Math.min(stage + 1, levels.length - 1));
-                    }}
+                    onClick={() => choose(entry)}
                   >
                     <PresetPreview
                       source={image}
@@ -266,20 +275,18 @@ export default function AppearanceChoice({
                         </small>
                       )}
                   </button>
-                  {library &&
-                    exact &&
-                    entry.id !== selected?.id &&
-                    entry.available !== false && (
-                      <button
-                        type="button"
-                        className="favorite-button icon-button"
-                        aria-label={`${favorite ? "Unfavorite" : "Favorite"} ${title}`}
-                        aria-pressed={Boolean(favorite)}
-                        onClick={() => library.toggle(keyFor(entry))}
-                      >
-                        {favorite ? <StarFilledIcon /> : <StarIcon />}
-                      </button>
-                    )}
+                  {library && entry.available !== false && (
+                    <button
+                      type="button"
+                      className="favorite-button icon-button"
+                      aria-label={`${favorite ? "Unfavorite" : "Favorite"} ${entry.label || entry.name}`}
+                      title={`${favorite ? "Remove" : "Save"} this appearance${exact ? "" : ": " + (entry.label || entry.name)}`}
+                      aria-pressed={Boolean(favorite)}
+                      onClick={() => library.toggle(keyFor(entry))}
+                    >
+                      {favorite ? <StarFilledIcon /> : <StarIcon />}
+                    </button>
+                  )}
                 </div>
               );
             })}

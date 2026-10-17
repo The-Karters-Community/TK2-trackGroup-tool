@@ -22,12 +22,13 @@ a release is requested; development builds do not advance the release version.
 - Open on a dedicated Home page with BobbysGarageV4 artwork and shortcuts to
   Quick Setup, presets, track groups, downloaded tracks and settings. Restore
   the game logo in the sidebar; rename track navigation explicitly.
-- Paginate visual libraries by 1–4 complete rows, calculated from the current
-  column count. Use one compact count/rows/page bar; keep item counts for lists.
+- Paginate visual libraries by complete rows, a custom positive row count or
+  Show all, calculated from the current column count. Remember row preferences
+  per library and use fewer default rows in narrow windows. Use one compact count/rows/page bar; keep item counts for lists.
   Preserve selections across pages and add moving selected presets to a position.
 - Replace stacked appearance accordions with a Character/Skin/Variant step rail.
-  Keep desktop preview and picker scrolling separate; offer a collapsible preview
-  on phones, with close/save/discard always accessible.
+  Keep desktop preview and picker scrolling separate; open the preview on large screens and collapse it
+  in smaller windows, with close/save/discard always accessible.
 - Add alphabetical, newest/oldest added, recently picked, most picked and
   favorites-first sorting. Added dates use installation/first discovery; picking
   history records Garage use, not Steam-wide popularity or in-game history.
@@ -56,23 +57,42 @@ a release is requested; development builds do not advance the release version.
   during loading, share repeated resources, and avoid unchanged paused redraws.
 - Show loading feedback and allow larger previews/reset view. Animate accordion
   expansion and respect reduced-motion preferences.
-- Keep optional native game-reference images and guarded live saving for existing
-  ordinary presets. Quick Setup now also saves live through the native bridge;
-  structural save edits still require the game closed; extracted game assets are never distributed.
+- Remove the former BepInEx renderer, installer and ordinary-preset live-save
+  integration. Saved image reads genuine game-generated PNGs and refreshes when
+  the game updates them. Queue icon refresh after native Quick Setup saves; a
+  closed game still supports independent 3D and backed-up offline editing.
 
 - Add a small native Quick Setup bridge without BepInEx. Validate the exact live
   target and installed choices, back up first, save through the game's API and
   verify local/Steam copies. Refresh an open Quick Setup editor after saving.
   Live write/restore and UI-to-game round trips passed in build 0.1.4.18.
-- Open the 3D preview collapsed, remove duplicate side controls, and show larger
+- Open 3D on large screens and collapse it in smaller windows. Remove duplicate
+  side controls and show larger
   contained part thumbnails next to categories. Selected characters support
   animation selection, pause, scrubbing and speed, starting in standing idle.
 - Simplify collection commands into a compact toolbar and More menu; use pictured
   group rows/cards and visible gold favorite states. Favorite exact appearances
-  once and open all saved variants directly from Favorites. Convert older
+  once, with stars on every tile including the selected item, and open all saved
+  variants directly from Favorites. Skip single-choice refinements, number the
+  selection steps and distinguish the green Save action from selected choices.
+  Saving keeps the modal open. Convert older
   character/skin stars to representative exact appearances.
 - Restore draft dragging during gameplay, including group order and members.
   Reordering saves remain disabled with an explanation until the game closes.
+
+### Simpler navigation and input
+
+- Combine Discover groups, My groups and My tracks under one Tracks destination.
+  Discover focuses on import; group export remains in My groups.
+- Simplify Home to a game-style main menu: Quick Setup, Presets, Tracks and Lobby.
+- Equalize category controls and center Original/Modded. Fix thumbnail line-clamp
+  inheritance that cropped pictures in smaller windows. Keep fixed editor chrome.
+- Add spatial keyboard arrows, Enter/Space, Escape and Ctrl+S. Standard controller
+  support reads only while Garage is focused; help explains its controls.
+- Add a distinct Lobby page with actual player appearances and one-click copying
+  to All presets. Recheck the source, preserve all cosmetics/stickers, allocate
+  through the game and verify local/Steam saves. No persistent plugin is installed.
+  Runtime coverage is recorded in docs/LOBBY.md.
 
 ### Steam and track groups
 

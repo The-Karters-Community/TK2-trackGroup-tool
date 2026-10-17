@@ -85,11 +85,22 @@ test("import review stays visible through completion and opens the saved local g
     return { message: "Operation started." };
   });
   render(<App />);
-  fireEvent.click(await screen.findByRole("button", { name: "Discover track groups", exact: true }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Tracks", exact: true }),
+  );
+  expect(
+    screen
+      .getByRole("button", { name: "Discover groups" })
+      .getAttribute("aria-current"),
+  ).toBe("page");
+  expect(screen.queryByRole("button", { name: "Export selected" })).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
   fireEvent.click(await screen.findByText(group.name));
   fireEvent.click(screen.getByRole("button", { name: "Preview import" }));
   await screen.findByText("Review before adding to My track groups");
-  fireEvent.click(screen.getByRole("button", { name: "Add to My track groups" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Add to My track groups" }),
+  );
   await screen.findByText("Downloading · 30%");
   expect(
     within(screen.getByRole("dialog")).getByText("Track One"),

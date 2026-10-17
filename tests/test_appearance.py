@@ -23,11 +23,13 @@ class AppearanceTests(unittest.TestCase):
             (root / 'catalog_config.json').write_text(json.dumps({'m_InternalIds':[prefab, prefab.replace('Vehicle Variant', 'Other Variant')]}))
             self.assertIsNone(model_prefab(root, 'vehicles', ['Test Car', 'Blue']))
 
-    def test_live_render_cache_matches_exact_unsaved_data_without_touching_game_icons(self):
+    def test_saved_preview_uses_game_icon_and_refreshes_when_game_rewrites_it(self):
         from test_presets import fixture
         from trackgroups.presets import view
         from trackgroups.profile import Profile
         import copy
+        import hashlib
+        import os
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             icons = root/'profiles/PresetIcons'; icons.mkdir(parents=True)
@@ -35,18 +37,38 @@ class AppearanceTests(unittest.TestCase):
             art = Appearance(root/'cache', root/'profiles')
             preset = view(Profile(fixture()))['presets'][0]
             draft = copy.deepcopy(preset); draft['data']['iVehicleMaterialID_Modded'] = 88
-            art.cache_render({'data':draft['data'], 'view':'modded'}, PNG+b'new')
-            old = art.snapshot([preset])['previews']['100']['modded']
-            self.assertIn('Icon_PresetID_', old)
-            updated = art.snapshot([draft])['previews']['100']['modded']
-            self.assertIn('live-', updated)
-            key = updated.split('/')[-1].split('?')[0]
-            self.assertEqual(art.image(key), PNG+b'new')
-            self.assertEqual(game_icon.read_bytes(), PNG+b'original')
-            art.cache_render({'data':draft['data'], 'view':'modded', 'rotation':60}, PNG+b'rotated')
-            self.assertEqual(art.image(key), PNG+b'new')
+            # A frame cached by an older companion must never replace the
+            # genuine saved game image or make a mismatched hash look fresh.
+            payload = json.dumps([draft['data'], 'modded'], sort_keys=True, separators=(',', ':'))
+            legacy = art.folder / ('live-' + hashlib.sha256(payload.encode()).hexdigest() + '.png')
+            legacy.write_bytes(PNG+b'old companion frame')
+            fields = ('iCharacterSkinMaterialID', 'iVehicleMaterialID', 'iWheelMaterialID',
+                      'iCharacterSkinMaterialID_Modded', 'iVehicleMaterialID_Modded', 'iWheelMaterialID_Modded')
+            marker = icons/'Icon_PresetID_100.hash'
+            marker.write_text('_'.join(str(preset['data'][key]) for key in fields), encoding='utf-8')
+            state = art.snapshot([preset])
+            before = state['previews']['100']['modded']
+            self.assertIn('Icon_PresetID_100_Modded.png?v=', before)
+            self.assertEqual(state['stalePreviews'], [])
+            unsaved = art.snapshot([draft])
+            self.assertEqual(unsaved['previews']['100']['modded'], before)
+            self.assertEqual(unsaved['stalePreviews'], [100])
+            self.assertEqual(unsaved['staleViews'], {'100': ['original', 'modded']})
+            self.assertEqual(art.image(game_icon.name), PNG+b'original')
+            with self.assertRaises(ValueError):
+                art.image(legacy.name)
+
+            previous_mtime = game_icon.stat().st_mtime_ns
+            game_icon.write_bytes(PNG+b'new game image')
+            os.utime(game_icon, ns=(previous_mtime + 1_000_000_000, previous_mtime + 1_000_000_000))
+            marker.write_text('_'.join(str(draft['data'][key]) for key in fields), encoding='utf-8')
+            refreshed = art.snapshot([draft])
+            self.assertNotEqual(refreshed['previews']['100']['modded'], before)
+            self.assertEqual(refreshed['stalePreviews'], [])
+            self.assertEqual(art.image(game_icon.name), PNG+b'new game image')
             reopened = Appearance(root/'cache', root/'profiles')
-            self.assertIn('live-', reopened.snapshot([draft])['previews']['100']['modded'])
+            self.assertEqual(reopened.snapshot([draft])['previews'], refreshed['previews'])
+            self.assertEqual(legacy.read_bytes(), PNG+b'old companion frame')
 
     def test_preview_http_requires_token_and_rejects_traversal(self):
         from trackgroups.app import make_server

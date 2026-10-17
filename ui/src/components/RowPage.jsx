@@ -1,20 +1,44 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import "./RowPage.css";
+
+const validRows = (value) =>
+  value === "all" || (Number.isSafeInteger(Number(value)) && Number(value) > 0);
+const rowPreferenceKey = (scope) => `bobbys-garage:rows:${scope}`;
+function initialRows(scope) {
+  try {
+    const saved = localStorage.getItem(rowPreferenceKey(scope));
+    if (saved !== null && validRows(saved))
+      return saved === "all" ? saved : Number(saved);
+  } catch {
+    // Browsing still works when local storage is unavailable.
+  }
+  return window.innerHeight < 650
+    ? 1
+    : window.innerHeight < 760 || window.innerWidth < 900
+      ? 2
+      : 3;
+}
 
 export function rowSlice(total, columns, rows, requested = 1) {
-  const size = Math.max(1, columns * rows),
+  const size =
+      rows === "all" ? Math.max(1, total) : Math.max(1, columns * rows),
     pages = Math.max(1, Math.ceil(total / size));
   const page = Math.min(pages, Math.max(1, requested)),
     start = (page - 1) * size;
   return { size, pages, page, start };
 }
 
-export function useRowPagination(items, scope, minWidth = 96, gap = 8) {
+export function useRowPagination(
+  items,
+  scope,
+  minWidth = 96,
+  gap = 8,
+  preferenceScope = scope,
+) {
   const [host, setHost] = useState(null);
   const [columns, setColumns] = useState(4),
-    [rows, setRows] = useState(() =>
-      window.innerHeight < 600 ? 1 : window.innerHeight < 700 ? 2 : 3,
-    );
+    [rows, setRows] = useState(() => initialRows(preferenceScope));
   const [position, setPosition] = useState({ scope, page: 1 });
   useLayoutEffect(() => {
     const measure = () => {
@@ -39,6 +63,10 @@ export function useRowPagination(items, scope, minWidth = 96, gap = 8) {
     position.scope === scope ? position.page : 1,
   );
   const go = (page) => setPosition({ scope, page });
+  useEffect(() => {
+    if (position.scope === scope && position.page !== paging.page)
+      setPosition({ scope, page: paging.page });
+  }, [scope, position.scope, position.page, paging.page]);
   return {
     ...paging,
     total: items.length,
@@ -47,14 +75,27 @@ export function useRowPagination(items, scope, minWidth = 96, gap = 8) {
     host: setHost,
     items: items.slice(paging.start, paging.start + paging.size),
     setPage: go,
-    setRows: (rows) => {
-      setRows(rows);
+    setRows: (value) => {
+      if (!validRows(value)) return;
+      const next = value === "all" ? value : Number(value);
+      setRows(next);
+      try {
+        localStorage.setItem(rowPreferenceKey(preferenceScope), String(next));
+      } catch {
+        // This preference is optional; pagination does not depend on storage.
+      }
       go(1);
     },
   };
 }
 
 export function RowControls({ paging, label }) {
+  const [custom, setCustom] = useState(false);
+  const [draft, setDraft] = useState(String(paging.rows));
+  const isCustom = custom || (paging.rows !== "all" && paging.rows > 4);
+  useEffect(() => {
+    if (paging.rows !== "all") setDraft(String(paging.rows));
+  }, [paging.rows]);
   return (
     <nav className="row-pagination" aria-label={`${label} pages`}>
       <span className="hint" aria-live="polite">
@@ -64,46 +105,78 @@ export function RowControls({ paging, label }) {
       </span>
       <select
         aria-label={`${label} rows`}
-        value={paging.rows}
-        onChange={(e) => paging.setRows(Number(e.target.value))}
+        value={
+          paging.rows === "all" ? "all" : isCustom ? "custom" : paging.rows
+        }
+        onChange={(e) => {
+          const value = e.target.value;
+          setCustom(value === "custom");
+          if (value === "custom") {
+            const next = paging.rows === "all" ? 6 : paging.rows;
+            setDraft(String(next));
+            paging.setRows(next);
+          } else paging.setRows(value === "all" ? value : Number(value));
+        }}
       >
         {[1, 2, 3, 4].map((n) => (
           <option key={n} value={n}>
             {n} {n === 1 ? "row" : "rows"}
           </option>
         ))}
+        <option value="custom">Custom rows…</option>
+        <option value="all">Show all</option>
       </select>
-      <div className="row-page-controls">
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={`Previous ${label} page`}
-          disabled={paging.page === 1}
-          onClick={() => paging.setPage(paging.page - 1)}
-        >
-          <ChevronLeftIcon />
-        </button>
-        <select
-          aria-label={`${label} page`}
-          value={paging.page}
-          onChange={(e) => paging.setPage(Number(e.target.value))}
-        >
-          {Array.from({ length: paging.pages }, (_, i) => (
-            <option key={i} value={i + 1}>
-              {i + 1} / {paging.pages}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={`Next ${label} page`}
-          disabled={paging.page === paging.pages}
-          onClick={() => paging.setPage(paging.page + 1)}
-        >
-          <ChevronRightIcon />
-        </button>
-      </div>
+      {isCustom && paging.rows !== "all" && (
+        <input
+          className="row-custom-input"
+          type="number"
+          inputMode="numeric"
+          min="1"
+          step="1"
+          aria-label={`${label} custom rows`}
+          aria-invalid={!validRows(draft)}
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (validRows(e.target.value))
+              paging.setRows(Number(e.target.value));
+          }}
+          onBlur={() => setDraft(String(paging.rows))}
+        />
+      )}
+      {paging.rows !== "all" && (
+        <div className="row-page-controls">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Previous ${label} page`}
+            disabled={paging.page === 1}
+            onClick={() => paging.setPage(paging.page - 1)}
+          >
+            <ChevronLeftIcon />
+          </button>
+          <select
+            aria-label={`${label} page`}
+            value={paging.page}
+            onChange={(e) => paging.setPage(Number(e.target.value))}
+          >
+            {Array.from({ length: paging.pages }, (_, i) => (
+              <option key={i} value={i + 1}>
+                {i + 1} / {paging.pages}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Next ${label} page`}
+            disabled={paging.page === paging.pages}
+            onClick={() => paging.setPage(paging.page + 1)}
+          >
+            <ChevronRightIcon />
+          </button>
+        </div>
+      )}
     </nav>
   );
 }
@@ -116,7 +189,7 @@ export default function RowPage({
   minWidth = 96,
   gap = 8,
 }) {
-  const paging = useRowPagination(items, scope, minWidth, gap);
+  const paging = useRowPagination(items, scope, minWidth, gap, label);
   return (
     <div
       ref={paging.host}

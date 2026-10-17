@@ -64,18 +64,19 @@ extract/cache reduced textures and geometry; later loads reuse a bounded cache.
 Unity-specific shader effects and sticker tint effects are approximations.
 Missing assets show an error instead of silently using a different vehicle.
 
-**Game reference** is a separate, optional companion-rendered comparison frame.
-It needs the running game at its main menu and never creates a saved preset.
+**Saved image** shows the last real game-generated PNG. It refreshes when the game
+updates its icon; it never calls a BepInEx renderer. A closed game cannot create a
+new Unity image, while local 3D still reflects the exact current selection.
 
-With Steam/profile checks passing, the rebuilt companion can save **one existing
-preset** through the running game's own save method. Garage checks the exact
-previous target, keeps a safety copy, and verifies the local result. Other
-changes still require the game closed and the verified local/Steam transaction.
+Saving keeps the editor open. Quick Setup can save through the optional native
+bridge while the game runs; ordinary presets and collection changes use the
+verified local/Steam transaction with the game closed. **Lobby** reads actual
+players and copies a selected setup into All presets through the game’s own
+allocation/save method. See [LOBBY.md](LOBBY.md) for verification status.
 
-The desktop full setup does not depend on the companion.
-The hosted website uses the saved-image fallback; browser sandboxing prevents
-direct access to the game's Windows pipe or installed Unity bundles. See
-[LIVE-PREVIEW.md](LIVE-PREVIEW.md) for the distinct preview and save paths.
+The website uses saved local images and explicit folder permission. Browser
+sandboxing prevents access to the game process or installed Unity bundles.
+See [LIVE-PREVIEW.md](LIVE-PREVIEW.md) for distinct preview and save paths.
 
 ## Installation dependencies
 
@@ -89,8 +90,9 @@ does not prove cosmetic dependencies are installed. Import requires acknowledgin
 this limitation. The game itself may replace missing cosmetics on loading.
 
 Desktop imports and group edits use the existing backed-up local/Steam transaction,
-with the game closed. A single existing preset can also be changed through the
-running game's own save method after Steam/profile checks. Browser changes remain
+with the game closed. Quick Setup can also be changed through the running
+game’s own save method after Steam/profile checks. Ordinary saved presets remain
+editable with the game closed; the former BepInEx save integration is removed. Browser changes remain
 in memory and use the same backup/download flow
 as track groups; follow the website's Steam Cloud instructions before replacing a
 save. A browser cannot inspect the local Mods folder or contact the Steam client.

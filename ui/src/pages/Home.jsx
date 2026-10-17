@@ -3,8 +3,10 @@ import {
   PersonIcon,
   StackIcon,
   GearIcon,
+  AvatarIcon,
 } from "@radix-ui/react-icons";
 import { assetUrl } from "../assets.js";
+import "./navigation.css";
 
 export default function Home({
   onNavigate,
@@ -14,7 +16,7 @@ export default function Home({
   groupCount = 0,
 }) {
   return (
-    <section className="garage-home">
+    <section className="garage-home garage-main-menu">
       <div className="home-art">
         <img
           src={assetUrl("/BobbysGarageV4.png")}
@@ -24,7 +26,7 @@ export default function Home({
       <div className="home-menu">
         <header>
           <h1>Bobby’s Garage</h1>
-          <p>Your racer. Your setup. Your next race.</p>
+          <p>Ready for your next race?</p>
         </header>
         <div className="home-destinations">
           <button className="home-primary" onClick={onQuickSetup}>
@@ -38,7 +40,7 @@ export default function Home({
           <button onClick={() => onNavigate("presets")}>
             <PersonIcon />
             <span>
-              <strong>Presets & customization</strong>
+              <strong>Presets</strong>
               <small>
                 {presetCount
                   ? `${presetCount} saved setups`
@@ -47,32 +49,24 @@ export default function Home({
             </span>
             <ArrowRightIcon />
           </button>
-          <button onClick={() => onNavigate("local")}>
+          <button onClick={() => onNavigate("browse")}>
             <StackIcon />
             <span>
-              <strong>My track groups</strong>
+              <strong>Tracks</strong>
               <small>
                 {groupCount
-                  ? `${groupCount} racing collections`
-                  : "Create, manage and export track groups"}
+                  ? `${groupCount} groups · discover, collect and race`
+                  : "Discover groups and arrange your race list"}
               </small>
             </span>
             <ArrowRightIcon />
           </button>
-          <button onClick={() => onNavigate("browse")}>
-            <StackIcon />
-            <span>
-              <strong>Discover track groups</strong>
-              <small>Speedrun and community collections</small>
-            </span>
-            <ArrowRightIcon />
-          </button>
           {!browser && (
-            <button onClick={() => onNavigate("tracks")}>
-              <StackIcon />
+            <button onClick={() => onNavigate("lobby")}>
+              <AvatarIcon />
               <span>
-                <strong>My tracks</strong>
-                <small>Browse downloaded and official tracks</small>
+                <strong>Lobby</strong>
+                <small>Find a setup you like and save a copy</small>
               </span>
               <ArrowRightIcon />
             </button>

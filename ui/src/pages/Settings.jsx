@@ -60,40 +60,17 @@ export default function Settings({ state, busy, run }) {
         </button>
       </div>
       <div className="settings-section">
-        <h2>Game connection · optional</h2>
+        <h2>Live Quick Setup & lobby</h2>
         <p>
-          Full 3D setups render locally in Garage without this connection. The
-          optional companion adds a reference image from the game and saves one
-          preset while the game stays at its main menu. It requires BepInEx
-          Unity IL2CPP and game build 0.1.4.18.
+          Garage renders 3D locally. Quick Setup can also save through the
+          running game, and Lobby lets you copy another player’s setup. No
+          BepInEx plugin is required.
         </p>
-        <p>
-          {state.previewCompanion?.installed
-            ? "Companion installed. Restart the game after installation, then open a preset in Garage."
-            : "Companion not installed."}
-        </p>
-        <button
-          disabled={
-            busy || state.gameRunning || !state.previewCompanion?.canInstall
-          }
-          onClick={() => run("install-preview-companion", {})}
-        >
-          {state.previewCompanion?.installed
-            ? "Reinstall preview companion"
-            : "Install preview companion"}
-        </button>
-        {state.previewCompanion?.installed && (
-          <button
-            disabled={busy || state.gameRunning}
-            onClick={() => run("remove-preview-companion", {})}
-          >
-            Remove preview companion
-          </button>
-        )}
         <p className="hint">
-          Close the game before installing or removing the companion. Imports
-          and group edits still require the game closed; one existing preset can
-          save live after Steam and profile verification.
+          {state.nativeQuickSaveAvailable
+            ? "Native integration is available for this game build."
+            : "Native integration is unavailable for this installation or game build. Offline editing still works."}{" "}
+          Group and collection changes require the game closed.
         </p>
       </div>
       <div className="settings-section">

@@ -1,0 +1,258 @@
+/* Selection is olive/lime; committing a save has its own positive action color. */
+.customization-dialog {
+  --save-action: oklch(82% 0.13 170);
+  --save-ink: oklch(20% 0.035 170);
+}
+.preset-dialog.customization-dialog {
+  height: auto;
+  max-height: min(960px, calc(100dvh - 24px));
+  width: min(1440px, calc(100vw - 24px));
+}
+.customization-dialog .customization-layout {
+  flex: 0 1 auto;
+  gap: 8px;
+  padding: 10px 14px;
+}
+.customization-dialog .customization-layout.with-preview {
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.customization-dialog .editor-header .preview-toggle {
+  align-self: center;
+}
+.customization-dialog .customization-picker {
+  padding: 0 2px 4px;
+}
+.customization-dialog .customization-picker-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  justify-items: stretch;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.customization-dialog .category-tabs {
+  width: 100%;
+  gap: 5px;
+  align-items: stretch;
+}
+.customization-dialog .category-tabs > button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 72px;
+  min-width: 0;
+  gap: 7px;
+  margin: 0;
+  padding: 6px;
+}
+.customization-dialog .category-tabs > button.active,
+.customization-dialog .customization-version > button.active {
+  color: var(--text);
+  background: color-mix(in oklch, var(--accent) 11%, var(--surface));
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.customization-dialog .category-tabs > button.active small {
+  color: var(--muted);
+}
+.customization-dialog .category-tabs .preset-preview,
+.customization-dialog .category-tabs .category-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+  flex: 0 0 48px;
+  padding: 3px;
+  overflow: hidden;
+  aspect-ratio: auto;
+  border-radius: 4px;
+  background: var(--surface);
+}
+.customization-dialog .category-icon svg {
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+}
+.customization-dialog .category-tabs .preset-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.customization-dialog
+  .category-tabs
+  button
+  > span:not(.preset-preview):not(.category-icon) {
+  flex: 1;
+  min-width: 0;
+}
+.customization-dialog .customization-version {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+.customization-dialog .customization-version > button {
+  min-width: 90px;
+  min-height: 32px;
+}
+.appearance-steps button[aria-pressed="true"] {
+  background: var(--selected);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.appearance-steps b {
+  margin-right: 4px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.appearance-guidance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 12px;
+  margin: 6px 2px;
+  min-height: 24px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.appearance-guidance strong {
+  margin-left: auto;
+  max-width: 48%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-weight: 500;
+}
+/* Preview spans must not inherit the two-line clamp used for tile labels. */
+.appearance-grid .appearance-tile > .preset-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  height: 84px;
+  min-height: 84px;
+  padding: 5px;
+  aspect-ratio: auto;
+}
+.appearance-choice .favorite-button {
+  top: 4px;
+  right: 4px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  opacity: 1;
+}
+.customization-dialog .editor-footer .save-action {
+  background: var(--save-action);
+  border-color: var(--save-action);
+  color: var(--save-ink);
+  min-width: 144px;
+  font-weight: 700;
+}
+.customization-dialog .save-action:enabled:hover {
+  filter: brightness(1.08);
+}
+.save-action kbd {
+  font: inherit;
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 3px;
+}
+.controller-save-hint {
+  display: none;
+}
+[data-controller-connected="true"] .controller-save-hint {
+  display: inline;
+}
+[data-controller-connected="true"] .keyboard-save-hint {
+  display: none;
+}
+.customization-dialog .save-part-count {
+  font-size: 11px;
+}
+.customization-dialog .preset-hero {
+  width: 100%;
+  height: 300px;
+  padding: 10px;
+}
+.saved-image-empty {
+  padding: 60px 18px;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 1100px) {
+  .customization-dialog .customization-layout.with-preview {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .customization-dialog .category-tabs > button {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+@media (max-width: 760px) {
+  .keyboard-save-hint {
+    display: none;
+  }
+  .customization-dialog .customization-layout.with-preview {
+    display: flex;
+  }
+  .customization-dialog .category-tabs > button {
+    min-height: 72px;
+    padding: 6px 4px;
+    text-align: center;
+  }
+  .customization-dialog .category-tabs .preset-preview,
+  .customization-dialog .category-tabs .category-icon {
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    max-height: 44px;
+    flex: 0 0 44px;
+  }
+  .customization-dialog .category-tabs button small {
+    display: none;
+  }
+  .customization-dialog
+    .category-tabs
+    button
+    > span:not(.preset-preview):not(.category-icon) {
+    flex: none;
+  }
+  .customization-dialog .customization-version {
+    justify-content: center;
+  }
+  .customization-dialog .customization-picker-heading {
+    gap: 6px;
+  }
+  .appearance-guidance strong {
+    display: none;
+  }
+  .customization-dialog .preset-fields {
+    margin-top: 6px;
+  }
+  .customization-dialog .editor-footer {
+    padding: 8px 10px;
+  }
+  .customization-dialog .appearance-steps button {
+    padding: 6px 4px;
+  }
+}
+@media (pointer: coarse) {
+  .appearance-choice .favorite-button {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+}

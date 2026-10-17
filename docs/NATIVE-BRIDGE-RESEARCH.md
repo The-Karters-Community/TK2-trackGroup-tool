@@ -100,3 +100,23 @@ the same player is editing Quick Setup and has no conflicting in-game draft.
 Use the game's save method, verify the resulting local/platform save, and test
 failure recovery and clean hook/DLL removal. A native bridge still runs code
 inside the game even though it does not use BepInEx.
+
+
+## Lobby and saved-icon extension (2026-10-17)
+
+The production protocol is now version 2, with a 28,379-byte packed request for
+up to 32 current room entries. The authored DLL is approximately 169 KiB. Native
+lobby copying is verified against the local player's real online room with seven
+CPU racers. A game-owned copy generated both PNG views and its hash; cleanup of
+only that copy preserved the entire original profile data and both native preset
+records. [LOBBY.md](LOBBY.md) records the exact validation and remaining human
+remote-player test gap.
+
+Use the exact `UnityEngine.Object.FindObjectOfType(System.Type)` overload. The
+same-arity generic overload with a Boolean argument is not interchangeable and
+failed during populated-room testing. Lobby slots are filtered against occupied
+room UI entries; unused CPU-pool entries are excluded.
+
+Quick Setup saves queue `PTK_MenuIconRenderManager.EnsurePresetIcon` when a menu
+renderer exists. Saved images read only the game's actual PresetIcons files.
+No BepInEx renderer, installer or ordinary-preset live-save endpoint remains.

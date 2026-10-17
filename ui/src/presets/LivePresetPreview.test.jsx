@@ -1,103 +1,76 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import {
-  act,
   cleanup,
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import LivePresetPreview from "./LivePresetPreview.jsx";
+vi.mock("./ModelViewer.jsx", () => ({
+  default: ({ kind }) => <div data-testid="model-viewer">{kind}</div>,
+}));
+afterEach(cleanup);
 
-const png = btoa("test PNG");
-beforeEach(() => {
-  vi.useFakeTimers();
-  let sequence = 0;
-  URL.createObjectURL = vi.fn(() => `blob:game${++sequence}`);
-  URL.revokeObjectURL = vi.fn();
-});
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-});
-const settle = (ms = 300) => act(() => vi.advanceTimersByTimeAsync(ms));
-
-it("debounces choices and rotation, renders without saving, and revokes images", async () => {
-  const renderPreview = vi.fn().mockResolvedValue({ ready: true, png });
-  const props = { data: { vehicle: 1 }, view: "modded", renderPreview };
-  const { rerender, unmount } = render(<LivePresetPreview {...props} />);
-  rerender(<LivePresetPreview {...props} data={{ vehicle: 2 }} />);
-  await settle();
-  expect(renderPreview).toHaveBeenCalledTimes(1);
-  expect(renderPreview.mock.calls[0][0]).toEqual({
-    data: { vehicle: 2 },
-    view: "modded",
-    rotation: 0,
-  });
+it("uses the saved game image without invoking a companion or polling renderer", async () => {
+  const legacy = vi.fn(),
+    loadImage = vi.fn().mockResolvedValue("blob:saved");
+  render(
+    <LivePresetPreview
+      source="/api/preset-image/Icon_PresetID_1.png?v=1"
+      loadImage={loadImage}
+      renderPreview={legacy}
+    />,
+  );
   expect(
-    screen.getByAltText("Current selection rendered by the game").src,
-  ).toBe("blob:game1");
-  fireEvent.change(screen.getByLabelText("Rotate preview"), {
-    target: { value: "60" },
-  });
-  await settle();
-  expect(renderPreview.mock.calls[1][0].rotation).toBe(60);
-  expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:game1");
-  unmount();
-  expect(renderPreview.mock.calls[1][1].aborted).toBe(true);
-});
-
-it("ignores an old native response after a newer selection", async () => {
-  let complete;
-  const renderPreview = vi
-    .fn()
-    .mockImplementationOnce(
-      () =>
-        new Promise((r) => {
-          complete = r;
-        }),
-    )
-    .mockResolvedValue({ ready: true, png });
-  const { rerender } = render(
-    <LivePresetPreview
-      data={{ vehicle: 1 }}
-      view="modded"
-      renderPreview={renderPreview}
-    />,
-  );
-  await settle();
-  rerender(
-    <LivePresetPreview
-      data={{ vehicle: 2 }}
-      view="original"
-      renderPreview={renderPreview}
-    />,
-  );
-  await settle();
-  await act(async () => complete({ ready: true, png }));
-  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
-  expect(renderPreview.mock.calls[1][0].view).toBe("original");
-});
-
-it("retries unavailable engine, cancels on close, and labels stale saved images", async () => {
-  const renderPreview = vi
-    .fn()
-    .mockResolvedValue({ ready: false, message: "Open the main menu." });
-  const { unmount } = render(
-    <LivePresetPreview
-      data={{}}
-      view="modded"
-      changed
-      renderPreview={renderPreview}
-    />,
-  );
-  await settle();
-  expect(screen.getByText("Open the main menu.")).toBeTruthy();
-  expect(
-    screen.getByText(/Saved image · your current selections differ/),
+    await screen.findByAltText("Saved in-game setup preview"),
   ).toBeTruthy();
-  await settle(3000);
-  expect(renderPreview).toHaveBeenCalledTimes(2);
-  unmount();
-  await settle(3000);
-  expect(renderPreview).toHaveBeenCalledTimes(2);
+  expect(loadImage).toHaveBeenCalled();
+  expect(legacy).not.toHaveBeenCalled();
+  expect(screen.queryByText("Game reference")).toBeNull();
+  expect(screen.queryByLabelText("Rotate preview")).toBeNull();
+});
+it("reloads a saved preview when the game writes a new image revision", async () => {
+  const loadImage = vi
+    .fn()
+    .mockImplementation(async (source) =>
+      source.includes("v=2") ? "blob:new" : "blob:old",
+    );
+  const { rerender } = render(
+    <LivePresetPreview source="/icon.png?v=1" loadImage={loadImage} />,
+  );
+  await waitFor(() =>
+    expect(screen.getByAltText("Saved in-game setup preview").src).toBe(
+      "blob:old",
+    ),
+  );
+  rerender(<LivePresetPreview source="/icon.png?v=2" loadImage={loadImage} />);
+  await waitFor(() =>
+    expect(screen.getByAltText("Saved in-game setup preview").src).toBe(
+      "blob:new",
+    ),
+  );
+});
+it("keeps independent models and static saved images as clearly different modes", async () => {
+  render(
+    <LivePresetPreview
+      loadModel={vi.fn()}
+      source="/icon.png"
+      modelAvailable
+      modelKind="characters"
+      changed
+    />,
+  );
+  expect(await screen.findByTestId("model-viewer")).toHaveProperty(
+    "textContent",
+    "setup",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Selected part" }));
+  expect(screen.getByTestId("model-viewer")).toHaveProperty(
+    "textContent",
+    "characters",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Saved image" }));
+  expect(screen.queryByTestId("model-viewer")).toBeNull();
+  expect(screen.getByText(/Last game-generated image/)).toBeTruthy();
 });

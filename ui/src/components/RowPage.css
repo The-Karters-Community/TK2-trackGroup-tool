@@ -1,0 +1,9 @@
+.row-pagination .row-custom-input {
+  flex: 0 0 4rem;
+  width: 4rem;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 12px;
+}

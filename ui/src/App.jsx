@@ -6,12 +6,16 @@ import {
   ReloadIcon,
   Cross2Icon,
   HomeIcon,
+  AvatarIcon,
 } from "@radix-ui/react-icons";
 import { api, download, loadPreview } from "./api.js";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
 import Tracks from "./pages/Tracks.jsx";
 import Home from "./pages/Home.jsx";
+import Lobby from "./pages/Lobby.jsx";
+import InputNavigation from "./input/InputNavigation.jsx";
+import TracksHub, { TRACK_PAGES } from "./pages/TracksHub.jsx";
 import ImportDialog from "./components/ImportDialog.jsx";
 import GroupEditor from "./components/GroupEditor.jsx";
 import PresetManager from "./presets/PresetManager.jsx";
@@ -20,6 +24,7 @@ import { download as downloadFile } from "./web/download.js";
 export default function App() {
   const [state, setState] = useState(null);
   const [page, setPage] = useState("home");
+  const [trackPage, setTrackPage] = useState("browse");
   const [quickRequest, setQuickRequest] = useState(0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -31,10 +36,6 @@ export default function App() {
   const [presetDirty, setPresetDirty] = useState(false);
   const polling = useRef(false);
   const lastSnapshot = useRef("");
-  const renderPreview = useCallback(
-    (body, signal) => api("live-preview", body, signal),
-    [],
-  );
   const loadModel = useCallback(
     (body, signal) => api("preset-model", body, signal),
     [],
@@ -106,14 +107,7 @@ export default function App() {
     setMessage("");
     try {
       const value = await api(action, body);
-      if (
-        [
-          "settings",
-          "install-preview-companion",
-          "remove-preview-companion",
-        ].includes(action)
-      )
-        setMessage(value.message);
+      if (action === "settings") setMessage(value.message);
       await refresh();
       return value;
     } catch (err) {
@@ -148,18 +142,12 @@ export default function App() {
   }
   async function changePresets(change, edit = {}) {
     try {
-      if (
-        (change.mode === "preset" || change.mode === "quick") &&
-        state?.gameRunning
-      ) {
-        const result = await api(
-          change.mode === "quick" ? "live-save-quick" : "live-save-preset",
-          {
-            profile: state.settings?.profile,
-            change,
-            baseline: edit.baseline,
-          },
-        );
+      if (change.mode === "quick" && state?.gameRunning) {
+        const result = await api("live-save-quick", {
+          profile: state.settings?.profile,
+          change,
+          baseline: edit.baseline,
+        });
         setMessage(result.message || "Preset saved by the running game.");
         await refresh();
         return true;
@@ -214,6 +202,7 @@ export default function App() {
   }
   function backToGroups() {
     setPage("local");
+    setTrackPage("local");
     setFocusId(preview?.group.id || null);
     setPreview(null);
     setConfirmed(false);
@@ -221,10 +210,9 @@ export default function App() {
   }
   const nav = [
     ["home", HomeIcon, "Home"],
-    ["browse", StackIcon, "Discover track groups"],
-    ["local", StackIcon, "My track groups"],
+    ["track-hub", StackIcon, "Tracks"],
     ["presets", PersonIcon, "Presets"],
-    ["tracks", StackIcon, "My tracks"],
+    ["lobby", AvatarIcon, "Lobby"],
     ["settings", GearIcon, "Settings"],
   ];
   return (
@@ -240,8 +228,18 @@ export default function App() {
           {nav.map(([id, Icon, label]) => (
             <button
               key={id}
-              className={page === id ? "active" : ""}
-              aria-current={page === id ? "page" : undefined}
+              className={
+                page === id ||
+                (id === "track-hub" && TRACK_PAGES.includes(page))
+                  ? "active"
+                  : ""
+              }
+              aria-current={
+                page === id ||
+                (id === "track-hub" && TRACK_PAGES.includes(page))
+                  ? "page"
+                  : undefined
+              }
               disabled={busy}
               onClick={() => {
                 if (
@@ -249,7 +247,7 @@ export default function App() {
                   !window.confirm("Discard unsaved preset changes?")
                 )
                   return;
-                setPage(id);
+                setPage(id === "track-hub" ? trackPage : id);
                 setPreview(null);
                 setEditor(null);
                 setConfirmed(false);
@@ -265,6 +263,7 @@ export default function App() {
           <span>Community edition</span>
           <span>{state.version}</span>
           <span>Made by DarkSlayer</span>
+          <InputNavigation />
         </div>
       </nav>
       <main>
@@ -335,20 +334,26 @@ export default function App() {
         {busy && !reviewJob && (
           <div className="operation" role="status">
             <div>
-              <strong>{state.job.message}</strong>
-              {state.job.total > 0 && (
+              <strong>
+                {state.quickSaving
+                  ? "Saving through the running game…"
+                  : state.job?.message}
+              </strong>
+              {state.job?.total > 0 && !state.quickSaving && (
                 <progress
                   value={state.job.completed || 0}
                   max={state.job.total}
                 />
               )}
             </div>
-            <button
-              disabled={state.job.phase === "saving"}
-              onClick={() => run("cancel", {})}
-            >
-              Cancel
-            </button>
+            {!state.quickSaving && (
+              <button
+                disabled={state.job.phase === "saving"}
+                onClick={() => run("cancel", {})}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         )}
         {editor ? (
@@ -371,6 +376,14 @@ export default function App() {
             presetCount={state.presetState?.presets?.length}
             groupCount={state.localGroups?.length}
           />
+        ) : page === "lobby" ? (
+          <Lobby
+            state={state}
+            busy={busy}
+            loadImage={loadPreview}
+            onCopied={refresh}
+            onNotice={setMessage}
+          />
         ) : page === "presets" ? (
           <PresetManager
             initialLibraryPreferences={state.libraryPreferences}
@@ -381,7 +394,6 @@ export default function App() {
             refreshModels={refreshModels}
             state={state.presetState}
             loadImage={loadPreview}
-            renderPreview={renderPreview}
             loadModel={loadModel}
             busy={busy}
             available={
@@ -395,41 +407,46 @@ export default function App() {
               state.cloudEnabled &&
               state.nativeQuickSaveAvailable
             }
-            liveSaveAvailable={
-              state.gameRunning &&
-              state.steamConnected &&
-              !state.syncError &&
-              state.cloudEnabled &&
-              state.previewCompanion?.installed
-            }
             onChange={changePresets}
             onExport={exportPresets}
             onError={setError}
             onDirty={setPresetDirty}
           />
-        ) : page === "tracks" ? (
-          <Tracks
-            state={state}
-            busy={busy}
-            onCreate={(tracks) => setEditor({ tracks })}
-          />
         ) : page === "settings" ? (
           <Settings state={state} busy={busy} run={run} />
         ) : (
-          <Library
-            key={page}
-            state={state}
-            local={page === "local"}
+          <TracksHub
+            active={page}
             busy={busy}
-            run={run}
-            onPreview={(group) => prepare("preview", { group })}
-            onExport={exportGroup}
-            onExportMany={exportGroups}
-            onCreate={() => setEditor({})}
-            onEdit={(body) => run("edit", body)}
-            onRepair={(group) => prepare("repair", { id: group.id })}
-            focusId={focusId}
-          />
+            onChange={(id) => {
+              setPage(id);
+              setTrackPage(id);
+              setFocusId(null);
+            }}
+          >
+            {page === "tracks" ? (
+              <Tracks
+                state={state}
+                busy={busy}
+                onCreate={(tracks) => setEditor({ tracks })}
+              />
+            ) : (
+              <Library
+                key={page}
+                state={state}
+                local={page === "local"}
+                busy={busy}
+                run={run}
+                onPreview={(group) => prepare("preview", { group })}
+                onExport={exportGroup}
+                onExportMany={exportGroups}
+                onCreate={() => setEditor({})}
+                onEdit={(body) => run("edit", body)}
+                onRepair={(group) => prepare("repair", { id: group.id })}
+                focusId={focusId}
+              />
+            )}
+          </TracksHub>
         )}
         {preview && (
           <ImportDialog

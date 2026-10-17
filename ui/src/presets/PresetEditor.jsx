@@ -4,6 +4,8 @@ import {
   CopyIcon,
   DownloadIcon,
   TrashIcon,
+  CheckIcon,
+  DrawingPinFilledIcon,
 } from "@radix-ui/react-icons";
 import Dialog from "../components/Dialog.jsx";
 import { cosmetic } from "./model.js";
@@ -28,7 +30,6 @@ export default function PresetEditor({
   onDirty,
   appearance,
   loadImage,
-  renderPreview,
   loadModel,
   refreshModels,
   position = 0,
@@ -53,7 +54,14 @@ export default function PresetEditor({
   const [version, setVersion] = useState("modded");
   const [category, setCategory] = useState(0);
   const [sticker, setSticker] = useState(0);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(
+    () =>
+      window.matchMedia?.("(min-width: 1200px) and (min-height: 700px)")
+        .matches || false,
+  );
+  const previewPreference = useRef(false);
+  const acknowledgedSave = useRef(null);
+  const [saveStatus, setSaveStatus] = useState("");
   const [error, setError] = useState("");
   const saved = JSON.stringify(cosmetic(preset.data));
   const base = JSON.stringify(baseline);
@@ -66,11 +74,26 @@ export default function PresetEditor({
     draftReporter.current?.(value, baseline);
   }, [serializedDraft, base]);
   useEffect(() => {
-    if (saved !== base && !dirty) {
+    const media = window.matchMedia?.(
+      "(min-width: 1200px) and (min-height: 700px)",
+    );
+    const adapt = () => {
+      if (!previewPreference.current) setPreviewOpen(Boolean(media?.matches));
+    };
+    media?.addEventListener?.("change", adapt);
+    return () => media?.removeEventListener?.("change", adapt);
+  }, []);
+  useEffect(() => {
+    if (
+      saved !== base &&
+      !dirty &&
+      !saving &&
+      saved !== acknowledgedSave.current
+    ) {
       setValue(cosmetic(preset.data));
       setBaseline(cosmetic(preset.data));
     }
-  }, [saved, base, dirty, preset.data]);
+  }, [saved, base, dirty, preset.data, saving]);
   useEffect(() => {
     onDirty?.(dirty);
     return () => onDirty?.(false);
@@ -113,6 +136,36 @@ export default function PresetEditor({
       setSaving(false);
     }
   }
+  async function save() {
+    setError("");
+    setSaveStatus("");
+    setSaving(true);
+    const next = cosmetic(value);
+    try {
+      if (await onSave(next, { id: preset.id, data: baseline })) {
+        acknowledgedSave.current = saved;
+        setBaseline(next);
+        setSaveStatus("Saved");
+      } else
+        setError(
+          "Not saved. Your selections are still here; check the connection and try again.",
+        );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  const changedParts =
+    slots.filter(
+      ([, , f]) =>
+        value[f] !== baseline[f] ||
+        value[`${f}_Modded`] !== baseline[`${f}_Modded`],
+    ).length +
+    (JSON.stringify(value.stickersData) !==
+    JSON.stringify(baseline.stickersData)
+      ? 1
+      : 0);
   const [label, kind, baseField] = slots[category] || [
     "Sticker",
     "stickers",
@@ -153,6 +206,21 @@ export default function PresetEditor({
           />
         )}
         <button
+          className="preview-toggle"
+          type="button"
+          aria-expanded={previewOpen}
+          onClick={() => {
+            previewPreference.current = true;
+            setPreviewOpen(!previewOpen);
+          }}
+        >
+          {previewOpen
+            ? "Hide preview"
+            : loadModel
+              ? "Show 3D preview"
+              : "Show saved preview"}
+        </button>
+        <button
           className="icon-button"
           aria-label="Close preset"
           onClick={close}
@@ -164,18 +232,6 @@ export default function PresetEditor({
       <div
         className={`editor-body customization-layout${previewOpen ? " with-preview" : ""}`}
       >
-        <button
-          className="preview-toggle"
-          type="button"
-          aria-expanded={previewOpen}
-          onClick={() => setPreviewOpen(!previewOpen)}
-        >
-          {previewOpen
-            ? "Hide preview"
-            : loadModel
-              ? "Show 3D preview"
-              : "Show saved preview"}
-        </button>
         <aside
           className={`setup-inspector${previewOpen ? " preview-open" : ""}`}
         >
@@ -186,7 +242,6 @@ export default function PresetEditor({
               source={appearance?.previews?.[preset.id]?.[version]}
               changed={changed}
               loadImage={loadImage}
-              renderPreview={renderPreview}
               loadModel={loadModel}
               refreshModels={refreshModels}
               modelKind={kind}
@@ -228,7 +283,7 @@ export default function PresetEditor({
                     aria-pressed={category === i}
                     onClick={() => setCategory(i)}
                   >
-                    {i < 3 && (
+                    {i < 3 ? (
                       <PresetPreview
                         source={
                           appearance?.items?.[slots[i][1]]?.[
@@ -240,6 +295,10 @@ export default function PresetEditor({
                         loadImage={loadImage}
                         alt=""
                       />
+                    ) : (
+                      <span className="category-icon" aria-hidden="true">
+                        <DrawingPinFilledIcon />
+                      </span>
                     )}
                     <span>
                       {title}
@@ -252,12 +311,18 @@ export default function PresetEditor({
                           ]?.label || "Saved appearance"}
                         </small>
                       )}
+                      {i === 3 && (
+                        <small>{value.stickersData.length} slots</small>
+                      )}
                     </span>
                   </button>
                 ),
               )}
             </div>
-            <div className="tabs" aria-label="Customization version">
+            <div
+              className="tabs customization-version"
+              aria-label="Customization version"
+            >
               {["modded", "original"].map((view) => (
                 <button
                   key={view}
@@ -305,7 +370,7 @@ export default function PresetEditor({
               {gameRunning && saveToRunningGame
                 ? "You can save this preset through the running game. Group and collection changes still need the game closed."
                 : gameRunning
-                  ? "Install and enable the optional Garage companion to save one preset while the game is running. Other changes need the game closed."
+                  ? "Close the game to save this preset. Quick Setup can be saved while the game runs."
                   : "Connect Steam and resolve the profile status to save changes. You can still preview unsaved selections."}
             </p>
           )}
@@ -345,6 +410,7 @@ export default function PresetEditor({
                 setValue(cosmetic(preset.data));
                 setBaseline(cosmetic(preset.data));
                 setError("");
+                setSaveStatus("");
               }}
             >
               Load game version
@@ -395,7 +461,20 @@ export default function PresetEditor({
           </div>
           <div className="preset-actions">
             <span className="hint" role="status">
-              {busy ? "Saving…" : dirty ? "Unsaved changes" : "No changes"}
+              {busy ? (
+                "Savingâ€¦"
+              ) : dirty ? (
+                <>
+                  <span>Unsaved changes</span>
+                  <small className="save-part-count">
+                    {" "}
+                    Â· {changedParts || 1}{" "}
+                    {changedParts === 1 ? "part" : "parts"}
+                  </small>
+                </>
+              ) : (
+                saveStatus || "No changes"
+              )}
             </span>
             <button
               disabled={busy || !dirty}
@@ -408,32 +487,24 @@ export default function PresetEditor({
               Discard
             </button>
             <button
-              className="primary"
+              className="primary save-action"
+              data-save-action
+              aria-keyshortcuts="Control+S Meta+S"
               disabled={busy || !canSavePreset || !dirty || conflict}
-              onClick={() =>
-                quick
-                  ? (async () => {
-                      setError("");
-                      setSaving(true);
-                      try {
-                        if (
-                          await onSave(value, { id: preset.id, data: baseline })
-                        )
-                          setBaseline(value);
-                      } catch (err) {
-                        setError(err.message);
-                      } finally {
-                        setSaving(false);
-                      }
-                    })()
-                  : act(() => onSave(value, { id: preset.id, data: baseline }))
-              }
+              onClick={save}
             >
+              <CheckIcon aria-hidden="true" />
               {browser
                 ? "Apply to edited save"
                 : saveToRunningGame
                   ? "Save to running game"
                   : "Save changes"}
+              <kbd className="keyboard-save-hint" aria-hidden="true">
+                Ctrl S
+              </kbd>
+              <kbd className="controller-save-hint" aria-hidden="true">
+                Menu
+              </kbd>
             </button>
           </div>
         </div>

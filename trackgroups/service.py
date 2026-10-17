@@ -131,7 +131,6 @@ class Service:
         return {**group, "importState": state}
 
     def state(self):
-        from .live_preview import companion_state
         self.appearance.observe(self.game)
         self.observe_workshop()
         # The public state deliberately excludes save contents and full Steam account IDs.
@@ -160,7 +159,7 @@ class Service:
                 group['unresolvedTracks'] = sum(not t.get('workshopId') for t in workshop)
             from .track_library import library, summary
             from .native_quick import available
-            return {"nativeQuickSaveAvailable":available(self.game), "quickSaving":getattr(self,"quick_saving",False), "version": VERSION, "libraryPreferences":getattr(self,'library_preferences',{'favorites':[],'activity':{}}), "previewCompanion":companion_state(self.game), "update":self.updates.snapshot(),
+            return {"nativeQuickSaveAvailable":available(self.game), "quickSaving":getattr(self,"quick_saving",False), "version": VERSION, "libraryPreferences":getattr(self,'library_preferences',{'favorites':[],'activity':{}}), "update":self.updates.snapshot(),
                 "tracks":library(self.items, self.track_status), "trackSummary":summary(self.items, self.track_status, local), "libraryLoading":self.library_loading,
                 "groups": reviewed, "localGroups": local,
                 "presetState": copy.deepcopy({**self.preset_state, 'profileHash':getattr(self, 'local_hash', ''), 'appearance':self.appearance.snapshot(self.preset_state.get('presets',[]) + self.preset_state.get('quickSetups', []))}), "profileHash": getattr(self, 'local_hash', ''),
@@ -264,92 +263,88 @@ class Service:
         finally:
             with self.lock:self.quick_saving=False
 
-    def save_live_preset(self, body):
-        """Save exactly one unchanged-target preset through the running game's API."""
+    def lobby_state(self):
+        """Read the current game room only; player identities remain server-side."""
+        from .native_quick import available, request
+        if not self.profile: return {'status':'unavailable','message':'Choose a game profile in Settings.','players':[]}
+        if not game_running(): return {'status':'offline','message':'Open the game and join a race lobby to browse player setups.','players':[]}
+        if not available(self.game): return {'status':'unavailable','message':'Lobby browsing needs the supported game build 0.1.4.18 and native bridge.','players':[]}
+        with self.lock:
+            if getattr(self,'quick_saving',False): return {'status':'busy','message':'Finishing the current save…','players':[]}
+            cached=getattr(self,'_lobby_cache',None)
+            if cached and time.monotonic()-cached['time']<2 and cached['profile']==self.profile: return copy.deepcopy(cached['public'])
+        game,profile=self.game,self.profile
+        result=request(game,profile,operation=2)
+        if (self.game,self.profile)!=(game,profile): raise ValueError('The selected profile changed. Refresh the lobby.')
+        players=[];private={}
+        for entry in result.get('players',[]):
+            old=getattr(self,'_lobby_cache',None) or {}
+            key=next((key for key,value in old.get('private',{}).items() if value==entry),uuid.uuid4().hex) if old.get('profile')==self.profile else uuid.uuid4().hex
+            private[key]=entry
+            players.append({k:v for k,v in entry.items() if k!='identity'}|{'key':key,'canCopy':not entry['local']})
+        public={'status':'ready' if result.get('inLobby') else 'not-in-lobby','online':result.get('online',False),'players':players,
+                'message':'' if result.get('inLobby') else 'Join a race lobby in the game. Its current players will appear here.'}
+        with self.lock:self._lobby_cache={'time':time.monotonic(),'profile':self.profile,'private':private,'public':public}
+        return copy.deepcopy(public)
+
+    def copy_lobby_preset(self,body):
+        """Ask the game to allocate/save one copy; never write its live save file."""
         self.supported_game()
-        if not game_running(): raise ValueError("The game is not running. Use the regular save flow instead.")
-        if not isinstance(body, dict): raise ValueError("Invalid live preset request.")
+        if not isinstance(body,dict) or set(body)!={'key'} or not isinstance(body['key'],str): raise ValueError('Choose a player from the current lobby.')
+        if not game_running(): raise ValueError('The game is no longer running. Join a lobby before copying.')
         with self.lock:
-            if getattr(self,"quick_saving",False) or self.job and self.job.get("state") == "running":
-                raise ValueError("Finish the current Steam operation before saving a preset.")
-        if not self.profile or not self.account or not self.cloud_enabled or self.sync_error:
-            raise ValueError("Refresh Steam and resolve the active profile and Cloud status before saving.")
-        from .live_preview import save_preset
-        from .presets import verify_edit_base, cosmetic, view
-        from .profile import SAVE_NAME
-        profile_name = body.get("profile")
-        if profile_name != self.profile or not SAVE_NAME.fullmatch(str(profile_name or "")):
-            raise ValueError("The selected profile changed. Refresh Steam and reopen this preset.")
-        change = body.get("change")
-        if not isinstance(change, dict) or change.get("mode") != "preset" or type(change.get("presetId")) is not int:
-            raise ValueError("Only a single existing preset can be saved while the game is running.")
-        # Validate the on-disk target too. The bridge repeats this check against
-        # the live object, covering changes made in-game since the last disk save.
-        path = PROFILE_DIR / profile_name
-        if not path.is_file() or not path.resolve().is_relative_to(PROFILE_DIR.resolve()):
-            raise ValueError("The selected profile file is unavailable.")
-        before = path.read_bytes()
-        profile = Profile(before)
-        baseline = body.get("baseline")
-        if not isinstance(baseline, dict) or set(baseline) != {"id", "data"}:
-            raise ValueError("Preset baseline is invalid. Reopen the editor and try again.")
-        verify_edit_base(profile, change, baseline)
-        target_data = cosmetic(change.get("data"), strict=True)
-        request = {"operation": "save-preset", "profile": profile_name,
-                   "presetId": change["presetId"], "baseline": baseline,
-                   "data": target_data}
-        stamp = time.strftime("%Y%m%d-%H%M%S")
-        backup_dir = DATA / "backups" / "live-presets"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        backup = backup_dir / f"{stamp}-{uuid.uuid4().hex[:8]}-{profile_name}.bak"
-        shutil.copy2(path, backup)
-        if backup.read_bytes() != before or path.read_bytes() != before:
-            raise ValueError("The profile changed while preparing the live save. Nothing was written.")
-        result = save_preset(request)
-        if not result.get("ready"):
-            # A lost pipe response does not prove that the game's write failed.
-            # Check the file once before telling the user to retry.
-            current = view(Profile(path.read_bytes()))["presets"]
-            if not any(p["id"] == change["presetId"] and p["data"] == target_data for p in current):
-                raise ValueError((result.get("message") or "The game did not confirm this save.") +
-                                 " Refresh the preset before retrying. Safety copy: " + str(backup))
-        deadline = time.monotonic() + 5
-        saved = None
-        while time.monotonic() < deadline:
-            try:
-                current = Profile(path.read_bytes())
-                current_preset = next((p for p in view(current)["presets"] if p["id"] == change["presetId"]), None)
-                if current_preset and current_preset["data"] == target_data:
-                    saved = current
-                    break
-            except (OSError, ValueError, KeyError, TypeError):
-                pass
-            time.sleep(.1)
-        if saved is None:
-            # If the game's local write did not land, request restoration of the
-            # exact previous preset. The full pre-save profile remains backed up.
-            rollback = {**request, "baseline": target_data, "data": baseline["data"]}
-            restored = save_preset(rollback)
-            restored_on_disk = False
-            if restored.get("ready"):
-                until = time.monotonic() + 3
-                while time.monotonic() < until:
-                    try:
-                        current = Profile(path.read_bytes())
-                        p = next((p for p in view(current)["presets"] if p["id"] == change["presetId"]), None)
-                        if p and p["data"] == baseline["data"]:
-                            restored_on_disk = True
-                            break
-                    except (OSError, ValueError, KeyError, TypeError):
-                        pass
-                    time.sleep(.1)
-            if restored_on_disk:
-                raise ValueError(f"The game did not confirm the save; the original preset was restored. Safety copy: {backup}")
-            raise ValueError(f"The game accepted the change but local persistence could not be verified. Do not close the game yet. Safety copy: {backup}")
-        with self.lock:
-            self.load_local()
-        return {"message": "Preset saved by the running game and verified on disk. Steam Cloud sync is handled by the game.",
-                "profile": profile_name, "presetId": change["presetId"], "backup": str(backup)}
+            if getattr(self,'quick_saving',False) or self.job and self.job.get('state')=='running': raise ValueError('Finish the current operation before copying.')
+            if not self.account or not self.profile or not self.cloud_enabled or self.sync_error: raise ValueError('Refresh Steam before copying a lobby preset.')
+            cached=getattr(self,'_lobby_cache',None)
+            if not cached or cached['profile']!=self.profile or time.monotonic()-cached['time']>30: raise ValueError('The lobby selection expired. Refresh its players.')
+            selected=cached['private'].get(body['key'])
+            if not selected or selected['local']: raise ValueError('Choose another player’s setup.')
+            self.quick_saving=True
+        try:
+            from .native_quick import request
+            from .presets import cosmetic,view
+            target=cosmetic(selected['data'],strict=True)
+            path=PROFILE_DIR/self.profile;before=path.read_bytes();previous=view(Profile(before))
+            existing=next((p for p in previous['presets'] if p['data']==target),None)
+            if existing:return {'message':'This exact setup is already in All presets.','presetId':existing['id'],'alreadySaved':True}
+            worker=Worker(self.game)
+            def synced(raw):
+                remote=worker.request('read-save',{'profile':self.profile,'account':self.account},timeout=20)
+                return remote.get('account')==self.account and remote.get('cloudEnabled') and remote.get('saveHash')==digest(raw)
+            if not synced(before) or path.read_bytes()!=before: raise ValueError('Local and Steam saves changed or disagree. Refresh Steam; nothing was copied.')
+            folder=DATA/'backups/lobby';folder.mkdir(parents=True,exist_ok=True)
+            backup=folder/f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}-{self.profile}.bak";backup.write_bytes(before)
+            failure=None
+            try: result=request(self.game,self.profile,selected['id'],selected['player'],target,None,operation=3,identity=selected['identity'])
+            except Exception as exc: failure=exc;result={}
+            identity=result.get('presetId');verified=False;deadline=time.monotonic()+5
+            while time.monotonic()<deadline:
+                try:
+                    raw=path.read_bytes();state=view(Profile(raw))
+                    if failure and identity is None:
+                        recovered=next((p for p in state['presets'] if p['data']==target and p['id'] not in {p['id'] for p in previous['presets']}),None)
+                        if recovered:identity=recovered['id']
+                    created=next((p for p in state['presets'] if p['id']==identity),None)
+                    if created and created['data']==target and all(p in state['presets'] for p in previous['presets']) and state['groups']==previous['groups'] and synced(raw) and path.read_bytes()==raw:
+                        verified=True;break
+                except (OSError,ValueError,KeyError,TypeError): pass
+                time.sleep(.15)
+            if not verified:
+                # Only delete the newly allocated exact copy, never overwrite a
+                # whole running profile or remove any preset/group that preceded it.
+                restored=False
+                try:
+                    current=view(Profile(path.read_bytes()))
+                    if identity not in {p['id'] for p in previous['presets']} and current['groups']==previous['groups'] and any(p['id']==identity and p['data']==target for p in current['presets']):
+                        request(self.game,self.profile,identity,0,target,None,operation=4)
+                        raw=path.read_bytes();restored=view(Profile(raw))['presets']==previous['presets'] and synced(raw)
+                except Exception: pass
+                outcome='The unverified copy was removed.' if restored else 'Refresh All presets before retrying.'
+                raise ValueError(f'The copy could not be verified. {str(failure)+" " if failure else ""}{outcome} Safety copy: {backup}')
+            with self.lock:self.load_local();self._lobby_cache=None
+            return {'message':'Player setup copied to All presets. Local and Steam copies verified.','presetId':identity,'backup':str(backup)}
+        finally:
+            with self.lock:self.quick_saving=False
 
     def progress(self, value):
         with self.lock: self.job.update(value)

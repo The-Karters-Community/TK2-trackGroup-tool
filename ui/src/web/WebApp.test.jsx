@@ -18,6 +18,13 @@ import { presetState } from "../presets/model.js";
 vi.mock("./download.js", () => ({ download: vi.fn() }));
 const filename = "1PTK_PlayerData_v19tpp0_bt0";
 
+function discoverGroups() {
+  fireEvent.click(screen.getByRole("button", { name: "Tracks", exact: true }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Discover groups", exact: true }),
+  );
+}
+
 it("keeps chosen local preset previews when switching navigation pages", async () => {
   const oldCreate = URL.createObjectURL,
     oldRevoke = URL.revokeObjectURL;
@@ -45,9 +52,7 @@ it("keeps chosen local preset previews when switching navigation pages", async (
       target: { files: [{ name: "Icon_PresetID_100_Modded.png", size: 20 }] },
     });
     await screen.findByRole("img", { name: "Setup 1, saved modded preview" });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Discover track groups", exact: true }),
-    );
+    discoverGroups();
     fireEvent.click(
       screen.getByRole("button", { name: "Presets", exact: true }),
     );
@@ -150,14 +155,14 @@ async function openSave() {
     },
   });
   await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "My track groups" })).toBeTruthy(),
+    expect(
+      screen.getByRole("heading", { name: "My track groups" }),
+    ).toBeTruthy(),
   );
   return bytes;
 }
 async function addOfficial() {
-  fireEvent.click(
-    screen.getByRole("button", { name: "Discover track groups", exact: true }),
-  );
+  discoverGroups();
   fireEvent.click(screen.getByRole("button", { name: /Official 16-Track GP/ }));
   fireEvent.click(
     screen.getByRole("button", { name: "Review save update", exact: true }),
@@ -223,28 +228,36 @@ afterEach(() => {
 });
 
 describe("browser edition", () => {
-  it("browses the static catalog, filters and exports with no server", () => {
+  it("browses the static catalog without export controls or a server", () => {
     render(<WebApp />);
-    fireEvent.click(screen.getByRole("button", { name: "Discover track groups", exact: true }));
+    discoverGroups();
     expect(
-      screen.getAllByRole("button", { name: /Download or add/ }),
+      screen.getAllByRole("button", { name: /View collection/ }),
     ).toHaveLength(4);
     fireEvent.change(
       screen.getByRole("textbox", { name: "Search track groups" }),
       { target: { value: "Scuba Driving" } },
     );
     expect(
-      screen.getAllByRole("button", { name: /Download or add/ }),
+      screen.getAllByRole("button", { name: /View collection/ }),
     ).toHaveLength(1);
     fireEvent.click(
       screen.getByRole("button", { name: /Official 16-Track GP/ }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Download group file", exact: true }),
-    );
-    const payload = JSON.parse(vi.mocked(download).mock.calls[0][1]);
-    expect(payload.id).toBe(official.id);
-    expect(payload).not.toHaveProperty("category");
+    expect(
+      screen.queryByRole("button", {
+        name: "Download group file",
+        exact: true,
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Export selected" }),
+    ).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Add to game save" }),
+    ).toBeTruthy();
+    expect(download).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
   it("adds a group in memory, requires a backup and explicit manual-import acknowledgement", async () => {
@@ -316,9 +329,7 @@ describe("browser edition", () => {
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Close group details" }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Discover track groups", exact: true }),
-    );
+    discoverGroups();
     fireEvent.click(
       screen.getByRole("button", { name: /Official 16-Track GP/ }),
     );
@@ -331,9 +342,7 @@ describe("browser edition", () => {
       }),
     );
     fireEvent.click(update);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Discover track groups", exact: true }),
-    );
+    discoverGroups();
     fireEvent.click(
       screen.getByRole("button", { name: /Official 16-Track GP/ }),
     );
@@ -349,7 +358,10 @@ describe("browser edition", () => {
   it("keeps opened group files pending until a destination save is selected", async () => {
     render(<WebApp />);
     fireEvent.click(
-      screen.getByRole("button", { name: "My track groups", exact: true }),
+      screen.getByRole("button", { name: "Tracks", exact: true }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "My groups", exact: true }),
     );
     const text = JSON.stringify(official);
     // Exported files contain only portable fields, not catalog category metadata.

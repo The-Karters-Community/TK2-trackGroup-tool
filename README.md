@@ -2,7 +2,7 @@
 
 A desktop and browser companion for **The Karters 2: Turbo Charged**. Share ordered track groups, organize customization presets, and browse installed cosmetic appearances. The desktop app also manages Workshop track subscriptions.
 
-**Development version: 0.1.1-dev.** The Garage redesign and presets are in current source and the hosted website. **Stable Windows release: 0.1.0**, which predates these features. Supports game build **0.1.4.18**, Steam app **2269950**. Normal features require no BepInEx or mod toolkit. [Independent 3D setups](docs/LIVE-PREVIEW.md) render from installed assets; an optional companion supports game reference frames and live saving. [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
+**Development version: 0.1.1-dev.** The Garage redesign and presets are in current source and the hosted website. **Stable Windows release: 0.1.0**, which predates these features. Supports game build **0.1.4.18**, Steam app **2269950**. No BepInEx or mod toolkit is required. [Independent 3D setups](docs/LIVE-PREVIEW.md) render from installed assets. An optional native bridge supports live Quick Setup saves and [lobby preset copying](docs/LOBBY.md). [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
 
 **Prefer a website?** [Open the browser edition](https://the-karters-community.github.io/TK2-trackGroup-tool/). Browse the Speedrun library, download group files, and prepare save edits locally without an executable or profile upload. Applying them requires manual Workshop subscriptions and file replacement with Steam Cloud disabled for this game. [Browser instructions and limits](docs/WEB.md).
 
@@ -14,7 +14,7 @@ Current development changes are collected in [CHANGELOG.md](CHANGELOG.md) for th
 
 Appearance choices use a compact Character → Skin → Variant rail with search,
 sorting and one star per exact appearance. Favorites shows saved variants directly,
-without navigating through every character and skin. Choose 1–4 complete rows; resizing recalculates how many tiles
+without navigating through every character and skin. Stars stay on each tile, including the selected tile. Choose complete rows, a custom row count or Show all; resizing recalculates how many tiles
 fit each page. Recent/most-picked sorts use Garage activity, while added dates
 come from installation or first discovery. Favorites are saved separately from
 player profiles and shared across All presets and group members.
@@ -22,16 +22,14 @@ player profiles and shared across All presets and group members.
 Quick Setup has six player-slot buttons with separate in-session drafts and
 unsaved indicators. Switching slots or reopening the editor preserves drafts;
 closing Garage discards them. These are saved player slots, not detection or
-assignment of connected controllers. The 3D preview opens collapsed and can be expanded when needed.
+assignment of connected controllers. The 3D preview opens on large screens and starts collapsed in smaller windows. Quick Setup is also editable with the game closed. Saves keep the editor open; the green check action is distinct from olive selection highlights.
 
 
-Home opens first, with the garage artwork and direct shortcuts. Track collections
-are under **Discover track groups** and **My track groups**; **My tracks** lists
-installed tracks. Collection and appearance browsers use page navigation with an
+Home opens first, with the garage artwork and direct shortcuts. The single **Tracks** destination contains **Discover groups**, **My groups**, and **My tracks**. Discover focuses on importing curated groups; exporting stays in My groups. **Lobby** lists current racers and copies a chosen setup to All presets. Collection and appearance browsers use page navigation with an
 adjustable row count for galleries and item count for lists. Preset selections survive page changes, and **Move selected**
 places them anywhere in the library before **Save changes** commits the order.
 
-Select several track groups and choose **Export selected** to save one
+In **Tracks → My groups**, select several track groups and choose **Export selected** to save one
 `.tk2groups.json` pack. Import group file opens either a single group or a pack;
 review each group before importing. Exports contain group metadata and ordered
 track references, not profile data or assets.
@@ -43,7 +41,7 @@ Portable builds contain the runtime and compiled interface. Extract the ZIP into
 
 1. Close the game and open the app. In **Settings**, check the detected game folder and profile. If multiple profiles exist, explicitly select the correct one.
 2. Steam connects automatically at launch; use **Refresh Steam** to recheck. The app checks the active account, Workshop metadata, and local/Steam save agreement. Resolve any conflict before continuing.
-3. In **Browse groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. A focused review dialog opens over the library, showing numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Keep the game closed until completion.
+3. In **Tracks → Discover groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. A focused review dialog opens over the library, showing numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Keep the game closed until completion.
 4. Missing Workshop items are subscribed and downloaded automatically. Per-track progress and cancellation stay in the review page; no files are downloaded before confirmation. Completed subscriptions remain if importing fails or is cancelled; the app never unsubscribes content. When saving finishes, **View in My groups** opens the saved collection.
 5. Start the game and open Track Groups. Importing the same group again is a no-op; an update preserves its position. A different group ID with the same name becomes a numbered copy.
 
@@ -68,7 +66,7 @@ selections and 20 sticker slots are included, without player data or mod assets.
 - Switch between pictured **Gallery** and **List** views. Select setups directly
   on their cards/rows; there is no separate ID checkbox list. Drag grips across
   rows or gallery cells, then **Save changes** to commit the new order.
-- Open a setup to see its saved in-game preview. **Modded** opens by default;
+- Open a setup to customize its local 3D preview or view its last saved game image. **Modded** opens by default;
   **Original** shows the setup visible to players without the mods. Desktop
   choices use installed character/outfit/variant names and exact thumbnails.
   Visual Character/Skin/Variant grids and Vehicle/Wheels/Sticker tabs replace long
@@ -89,13 +87,11 @@ Appearance metadata loads in the background from installed game and mod bundles
 and is cached locally. **Full setup** assembles the installed character, kart,
 wheels and stickers in Three.js, with skeleton animation, orbit and zoom.
 Selection changes rebuild this local scene without a running game or BepInEx.
-**Selected part** isolates an appearance. **Game reference** optionally requests
-a Unity-rendered comparison image. The optional companion can also save one
-existing preset through the running game's own
-save method after Steam/profile verification. **Quick Setup** can now save through
-a separate, version-pinned native bridge, without BepInEx. It backs up, validates
-the exact live slot, asks the game to save, verifies local and Steam copies and
-refreshes an open Quick Setup editor. The bridge temporarily runs authored code
+**Selected part** isolates an appearance. **Saved image** displays the last real
+game-generated icon and refreshes when the game writes a new PNG. Quick Setup
+can save through the optional version-pinned native bridge without BepInEx. It
+backs up, validates the exact live slot, asks the game to save, verifies local
+and Steam copies and refreshes an open Quick Setup editor. The bridge temporarily runs authored code
 inside the game; it installs no plugin or game files. Group/order/import changes
 still need the game closed. Dragging can prepare a draft while playing. Pictures load as you scroll. In the browser edition, use
 **Connect game folder** and choose `TheKarters2` to load the save and pictures together.
@@ -184,7 +180,7 @@ To make a future release compatible with the updater:
 | `trackgroups/catalog.py`, `catalog/` | Reviewed library and cache |
 | `trackgroups/dependencies.py` | Public track identity cache, retained after unsubscribe |
 | `trackgroups/updates.py`, `tools/apply_update.ps1` | Verified portable release updates and rollback |
-| `ui/src/` | React pages, shared components, one stylesheet |
+| `ui/src/` | React pages, shared components, scoped styles |
 | `ui/src/web/`, `.github/workflows/pages.yml` | Browser-local save editor and GitHub Pages deployment |
 | `trackgroups/presets.py`, `preset_assets.py`, `ui/src/presets/` | Preset format, local package inventory and shared desktop/browser management |
 | `tests/`, `tools/`, `.github/workflows/` | Checks, builds, catalog validation |
@@ -209,9 +205,9 @@ slots (up to six local players), using their actual profile IDs for saved icons.
 It does not assume that the supplied example ID `338088` exists on another PC.
 An older single `QuickCreationPreset` field is used only when the player-slot
 array is absent. Editing a slot preserves the legacy field and other players;
-**Save as new preset** creates a separate ordinary preset. Viewing is independent
-of the running game. Quick Setup writes currently require the game closed;
-the optional companion's live saving applies to ordinary saved presets.
+**Save as new preset** creates a separate ordinary preset. Viewing and preparation work with the game closed. Quick Setup saves use the
+normal backed-up transaction offline, or the optional native bridge while the
+game runs. Ordinary presets and structural changes require the game closed.
 
 The desktop animation showcase groups installed character motions, lazily decodes
 the chosen clip, and offers pause, scrub and playback speed controls. Separate

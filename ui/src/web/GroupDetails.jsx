@@ -45,14 +45,16 @@ export default function GroupDetails({
             {hasProfile ? "Review save update" : "Add to game save"}
           </button>
         )}
-        <button
-          className="web-wide"
-          disabled={group.unresolvedTracks > 0}
-          onClick={() => onExport(group)}
-        >
-          <DownloadIcon />
-          Download group file
-        </button>
+        {local && (
+          <button
+            className="web-wide"
+            disabled={group.unresolvedTracks > 0}
+            onClick={() => onExport(group)}
+          >
+            <DownloadIcon />
+            Download group file
+          </button>
+        )}
         {group.unresolvedTracks > 0 && (
           <p className="notice">
             Some Workshop IDs aren't in this site's catalog. Open the original

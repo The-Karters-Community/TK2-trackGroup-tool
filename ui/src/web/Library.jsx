@@ -29,6 +29,7 @@ export default function Library({
     `${local}:${category}:${query}`,
     250,
     16,
+    local ? "web-my-track-groups" : "web-discover-track-groups",
   );
   const paging = gallery ? gridPaging : listPaging;
   return (
@@ -38,7 +39,7 @@ export default function Library({
       style={{ "--collection-columns": gridPaging.columns }}
     >
       <div className="library-heading">
-        <h1>{local ? "My track groups" : "Discover track groups"}</h1>
+        {local && <h1>My track groups</h1>}
         {!local && (
           <div className="category-tabs" aria-label="Group category">
             {["speedrun", "community"].map((id) => (
@@ -119,46 +120,49 @@ export default function Library({
           )}
         </div>
       )}
-      <div className="selection-toolbar">
-        <button
-          disabled={!paging.items.length}
-          onClick={() =>
-            setChecked([
-              ...new Set([...checked, ...paging.items.map((g) => g.id)]),
-            ])
-          }
-        >
-          Select this page
-        </button>
-        {checked.length > 0 && (
-          <>
-            <span>{checked.length} selected</span>
-            <button onClick={() => setChecked([])}>Clear</button>
-          </>
-        )}
-        <button
-          disabled={!checked.length}
-          onClick={() =>
-            onExportMany(allGroups.filter((g) => checked.includes(g.id)))
-          }
-        >
-          Export selected{checked.length ? ` · ${checked.length}` : ""}
-        </button>
-      </div>
+      {local && (
+        <div className="selection-toolbar">
+          <button
+            disabled={!paging.items.length}
+            onClick={() =>
+              setChecked([
+                ...new Set([...checked, ...paging.items.map((g) => g.id)]),
+              ])
+            }
+          >
+            Select this page
+          </button>
+          {checked.length > 0 && (
+            <>
+              <span>{checked.length} selected</span>
+              <button onClick={() => setChecked([])}>Clear</button>
+            </>
+          )}
+          <button
+            disabled={!checked.length}
+            onClick={() =>
+              onExportMany(allGroups.filter((g) => checked.includes(g.id)))
+            }
+          >
+            Export selected{checked.length ? ` · ${checked.length}` : ""}
+          </button>
+        </div>
+      )}
       <GroupList
         checked={checked}
-        onCheck={(id) =>
-          setChecked(
-            checked.includes(id)
-              ? checked.filter((v) => v !== id)
-              : [...checked, id],
-          )
+        onCheck={
+          local
+            ? (id) =>
+                setChecked(
+                  checked.includes(id)
+                    ? checked.filter((v) => v !== id)
+                    : [...checked, id],
+                )
+            : undefined
         }
         groups={paging.items.map((g) => ({
           ...g,
-          statusText: local
-            ? "In selected save"
-            : "Download or add to your save",
+          statusText: local ? "In selected save" : "View collection",
         }))}
         selected={selected}
         gallery={gallery}
