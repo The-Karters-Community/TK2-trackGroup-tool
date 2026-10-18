@@ -1,9 +1,8 @@
 # Changes
 
-## Unreleased — 0.1.1-dev
+## 0.1.1 — 2026-10-18
 
-Highlights since the stable **0.1.0** release. This section remains a draft until
-a release is requested; development builds do not advance the release version.
+Highlights since 0.1.0.
 
 ### Group editing and responsive layout
 
@@ -189,5 +188,4 @@ a release is requested; development builds do not advance the release version.
   membership and ordering semantics.
 
 Verification evidence and implementation boundaries are recorded in `MODLOG.md`
-and the relevant documents under `docs/`. Nothing in this section means that a
-new stable release or updated hosted deployment has been published yet.
+and the relevant documents under `docs/`.

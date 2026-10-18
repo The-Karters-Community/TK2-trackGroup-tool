@@ -5,9 +5,7 @@ presets and organize tracks for your next race.
 
 [Download for Windows](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest) · [Open browser edition](https://the-karters-community.github.io/TK2-trackGroup-tool/) · [What’s new](CHANGELOG.md)
 
-> **In development: 0.1.1-dev.** Screenshots show the current development app.
-> The latest stable Windows release, **0.1.0**, contains track-group tools only.
-> Presets, Quick Setup and Lobby will arrive in the next desktop release.
+> **Version 0.1.1** brings presets, Quick Setup, and Lobby to the Windows app.
 
 ![Bobby’s Garage home menu](docs/images/garage-home.jpg)
 
