@@ -6,7 +6,12 @@ it("trims only transparent snapshot margins without cutting visible edges", () =
   const pixels = new Uint8ClampedArray(8 * 6 * 4);
   pixels[(1 * 8 + 2) * 4 + 3] = 255;
   pixels[(4 * 8 + 7) * 4 + 3] = 9;
-  expect(alphaBounds(pixels, 8, 6)).toEqual({ left: 2, top: 1, width: 6, height: 4 });
+  expect(alphaBounds(pixels, 8, 6)).toEqual({
+    left: 2,
+    top: 1,
+    width: 6,
+    height: 4,
+  });
   expect(alphaBounds(new Uint8ClampedArray(8 * 6 * 4), 8, 6)).toBeNull();
 });
 

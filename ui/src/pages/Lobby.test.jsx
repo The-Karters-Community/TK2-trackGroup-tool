@@ -216,7 +216,11 @@ describe("Lobby", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Show interactive 3D" }),
     );
-    const viewer = await screen.findByTestId("lobby-model", {}, { timeout: 4000 });
+    const viewer = await screen.findByTestId(
+      "lobby-model",
+      {},
+      { timeout: 4000 },
+    );
     expect(viewer.getAttribute("data-character")).toBe("2");
     expect(modelLifecycle.mounts).toBe(1);
     fireEvent.click(screen.getByRole("button", { name: "Refresh players" }));
