@@ -20,7 +20,12 @@ def run(*args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
+    parser.add_argument('--output-folder', type=Path, help='Alternative destination beneath artifacts; leaves an open build untouched.')
+    parser.add_argument('--full-decoders', action='store_true', help='Include optional AVIF/font and build-time dependencies for comparison.')
+    args = parser.parse_args()
+    output = (args.output_folder or ROOT / 'artifacts' / f'TK2-Track-Groups-{VERSION}-win-x64').resolve()
+    if output == ROOT / 'artifacts' or not output.is_relative_to((ROOT / 'artifacts').resolve()):
+        raise SystemExit('Output must be a child folder beneath artifacts.')
     if os.name != 'nt': raise SystemExit('Portable builds require Windows x64.')
     run(sys.executable, 'tools/build_native_bridge.py')
     run('npm.cmd', 'ci')
@@ -30,7 +35,14 @@ if __name__ == '__main__':
     runtime = ROOT / '.venv/Scripts/python.exe'
     if not runtime.exists(): run(sys.executable, '-m', 'venv', str(ROOT / '.venv'))
     run(str(runtime), '-m', 'pip', 'install', '-r', 'requirements.txt')
-    output = ROOT / 'artifacts' / f'TK2-Track-Groups-{VERSION}-win-x64'
+    # Unity textures use the native texture decoder and PNG output. Keep Pillow's
+    # common image formats and ImageDraw, but omit unused AVIF and font binaries.
+    # CFFI's prebuilt ABI interface needs neither a compiler nor setuptools.
+    excludes = [] if args.full_decoders else [
+        'PIL.AvifImagePlugin', 'PIL._avif', 'PIL._imagingft',
+        'setuptools', 'pydoc_data', '_pyrepl',
+    ]
+    optional_flags = [flag for module in excludes for flag in ('--exclude-module', module)]
     run(str(runtime), '-m', 'PyInstaller', '--noconfirm', '--clean', '--onedir', '--windowed',
         '--optimize', '2',
         '--name', 'TK2 Track Groups', '--contents-directory', '.',
@@ -44,10 +56,11 @@ if __name__ == '__main__':
         '--collect-data', 'archspec',
         '--collect-binaries', 'fmod_toolkit',
         '--exclude-module', 'PyQt5', '--exclude-module', 'PyQt6', '--exclude-module', 'PySide6',
-        '--exclude-module', 'tkinter', 'launch.py')
+        '--exclude-module', 'tkinter', *optional_flags, 'launch.py')
     if output.exists():
         if not output.resolve().is_relative_to((ROOT / 'artifacts').resolve()): raise SystemExit('Unsafe output.')
         shutil.rmtree(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(ROOT / 'artifacts/build/TK2 Track Groups'), output)
     for required in ('UnityPy/resources/lzma.tpk', 'archspec/json/cpu/microarchitectures.json',
                      'fmod_toolkit/libfmod/Windows/x64/fmod.dll'):

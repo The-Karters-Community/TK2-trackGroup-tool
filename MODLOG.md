@@ -410,3 +410,23 @@
   Windows-only-PATH startup, six Quick slots, official standing clip, Broly/Victory,
   real eight-player native read and Steam read passed. Profile unchanged; clean
   shutdown and portable relocation/deletion checks passed. ZIP remains 29.3 MiB.
+
+
+## 2026-10-18 - Commit backlog and audit bridge compatibility/package size
+
+- Commit 3512bb5 records live-library/lobby/preview fixes; 9a22e79 records the
+  separately supplied artwork update. No push or release requested.
+- Document exact-hash native gating plus the broader desktop version gate for
+  Steam refresh and writes. Dynamic IL2CPP lookup still uses pointers/private
+  contracts and does not guarantee any-build compatibility. Gates retained.
+- Measure ZIP contents, then exclude unused AVIF/native-font/build/help modules.
+  Lean Deflate ZIP: 29.33 -> 21.94 MiB, approximately 25% smaller. Existing Garage
+  stays open untouched. No new production dependencies or downloaded runtimes.
+- Frozen Windows-only-PATH check initialized Edge/.NET/TLS, decoded fresh official
+  and Workshop models/animations, vehicle/wheels, and round-tripped PNG/JPEG/WebP.
+  Frozen Steam read preserved profile bytes and local/Cloud agreement. Manifest,
+  exclusions and 161 frontend/146 Python tests passed. Game had been closed before
+  a new native request, so no new live test is claimed for this package. Rebuilt
+  native .text section equals the previously runtime-tested bridge.
+- Solid 7z experiment measured 17.72 MiB; default remains ordinary ZIP. No 10 MB
+  full-feature build demonstrated; architecture changes would need separate proof.

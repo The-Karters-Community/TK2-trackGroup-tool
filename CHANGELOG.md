@@ -7,6 +7,12 @@ a release is requested; development builds do not advance the release version.
 
 ### Live saving and lobby refinement
 
+- Reduce the development portable ZIP from 29.33 to approximately 21.9 MiB by
+  excluding unused AVIF/font binaries and build/help modules. Preserve PNG/JPEG/
+  WebP, native textures/animations, TLS and the Edge host; add a read-only frozen
+  dependency check and an alternate build-output folder. See the
+  [package audit](docs/PORTABLE-SIZE-AUDIT.md).
+
 - Keep save notifications above native modals. Enlarge moves the existing 3D canvas
   into a larger dialog without another renderer or model reload.
 - Refresh game PNGs independently of profile writes, bypass stale browser caches,

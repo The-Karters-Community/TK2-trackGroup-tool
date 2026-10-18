@@ -8,6 +8,32 @@ investigating an optional integration without BepInEx on 2026-10-16.
 
 ## Verified game behavior
 
+### Compatibility boundaries
+
+The bridge is authored C++ code loaded temporarily into the running game through
+a Windows thread-message hook. It uses native pointers and exported IL2CPP APIs
+to resolve types, fields and methods by name, then calls game-owned behavior on
+the game thread. It does not require BepInEx or a persistent installed plugin.
+Field access is resolved dynamically, but assumptions remain: x64 IL2CPP array
+headers, field/value types, method overloads, enum values and game behavior.
+This is not a supported public game API or an any-build compatibility guarantee.
+
+`native_quick.available` allows only verified GameAssembly SHA-256 values. A
+changed executable hash disables native access until it is checked. Separately,
+`Service.supported_game` gates desktop Steam refresh and save operations by the
+declared game version, including some operations that do not require the bridge.
+That broader gate means a new patch can restrict more than live integration.
+Independent rendering does not call the bridge, but still depends on readable
+installed asset formats. Saved-image viewing does not need a running game.
+
+The quoted 0.1.4.24 compatibility work compared declarations, adapted changed
+runtime behavior, added the verified build identity and exercised real reads,
+saves and restoration. Dynamic lookup reduces address/offset maintenance; it
+does not prove unchanged semantics on an untested patch. A future improvement is
+per-feature structural validation with read-only access on unfamiliar builds,
+while preserving separate validation for writes. The current gates remain in
+place; this size audit does not silently remove them.
+
 These observations come from the installed IL2CPP build 0.1.4.18 and local Ghidra
 pseudocode, not recovered original C#.
 
