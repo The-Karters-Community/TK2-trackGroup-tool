@@ -124,7 +124,7 @@
     gap: 50px;
   }
 }
-@media (max-width: 1200px) {
+@media (max-width: 950px) {
   .garage-main-menu.garage-home {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;

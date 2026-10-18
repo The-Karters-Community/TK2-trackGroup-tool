@@ -39,6 +39,6 @@ an expandable link panel. Escape and destination selection close it. Keep every
 link reachable by keyboard/controller. Desktop windows can shrink to 480px.
 Lobby cards grow after four columns; additional players wrap to another row.
 
-Home keeps its artwork beside the menu on wide screens and stacks at 1200px.
+Home keeps its artwork beside the menu on wide screens and stacks at 950px.
 In the stacked layout, artwork and menu share a 640px maximum width; artwork
 keeps its natural aspect ratio instead of shrinking into a fixed-height box.

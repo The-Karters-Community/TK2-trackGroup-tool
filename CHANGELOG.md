@@ -14,7 +14,7 @@ a release is requested; development builds do not advance the release version.
 - Cap the lobby gallery at four columns and add a current lobby README screenshot.
 - Open customization previews at medium/default window sizes. Add compact
   navigation below 900px and allow Windows resizing down to 480px.
-- Keep Home artwork prominent with a single-column layout below 1200px,
+- Keep Home artwork prominent with a single-column layout below 950px,
   natural image proportions, and a shared width for artwork and menu.
 - Update CTR99 SR.com to the supplied 18-track racing order (catalog revision 2).
 
