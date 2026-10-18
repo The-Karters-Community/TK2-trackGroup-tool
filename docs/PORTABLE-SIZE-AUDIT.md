@@ -68,3 +68,21 @@ separately downloaded decoder could reduce the initial download further, but
 would require separate implementation and validation. These are architectural
 options, not measured size promises. ZIP size also does not measure CPU/GPU use
 or runtime memory; those need independent profiling.
+
+
+## Runtime-compatible build follow-up
+
+The subsequent runtime-compatible portable remains approximately **21.94 MiB**.
+It removes patch/hash restrictions without adding a dependency. The relocated
+frozen executable successfully initialized Edge/.NET/TLS, decoded fresh official
+and Workshop character models/animations plus vehicle/wheels, and round-tripped
+PNG/JPEG/WebP with a Windows-only PATH. Its actual native Quick Setup and main-menu
+lobby reads passed; its Steam read matched the unchanged local profile. ZIP and
+manifest hashes, absence of game files and relocation cleanup passed.
+
+Source/live tests also saved and restored a collection reorder and a Quick Setup
+appearance-mode switch with local/Steam verification. Full checks passed with
+151 Python and 163 frontend tests plus the native contract harness. A separate
+full startup check was skipped because a user Garage session was open; that
+session was left untouched. This supersedes the earlier lack of a fresh native
+read for the first lean package.

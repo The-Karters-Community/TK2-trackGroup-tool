@@ -1,6 +1,6 @@
 # Presets and preset groups
 
-Development support targets game **0.1.4.18** and **0.1.4.24**. Presets are the first length-prefixed
+Save contents are schema-validated without patch-version restrictions; real-game tests cover **0.1.4.18** and **0.1.4.24**. Presets are the first length-prefixed
 JSON record; custom preset groups are `Type=1`, `SubType=4` in the third record.
 The separator record, track groups, built-in groups and unrelated profile fields
 are preserved. Original and modded character, vehicle, wheel selections and all

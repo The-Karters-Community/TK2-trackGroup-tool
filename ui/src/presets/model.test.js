@@ -12,6 +12,14 @@ import {
 import { fixture, groupId } from "./test-fixture.js";
 const open = (bytes) => readProfile(bytes, "1PTK_PlayerData_v19tpp0_bt0");
 describe("Portable presets", () => {
+  it("accepts patch labels while retaining cosmetic schema validation", () => {
+    const pack = exportPresets(presetState(open(fixture())), [100], []);
+    for (const gameBuild of ["0.1.4.18", "future-compatible-build"]) {
+      expect(() => validatePack({ ...pack, gameBuild })).not.toThrow();
+    }
+    pack.presets[0].data.iVehicleMaterialID = "invalid";
+    expect(() => validatePack(pack)).toThrow();
+  });
   it("keeps distinct identical presets distinct and repeated imports unchanged", () => {
     const p = open(fixture());
     const q = open(applyPresetChange(p, { mode: "duplicate", presetId: 100 }));

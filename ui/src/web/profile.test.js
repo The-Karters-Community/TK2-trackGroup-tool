@@ -54,6 +54,17 @@ function supported() {
 }
 
 describe("browser save codec", () => {
+  it("accepts numeric profile generations without accepting backup paths", () => {
+    const name = "1PTK_PlayerData_v999tpp2_bt3";
+    expect(readProfile(fixture(), name).original).toEqual(fixture());
+    for (const invalid of [
+      name + ".bak",
+      "../" + name,
+      "1PTK_PlayerData_future",
+    ]) {
+      expect(() => readProfile(fixture(), invalid)).toThrow();
+    }
+  });
   it("round trips unchanged bytes and preserves numeric tokens", () => {
     const bytes = fixture();
     const p = readProfile(bytes);

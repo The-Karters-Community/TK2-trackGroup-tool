@@ -321,6 +321,11 @@ export default function Lobby({
           : room.message ||
             `${room.players.length} players · ${room.online ? "Online" : "Local"} ${room.inRace ? "race" : "lobby"} · Updates automatically`}
       </p>
+      {room.warning && (
+        <p className="hint" role="status">
+          {room.warning}
+        </p>
+      )}
       {room.settings && (
         <details className="lobby-game-settings">
           <summary>Game download settings</summary>

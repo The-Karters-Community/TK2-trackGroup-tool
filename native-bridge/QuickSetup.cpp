@@ -1,5 +1,5 @@
 // MIT. Authored bridge; no game or loader code is redistributed.
-// One bounded request on the verified game's own window/Unity thread.
+// One bounded, runtime-resolved request on the game's own window/Unity thread.
 #define WIN32_LEAN_AND_MEAN
 #include <cstdint>
 #include <cstdio>
@@ -7,6 +7,7 @@
 #include <cwchar>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 #include <windows.h>
@@ -49,14 +50,14 @@ static const char *stickers[] = {"iStickerMaterialID", "iStickerMaterialID_Setti
 template <typename T> T api(const char *n) {
   auto f = GetProcAddress(game, n);
   if (!f)
-    throw std::runtime_error(n);
+    throw std::runtime_error(std::string("Missing native runtime API: ") + n);
   return reinterpret_cast<T>(f);
 }
 static void *type(const char *n) {
   auto c =
       api<void *(*)(void *, const char *, const char *)>("il2cpp_class_from_name")(image, "", n);
   if (!c)
-    throw std::runtime_error(n);
+    throw std::runtime_error(std::string("Missing game type: ") + n);
   return c;
 }
 static void *klass(void *o) {
@@ -67,31 +68,108 @@ static void *klass(void *o) {
 static void *field(void *c, const char *n) {
   auto f = api<void *(*)(void *, const char *)>("il2cpp_class_get_field_from_name")(c, n);
   if (!f)
-    throw std::runtime_error(n);
+    throw std::runtime_error(std::string("Missing game field: ") + n);
+  return f;
+}
+
+// Validate actual metadata before native value access. No patch identity,
+// generated field offset or assumed enum storage is used for these contracts.
+enum class ValueKind { Reference, Boolean, Byte, Int32, Int64 };
+template<typename T> static ValueKind valueKind() {
+  static_assert(std::is_same<T,void*>::value || std::is_same<T,bool>::value ||
+                std::is_same<T,uint8_t>::value || std::is_same<T,int32_t>::value ||
+                std::is_same<T,int64_t>::value, "Unsupported native value contract");
+  if (std::is_same<T,void*>::value) return ValueKind::Reference;
+  if (std::is_same<T,bool>::value) return ValueKind::Boolean;
+  if (std::is_same<T,uint8_t>::value) return ValueKind::Byte;
+  return sizeof(T)==4 ? ValueKind::Int32 : ValueKind::Int64;
+}
+static bool matchesType(void* t, ValueKind kind) {
+  if (!t || api<bool(*)(void*)>("il2cpp_type_is_byref")(t)) return false;
+  auto c=api<void*(*)(void*)>("il2cpp_class_from_type")(t);
+  if (!c) return false;
+  if (kind==ValueKind::Reference)
+    return !api<bool(*)(void*)>("il2cpp_class_is_valuetype")(c);
+  if (api<bool(*)(void*)>("il2cpp_class_is_enum")(c))
+    t=api<void*(*)(void*)>("il2cpp_class_enum_basetype")(c);
+  auto code=api<int(*)(void*)>("il2cpp_type_get_type")(t);
+  return kind==ValueKind::Boolean ? code==2 : kind==ValueKind::Byte ? code==4 || code==5 :
+         kind==ValueKind::Int32 ? code==8 || code==9 : code==10 || code==11;
+}
+template<typename T> static void* checkedField(void* c,const char* n,bool isStatic=false) {
+  auto f=field(c,n);
+  auto flags=api<int(*)(void*)>("il2cpp_field_get_flags")(f);
+  if (bool(flags&0x10)!=isStatic ||
+      !matchesType(api<void*(*)(void*)>("il2cpp_field_get_type")(f),valueKind<T>()))
+    throw std::runtime_error(std::string("Game field contract changed: ")+n);
   return f;
 }
 template <typename T> T read(void *o, const char *n) {
   T v{};
-  api<void (*)(void *, void *, void *)>("il2cpp_field_get_value")(o, field(klass(o), n), &v);
+  api<void (*)(void *, void *, void *)>("il2cpp_field_get_value")(o, checkedField<T>(klass(o), n), &v);
   return v;
 }
 template <typename T> T staticRead(void *c, const char *n) {
   T v{};
-  api<void (*)(void *, void *)>("il2cpp_field_static_get_value")(field(c, n), &v);
+  api<void (*)(void *, void *)>("il2cpp_field_static_get_value")(checkedField<T>(c, n, true), &v);
   return v;
 }
-template <typename T> void write(void *o, const char *n, T v) {
-  api<void (*)(void *, void *, void *)>("il2cpp_field_set_value")(o, field(klass(o), n), &v);
+static int32_t fieldEnum(void* c,const char* fieldName,const char* member) {
+  auto t=api<void*(*)(void*)>("il2cpp_field_get_type")(field(c,fieldName));
+  auto enumeration=api<void*(*)(void*)>("il2cpp_class_from_type")(t);
+  if(!enumeration || !api<bool(*)(void*)>("il2cpp_class_is_enum")(enumeration))
+    throw std::runtime_error(std::string("Game enum contract changed: ")+fieldName);
+  return staticRead<int32_t>(enumeration,member);
 }
-template<> void write<void*>(void* o,const char* n,void* v){api<void(*)(void*,void*,void*)>("il2cpp_field_set_value_object")(o,field(klass(o),n),v);}
-static void *invoke(void *c, void *o, const char *n, int count = 0, void **args = nullptr) {
-  auto m =
-      api<void *(*)(void *, const char *, int)>("il2cpp_class_get_method_from_name")(c, n, count);
-  if (!m)
-    throw std::runtime_error(n);
+template <typename T> void write(void *o, const char *n, T v) {
+  api<void (*)(void *, void *, void *)>("il2cpp_field_set_value")(o, checkedField<T>(klass(o), n), &v);
+}
+template<> void write<void*>(void* o,const char* n,void* v){
+  auto f=checkedField<void*>(klass(o),n);
+  auto target=api<void*(*)(void*)>("il2cpp_class_from_type")(api<void*(*)(void*)>("il2cpp_field_get_type")(f));
+  if(v && !api<bool(*)(void*,void*)>("il2cpp_class_is_assignable_from")(target,klass(v)))
+    throw std::runtime_error(std::string("Game reference assignment changed: ")+n);
+  api<void(*)(void*,void*,void*)>("il2cpp_field_set_value_object")(o,f,v);
+}
+struct RuntimeArg {
+  void* data; ValueKind kind;
+  RuntimeArg(void* value):data(value),kind(ValueKind::Reference){}
+  RuntimeArg(std::nullptr_t):data(nullptr),kind(ValueKind::Reference){}
+  template<typename T> RuntimeArg(T* value):data(value),kind(valueKind<T>()){}
+};
+static void *invoke(void *c, void *o, const char *n, int count = 0, RuntimeArg *args = nullptr) {
+  void* m=nullptr;
+  // Resolve overloads using the current parameter types and actual reference
+  // assignability. A new unrelated overload cannot silently change dispatch.
+  for(auto current=c;current && !m;current=api<void*(*)(void*)>("il2cpp_class_get_parent")(current)) {
+    void* iterator=nullptr; int best=-1; bool ambiguous=false;
+    while(auto candidate=api<void*(*)(void*,void**)>("il2cpp_class_get_methods")(current,&iterator)) {
+      if(strcmp(api<const char*(*)(void*)>("il2cpp_method_get_name")(candidate),n) ||
+         api<uint32_t(*)(void*)>("il2cpp_method_get_param_count")(candidate)!=count ||
+         api<bool(*)(void*)>("il2cpp_method_is_generic")(candidate) ||
+         api<bool(*)(void*)>("il2cpp_method_is_instance")(candidate)!=bool(o)) continue;
+      int score=0; bool match=true;
+      for(int i=0;i<count && match;i++) {
+        auto parameter=api<void*(*)(void*,uint32_t)>("il2cpp_method_get_param")(candidate,i);
+        match=matchesType(parameter,args[i].kind);
+        if(match && args[i].kind==ValueKind::Reference && args[i].data) {
+          auto expected=api<void*(*)(void*)>("il2cpp_class_from_type")(parameter);
+          auto actual=klass(args[i].data);
+          match=api<bool(*)(void*,void*)>("il2cpp_class_is_assignable_from")(expected,actual);
+          score+=expected==actual?8:1;
+        } else if(match) score+=args[i].kind==ValueKind::Reference?0:4;
+      }
+      if(match && score>best){m=candidate;best=score;ambiguous=false;}
+      else if(match && score==best)ambiguous=true;
+    }
+    if(ambiguous)throw std::runtime_error(std::string("Game method overload is ambiguous: ")+n);
+  }
+  if (!m) throw std::runtime_error(std::string("Game method contract is unavailable: ")+n);
+  std::vector<void*> values;
+  for(int i=0;i<count;i++)values.push_back(args[i].data);
   void *ex = nullptr;
   auto result =
-      api<void *(*)(void *, void *, void **, void **)>("il2cpp_runtime_invoke")(m, o, args, &ex);
+      api<void *(*)(void *, void *, void **, void **)>("il2cpp_runtime_invoke")(m, o, values.empty()?nullptr:values.data(), &ex);
   if (ex)
     throw std::runtime_error("The game could not complete this operation. Return to its menu and "
                              "refresh Garage before retrying.");
@@ -118,7 +196,7 @@ static void *findUnityObject(void *object, void *target) {
   }
   if (!method)
     throw std::runtime_error("The lobby component lookup is unavailable in this game build.");
-  void *args[] = {target};
+  void* args[] = {target};
   void *exception = nullptr;
   auto result = api<void *(*)(void *, void *, void **, void **)>("il2cpp_runtime_invoke")(
       method, nullptr, args, &exception);
@@ -130,17 +208,40 @@ static void *findUnityObject(void *object, void *target) {
 template <typename T> T unbox(void *v) {
   if (!v)
     throw std::runtime_error("Missing game result");
+  auto c=klass(v);
+  if(!api<bool(*)(void*)>("il2cpp_class_is_valuetype")(c) ||
+     !matchesType(api<void*(*)(void*)>("il2cpp_class_get_type")(c),valueKind<T>()))
+    throw std::runtime_error("The game returned a different native value type.");
   return *static_cast<T *>(api<void *(*)(void *)>("il2cpp_object_unbox")(v));
 }
 static bool unityAlive(void* value){
  if(!value)return false;
  auto object=api<void*(*)(void*,const char*,const char*)>("il2cpp_class_from_name")(unityImage,"UnityEngine","Object");
- void* args[]={value};return unbox<bool>(invoke(object,nullptr,"op_Implicit",1,args));
+ RuntimeArg args[]={value};return unbox<bool>(invoke(object,nullptr,"op_Implicit",1,args));
+}
+static bool enumIs(void* value,const char* member) {
+  return unbox<int32_t>(value)==staticRead<int32_t>(klass(value),member);
+}
+static void featureWarning(Request* r,const char* feature,const std::exception& error) {
+  auto message=std::string(feature)+": "+error.what();
+  auto length=MultiByteToWideChar(CP_UTF8,0,message.c_str(),static_cast<int>(message.size()),r->warning,255);
+  if(length>0)r->warning[length]=0;
+}
+template<typename T> static T* arrayData(void* a) {
+  auto c=klass(a);
+  auto element=api<void*(*)(void*)>("il2cpp_class_get_element_class")(c);
+  auto size=api<int32_t(*)(void*)>("il2cpp_array_element_size")(c);
+  auto header=api<uint32_t(*)()>("il2cpp_array_object_header_size")();
+  if(!element || api<int(*)(void*)>("il2cpp_class_get_rank")(c)!=1 || size!=sizeof(T) ||
+     header<sizeof(void*)*2 || header>4096 ||
+     !matchesType(api<void*(*)(void*)>("il2cpp_class_get_type")(element),valueKind<T>()))
+    throw std::runtime_error("The game array element layout changed.");
+  return reinterpret_cast<T*>(static_cast<char*>(a)+header);
 }
 static void *at(void *a, uint32_t i) {
   if (!a || api<uintptr_t (*)(void *)>("il2cpp_array_length")(a) <= i)
     throw std::runtime_error("Game slot unavailable");
-  return reinterpret_cast<void **>(static_cast<char *>(a) + 32)[i];
+  return arrayData<void*>(a)[i];
 }
 static Cosmetic snapshot(void *p) {
   Cosmetic c{};
@@ -156,6 +257,8 @@ static Cosmetic snapshot(void *p) {
   return c;
 }
 static void apply(void *p, const Cosmetic &c) {
+  // Validate every field/slot before writing the first field.
+  snapshot(p);
   for (int i = 0; i < 6; i++)
     write<int32_t>(p, ids[i], c.ids[i]);
   write<bool>(p, "bUsingModdedVersion", c.modded != 0);
@@ -168,7 +271,7 @@ static bool same(const Cosmetic &a, const Cosmetic &b) {
   return memcmp(&a, &b, sizeof(Cosmetic)) == 0;
 }
 static void valid(void *config, const char *n, int id) {
-  void *args[] = {&id};
+  RuntimeArg args[] = {&id};
   auto list = read<void *>(config, n);
   if (!unbox<bool>(invoke(klass(list), list, "ContainsConfigID", 1, args)))
     throw std::runtime_error("A chosen appearance is not loaded in the game. Install it and "
@@ -203,17 +306,17 @@ static void text(void *str, wchar_t *dest, size_t capacity) {
 }
 static void *globalPreset(int32_t player) {
   auto sync = staticRead<void *>(type("Ant_CurrentGameConfiguration"), "playersCustomization");
-  void *args[] = {&player};
+  RuntimeArg args[] = {&player};
   return invoke(klass(sync), sync, "GetPlayerData___GLOBAL_SYNCED_PLAYER", 1, args);
 }
 static void response(Request*,const std::string&);
 static std::string entryMetadata;
 static std::vector<void*> autoQueues(){
- std::vector<void*> queues;auto append=[&](void* list){if(!list)return;auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));if(count<0 || count>64)throw std::runtime_error("Unsupported automatic download queue count.");for(int32_t i=0;i<count;i++){void* args[]={&i};auto queue=invoke(klass(list),list,"get_Item",1,args);if(queue)queues.push_back(queue);}};
+ std::vector<void*> queues;auto append=[&](void* list){if(!list)return;auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));if(count<0 || count>64)throw std::runtime_error("Unsupported automatic download queue count.");for(int32_t i=0;i<count;i++){RuntimeArg args[]={&i};auto queue=invoke(klass(list),list,"get_Item",1,args);if(queue)queues.push_back(queue);}};
  auto manager=staticRead<void*>(type("PTK_LobbyAutoDownloadManager"),"<Instance>k__BackingField");if(manager)append(read<void*>(manager,"_queues"));
- auto orphanField=api<void*(*)(void*,const char*)>("il2cpp_class_get_field_from_name")(type("PTK_LobbyAutoDownloadManager"),"_orphanedDownloads");if(orphanField){void* orphans=nullptr;api<void(*)(void*,void*)>("il2cpp_field_static_get_value")(orphanField,&orphans);if(orphans){auto count=unbox<int32_t>(invoke(klass(orphans),orphans,"get_Count"));if(count<0 || count>64)throw std::runtime_error("Unsupported orphaned download count.");for(int32_t i=0;i<count;i++){void* args[]={&i};auto orphan=invoke(klass(orphans),orphans,"get_Item",1,args);if(orphan)append(read<void*>(orphan,"queues"));}}}return queues;
+ auto orphanField=api<void*(*)(void*,const char*)>("il2cpp_class_get_field_from_name")(type("PTK_LobbyAutoDownloadManager"),"_orphanedDownloads");if(orphanField){void* orphans=nullptr;api<void(*)(void*,void*)>("il2cpp_field_static_get_value")(orphanField,&orphans);if(orphans){auto count=unbox<int32_t>(invoke(klass(orphans),orphans,"get_Count"));if(count<0 || count>64)throw std::runtime_error("Unsupported orphaned download count.");for(int32_t i=0;i<count;i++){RuntimeArg args[]={&i};auto orphan=invoke(klass(orphans),orphans,"get_Item",1,args);if(orphan)append(read<void*>(orphan,"queues"));}}}return queues;
 }
-static bool temporarilyOwned(int64_t id){for(auto queue:autoQueues()){auto list=read<void*>(queue,"_downloadedItems");auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));for(int32_t i=0;i<count;i++){void* args[]={&i};auto item=invoke(klass(list),list,"get_Item",1,args);if(item && read<int64_t>(item,"modId")==id)return true;}}return false;}
+static bool temporarilyOwned(int64_t id){for(auto queue:autoQueues()){auto list=read<void*>(queue,"_downloadedItems");auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));for(int32_t i=0;i<count;i++){RuntimeArg args[]={&i};auto item=invoke(klass(list),list,"get_Item",1,args);if(item && read<int64_t>(item,"modId")==id)return true;}}return false;}
 static void cacheMetadata(void* player,const LobbyEntry& entry){
  // This cache is unpacked from the actual remote player's detailed Photon property.
  // Box its nullable value through IL2CPP, without assuming native struct offsets.
@@ -223,16 +326,18 @@ static void cacheMetadata(void* player,const LobbyEntry& entry){
  if(!detail || read<uint8_t>(detail,"ConfigsMods_idPlatformType")!=0)return;
  auto configs=read<void*>(detail,"ConfigIds"), mods=read<void*>(detail,"ConfigsMods_ulIds");if(!configs || !mods)return;
  auto count=api<uintptr_t(*)(void*)>("il2cpp_array_length")(configs);if(count>64 || api<uintptr_t(*)(void*)>("il2cpp_array_length")(mods)!=count)return;
- std::string parts;const char* names[]={"characters","vehicles","wheels"};auto configValues=reinterpret_cast<int32_t*>(static_cast<char*>(configs)+32);auto modValues=reinterpret_cast<int64_t*>(static_cast<char*>(mods)+32);
+ std::string parts;const char* names[]={"characters","vehicles","wheels"};auto configValues=arrayData<int32_t>(configs);auto modValues=arrayData<int64_t>(mods);
  for(int kind=0;kind<3;kind++){if(!entry.data.modded || !entry.data.ids[kind+3])continue;int64_t id=0;for(uintptr_t i=0;i<count;i++)if(configValues[i]==entry.data.ids[kind+3] && modValues[i]>0){if(id && id!=modValues[i]){id=0;break;}id=modValues[i];}if(!id)continue;if(!parts.empty())parts+=",";parts+=std::string("\"")+names[kind]+"\":{\"id\":\""+std::to_string(id)+"\",\"temporary\":"+(temporarilyOwned(id)?"true":"false")+"}";}
  if(!parts.empty()){if(!entryMetadata.empty())entryMetadata+=",";entryMetadata+="\""+std::to_string(entry.player)+"\":{\"workshop\":{"+parts+"}}";}
 }
 static bool roomOwner(void* network){return network && unbox<bool>(invoke(klass(network),network,"IsLocalPlayerRoomOwner"));}
 static void lobbyExtras(Request* r,bool inRace,bool host){
- auto settings=invoke(type("Ant_CurrentGameConfiguration"),nullptr,"get_kartersSettingsData");
+ void* settings=nullptr;
+ try{settings=invoke(type("Ant_CurrentGameConfiguration"),nullptr,"get_kartersSettingsData");}
+ catch(const std::exception& error){featureWarning(r,"Download settings unavailable",error);}
  std::string json=std::string("{\"inRace\":")+(inRace?"true":"false")+",\"host\":"+(host?"true":"false")+",\"settings\":{";
  const char* fields[]={"eAutoDownloadTracks","eAutoDownloadPresets","eAutoDownloadKeep"};const char* names[]={"autoDownloadTracks","autoDownloadPresets","keepAutoDownloaded"};
- for(int i=0;i<3;i++){auto setting=read<void*>(settings,fields[i]);auto value=unbox<bool>(invoke(klass(setting),setting,"GetBoolValue"));if(i)json+=",";json+=std::string("\"")+names[i]+"\":"+(value?"true":"false");}json+="},\"entryMetadata\":{"+entryMetadata+"}}";response(r,json);
+ for(int i=0;i<3;i++){if(i)json+=",";json+=std::string("\"")+names[i]+"\":";try{auto setting=read<void*>(settings,fields[i]);auto value=unbox<bool>(invoke(klass(setting),setting,"GetBoolValue"));json+=value?"true":"false";}catch(const std::exception& error){json+="null";featureWarning(r,"Download setting unavailable",error);}}json+="},\"entryMetadata\":{"+entryMetadata+"}}";response(r,json);
 }
 static void saveLobbyPreset(Request*,void*,void*,bool);
 static bool raceLobby(Request* r,void* profile,void* network,bool online){
@@ -244,10 +349,10 @@ static bool raceLobby(Request* r,void* profile,void* network,bool online){
  auto list=invoke(klass(players),players,"GetCurrentlyPlayingPlayers");if(!list)return false;
  auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));if(count<0 || count>32)throw std::runtime_error("Unsupported race roster.");
  r->inLobby=online?2:1;void* selected=nullptr;
- for(int32_t i=0;i<count;i++){void* args[]={&i};auto player=invoke(klass(list),list,"get_Item",1,args);if(!unityAlive(player))continue;auto kind=read<int32_t>(player,"ePlayerType");if(kind<0 || kind>2)continue;auto global=read<int32_t>(player,"eAntPlayerNr");if(global<0 || global>=32)continue;auto preset=globalPreset(global);if(!preset)continue;auto& entry=r->lobby[r->lobbyCount++];entry.player=global;entry.presetId=read<int32_t>(preset,"iPresetID");entry.data=snapshot(preset);bool ai=kind==2 || read<bool>(player,"bIsNetworkPlayerAI");entry.flags=(kind==0?1:0)|(ai?2:0)|(online?4:0)|16;
- if(kind==0){auto local=read<int32_t>(player,"eAntLocalPlayerNr");if(local>=0 && local<6)entry.flags|=(local+1)<<8;}
+ for(int32_t i=0;i<count;i++){RuntimeArg args[]={&i};auto player=invoke(klass(list),list,"get_Item",1,args);if(!unityAlive(player))continue;auto kind=read<int32_t>(player,"ePlayerType");auto playerClass=klass(player);auto localKind=fieldEnum(playerClass,"ePlayerType","E_HUMAN_LOCAL"),networkKind=fieldEnum(playerClass,"ePlayerType","E_NETWORK"),aiKind=fieldEnum(playerClass,"ePlayerType","E_AI_LOCAL");if(kind!=localKind && kind!=networkKind && kind!=aiKind)continue;auto global=read<int32_t>(player,"eAntPlayerNr");if(global<0 || global>=32)continue;auto preset=globalPreset(global);if(!preset)continue;auto& entry=r->lobby[r->lobbyCount++];entry.player=global;entry.presetId=read<int32_t>(preset,"iPresetID");entry.data=snapshot(preset);bool ai=kind==aiKind || read<bool>(player,"bIsNetworkPlayerAI");entry.flags=(kind==localKind?1:0)|(ai?2:0)|(online?4:0)|16;
+ if(kind==localKind){auto local=read<int32_t>(player,"eAntLocalPlayerNr");if(local>=0 && local<6)entry.flags|=(local+1)<<8;}
  text(invoke(klass(player),player,"GetPlayerName"),entry.name,96);auto instance=unbox<int32_t>(invoke(klass(player),player,"GetInstanceID"));swprintf_s(entry.identity,L"race:%d:%d",global,instance);
- if(r->operation==3 && global==static_cast<int32_t>(r->player)){if(kind==0)throw std::runtime_error("Save your local setup from Quick Setup instead.");if(wcscmp(entry.identity,r->targetIdentity) || entry.presetId!=r->presetId || !same(entry.data,r->baseline))throw std::runtime_error("This racer or appearance changed. Refresh players before saving.");selected=preset;}
+ if(r->operation==3 && global==static_cast<int32_t>(r->player)){if(kind==localKind)throw std::runtime_error("Save your local setup from Quick Setup instead.");if(wcscmp(entry.identity,r->targetIdentity) || entry.presetId!=r->presetId || !same(entry.data,r->baseline))throw std::runtime_error("This racer or appearance changed. Refresh players before saving.");selected=preset;}
  }
  lobbyExtras(r,true,online && roomOwner(network));
  if(r->operation==3){if(!selected)throw std::runtime_error("The selected racer is no longer present.");saveLobbyPreset(r,profile,selected,false);}else if(r->operation!=2)throw std::runtime_error("CPU appearances can be changed after returning to the lobby.");return true;
@@ -362,7 +467,7 @@ static void lobby(Request *r, void *profile) {
       // Offline ILobbyPlayer.GetID is legitimately empty. Bind requests to the
       // actual managed player object and slot instead of sharing an empty ID.
       if(!e.identity[0]){auto hash=unbox<int32_t>(invoke(klass(player),player,"GetHashCode"));swprintf_s(e.identity,L"lobby:%d:%d",global,hash);}
-      if(online && sourceIndex==0)cacheMetadata(player,e);
+      if(online && sourceIndex==0){try{cacheMetadata(player,e);}catch(const std::exception& error){featureWarning(r,"Workshop source details unavailable",error);}}
       if ((r->operation == 3 || r->operation == 8) && global == static_cast<int32_t>(r->player)) {
         if (wcscmp(e.identity, r->targetIdentity) || e.presetId != r->presetId ||
             !same(e.data, r->baseline))
@@ -376,8 +481,13 @@ static void lobby(Request *r, void *profile) {
     }
   }
   if(!editableCandidates.empty()){
-    void* action=nullptr;if(caller && roomManager){action=api<void*(*)(void*)>("il2cpp_object_new")(type("SetPresetLobbyAction"));void* args[]={roomManager};invoke(klass(action),action,".ctor",1,args);}
-    for(auto candidate:editableCandidates){bool allowed=false;if(action){void* args[]={caller,candidate.second};allowed=unbox<int32_t>(invoke(klass(action),action,"CanExecute",2,args))==2;}if(!allowed)candidate.first->flags&=~32;}
+    try {
+    void* action=nullptr;if(caller && roomManager){action=api<void*(*)(void*)>("il2cpp_object_new")(type("SetPresetLobbyAction"));RuntimeArg args[]={roomManager};invoke(klass(action),action,".ctor",1,args);}
+    for(auto candidate:editableCandidates){bool allowed=false;if(action){RuntimeArg args[]={caller,candidate.second};allowed=enumIs(invoke(klass(action),action,"CanExecute",2,args),"E_CAN_BE_USED");}if(!allowed)candidate.first->flags&=~32;}
+    } catch(const std::exception& error) {
+      for(auto candidate:editableCandidates)candidate.first->flags&=~32;
+      featureWarning(r,"CPU customization",error);
+    }
   }
   lobbyExtras(r,false,online && roomOwner(network));
   if(r->operation==8){
@@ -386,10 +496,10 @@ static void lobby(Request *r, void *profile) {
     if(online && !roomOwner(network))throw std::runtime_error("Only the lobby host can change CPU appearances.");
     if(!caller || !roomManager)throw std::runtime_error("The lobby controller is not ready. Reopen the Players screen and try again.");
     validate(r->desired);
-    auto action=api<void*(*)(void*)>("il2cpp_object_new")(type("SetPresetLobbyAction"));void* ctorArgs[]={roomManager};invoke(klass(action),action,".ctor",1,ctorArgs);
-    void* check[]={caller,selected};if(unbox<int32_t>(invoke(klass(action),action,"CanExecute",2,check))!=2)throw std::runtime_error("The game does not allow changing this CPU in the current screen.");
-    auto next=api<void*(*)(void*)>("il2cpp_object_new")(klass(source));int32_t temporaryId=-1;void* presetCtor[]={&temporaryId};invoke(klass(next),next,".ctor",1,presetCtor);void* copy[]={source};invoke(klass(next),next,"CopyFrom",1,copy);write<int32_t>(next,"iPresetID",r->presetId);apply(next,r->desired);
-    void* applyArgs[]={caller,selected,next};if(!unbox<bool>(invoke(klass(action),action,"ImmediateExecute",3,applyArgs)))throw std::runtime_error("The game declined this CPU appearance change.");
+    auto action=api<void*(*)(void*)>("il2cpp_object_new")(type("SetPresetLobbyAction"));RuntimeArg ctorArgs[]={roomManager};invoke(klass(action),action,".ctor",1,ctorArgs);
+    RuntimeArg check[]={caller,selected};if(!enumIs(invoke(klass(action),action,"CanExecute",2,check),"E_CAN_BE_USED"))throw std::runtime_error("The game does not allow changing this CPU in the current screen.");
+    auto next=api<void*(*)(void*)>("il2cpp_object_new")(klass(source));int32_t temporaryId=-1;RuntimeArg presetCtor[]={&temporaryId};invoke(klass(next),next,".ctor",1,presetCtor);RuntimeArg copy[]={source};invoke(klass(next),next,"CopyFrom",1,copy);write<int32_t>(next,"iPresetID",r->presetId);apply(next,r->desired);
+    RuntimeArg applyArgs[]={caller,selected,next};if(!unbox<bool>(invoke(klass(action),action,"ImmediateExecute",3,applyArgs)))throw std::runtime_error("The game declined this CPU appearance change.");
     r->current=snapshot(globalPreset(static_cast<int32_t>(r->player)));if(!same(r->current,r->desired))throw std::runtime_error("The CPU setup changed during application. Refresh players to review its actual setup.");r->saved=1;r->menuRefreshed=1;return;
   }
   if (r->operation != 3)
@@ -407,7 +517,7 @@ static void saveLobbyPreset(Request* r,void* profile,void* source,bool menuReady
     throw std::runtime_error("The preset library is full.");
   // A lost prior response must not create another identical copy on retry.
   for (int32_t i = 0; i < count; i++) {
-    void *itemArgs[] = {&i};
+    RuntimeArg itemArgs[] = {&i};
     auto existing = invoke(klass(list), list, "get_Item", 1, itemArgs);
     if (same(snapshot(existing), r->baseline)) {
       r->current = r->baseline;
@@ -417,15 +527,15 @@ static void saveLobbyPreset(Request* r,void* profile,void* source,bool menuReady
   }
   auto renderer = staticRead<void *>(type("PTK_MenuIconRenderManager"), "Instance");
   if (menuReady && renderer) {
-    void *args[] = {source};
+    RuntimeArg args[] = {source};
     if (!unbox<bool>(invoke(klass(collection), collection, "AddNewPresetFrom", 1, args)))
       throw std::runtime_error("The game did not copy this preset.");
   } else {
     // AddNewPresetFrom unconditionally dereferences the menu renderer. During a
     // race use its same game-owned allocation/copy/list/save calls, deferring PNGs.
     auto id=unbox<int32_t>(invoke(klass(collection),collection,"GenerateUniqueID"));
-    auto created=api<void*(*)(void*)>("il2cpp_object_new")(klass(source));int32_t initial=-1;void* ctor[]={&initial};invoke(klass(created),created,".ctor",1,ctor);void* copy[]={source};invoke(klass(created),created,"CopyFrom",1,copy);write<int32_t>(created,"iPresetID",id);void* add[]={created};invoke(klass(list),list,"Add",1,add);
-    try{invoke(klass(profile),profile,"SaveProfileLocalData");}catch(...){void* remove[]={created};invoke(klass(list),list,"Remove",1,remove);throw;}
+    auto created=api<void*(*)(void*)>("il2cpp_object_new")(klass(source));int32_t initial=-1;RuntimeArg ctor[]={&initial};invoke(klass(created),created,".ctor",1,ctor);RuntimeArg copy[]={source};invoke(klass(created),created,"CopyFrom",1,copy);write<int32_t>(created,"iPresetID",id);RuntimeArg add[]={created};invoke(klass(list),list,"Add",1,add);
+    try{invoke(klass(profile),profile,"SaveProfileLocalData");}catch(...){RuntimeArg remove[]={created};invoke(klass(list),list,"Remove",1,remove);throw;}
     wcscpy_s(r->warning,L"Saved. The game will generate its preview when the menu is available.");
   }
   r->saved = 1;
@@ -433,7 +543,7 @@ static void saveLobbyPreset(Request* r,void* profile,void* source,bool menuReady
   if (after != count + 1)
     throw std::runtime_error(
         "The game library changed while copying. Refresh before trying again.");
-  void *itemArgs[] = {&count};
+  RuntimeArg itemArgs[] = {&count};
   auto created = invoke(klass(list), list, "get_Item", 1, itemArgs);
   r->current = snapshot(created);
   r->presetId = read<int32_t>(created, "iPresetID");
@@ -447,9 +557,10 @@ static void* jsonType(const char* name,const char* ns="Newtonsoft.Json.Linq"){
 }
 static void* string(const char* chars,int length=-1){return length<0?api<void*(*)(const char*)>("il2cpp_string_new")(chars):api<void*(*)(const char*,uint32_t)>("il2cpp_string_new_len")(chars,length);}
 static std::string utf8(void* str){auto len=api<int(*)(void*)>("il2cpp_string_length")(str);auto chars=api<const wchar_t*(*)(void*)>("il2cpp_string_chars")(str);int size=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,chars,len,nullptr,0,nullptr,nullptr);if(size<0)throw std::runtime_error("Invalid game JSON text.");std::string out(size,'\0');if(size)WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,chars,len,&out[0],size,nullptr,nullptr);return out;}
-static void* parse(void* text){auto runtime=api<void*(*)(void*)>("il2cpp_type_get_object")(api<void*(*)(void*)>("il2cpp_class_get_type")(jsonType("JToken")));void* args[]={text,runtime,nullptr};return invoke(jsonType("JsonConvert","Newtonsoft.Json"),nullptr,"DeserializeObject",3,args);}
-static void* member(void* token,const char* name){void* args[]={string(name)};auto value=invoke(klass(token),token,"get_Item",1,args);if(!value)throw std::runtime_error("Incomplete library transaction.");return value;}
-static bool equalJson(void* left,void* right){void* args[]={left,right};return unbox<bool>(invoke(jsonType("JToken"),nullptr,"DeepEquals",2,args));}
+static void* deserialize(void*,void*);
+static void* parse(void* text){auto runtime=api<void*(*)(void*)>("il2cpp_type_get_object")(api<void*(*)(void*)>("il2cpp_class_get_type")(jsonType("JToken")));return deserialize(text,runtime);}
+static void* member(void* token,const char* name){RuntimeArg args[]={string(name)};auto value=invoke(klass(token),token,"get_Item",1,args);if(!value)throw std::runtime_error("Incomplete library transaction.");return value;}
+static bool equalJson(void* left,void* right){RuntimeArg args[]={left,right};return unbox<bool>(invoke(jsonType("JToken"),nullptr,"DeepEquals",2,args));}
 static void* tokenText(void* token){return invoke(klass(token),token,"ToString");}
 static void* exactMethod(void* c,const char* name,const std::vector<std::string>& parameters){
  void* iterator=nullptr;while(auto candidate=api<void*(*)(void*,void**)>("il2cpp_class_get_methods")(c,&iterator)){
@@ -465,12 +576,12 @@ static void retainSubscription(Request* r){
  if(!r->payloadBytes)throw std::runtime_error("Missing Workshop subscription identity.");auto input=parse(string(reinterpret_cast<char*>(r)+sizeof(Request),r->payloadBytes));auto idText=utf8(tokenText(member(input,"workshopId")));if(idText.empty() || idText.size()>19 || idText.find_first_not_of("0123456789")!=std::string::npos)throw std::runtime_error("Invalid Workshop subscription identity.");int64_t id=std::stoll(idText);if(id<=0)throw std::runtime_error("Invalid Workshop subscription identity.");auto queues=autoQueues();
  // Validate every active/orphaned queue before changing ownership. An asynchronous
  // processing continuation could otherwise add it back and unsubscribe it later.
- for(auto queue:queues){void* args[]={&id};if(invoke(klass(queue),queue,"FindByModId",1,args) || unbox<bool>(invoke(klass(queue),queue,"ContainsProcessingMod",1,args)))throw std::runtime_error("This item is still being downloaded or processed by the game. Wait for it to finish, then keep it permanently.");}
- auto checkCurrent=[&](void* item){if(item && read<int64_t>(item,"modId")==id)throw std::runtime_error("The game is still processing this automatic download. Try again after it finishes.");};auto manager=staticRead<void*>(type("PTK_LobbyAutoDownloadManager"),"<Instance>k__BackingField");if(manager)checkCurrent(read<void*>(manager,"_currentDownload"));auto orphanField=api<void*(*)(void*,const char*)>("il2cpp_class_get_field_from_name")(type("PTK_LobbyAutoDownloadManager"),"_orphanedDownloads");if(orphanField){void* list=nullptr;api<void(*)(void*,void*)>("il2cpp_field_static_get_value")(orphanField,&list);if(list){auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));for(int32_t i=0;i<count;i++){void* args[]={&i};auto item=invoke(klass(list),list,"get_Item",1,args);if(item)checkCurrent(read<void*>(item,"currentDownload"));}}}
- int removed=0;for(auto queue:queues){auto list=read<void*>(queue,"_downloadedItems");for(int32_t i=unbox<int32_t>(invoke(klass(list),list,"get_Count"))-1;i>=0;i--){void* args[]={&i};auto item=invoke(klass(list),list,"get_Item",1,args);if(item && read<int64_t>(item,"modId")==id){invoke(klass(list),list,"RemoveAt",1,args);removed++;}}auto completed=read<void*>(queue,"_completedModIds");void* args[]={&id};invoke(klass(completed),completed,"Remove",1,args);}
+ for(auto queue:queues){RuntimeArg args[]={&id};if(invoke(klass(queue),queue,"FindByModId",1,args) || unbox<bool>(invoke(klass(queue),queue,"ContainsProcessingMod",1,args)))throw std::runtime_error("This item is still being downloaded or processed by the game. Wait for it to finish, then keep it permanently.");}
+ auto checkCurrent=[&](void* item){if(item && read<int64_t>(item,"modId")==id)throw std::runtime_error("The game is still processing this automatic download. Try again after it finishes.");};auto manager=staticRead<void*>(type("PTK_LobbyAutoDownloadManager"),"<Instance>k__BackingField");if(manager)checkCurrent(read<void*>(manager,"_currentDownload"));auto orphanField=api<void*(*)(void*,const char*)>("il2cpp_class_get_field_from_name")(type("PTK_LobbyAutoDownloadManager"),"_orphanedDownloads");if(orphanField){void* list=nullptr;api<void(*)(void*,void*)>("il2cpp_field_static_get_value")(orphanField,&list);if(list){auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));for(int32_t i=0;i<count;i++){RuntimeArg args[]={&i};auto item=invoke(klass(list),list,"get_Item",1,args);if(item)checkCurrent(read<void*>(item,"currentDownload"));}}}
+ int removed=0;for(auto queue:queues){auto list=read<void*>(queue,"_downloadedItems");for(int32_t i=unbox<int32_t>(invoke(klass(list),list,"get_Count"))-1;i>=0;i--){RuntimeArg args[]={&i};auto item=invoke(klass(list),list,"get_Item",1,args);if(item && read<int64_t>(item,"modId")==id){invoke(klass(list),list,"RemoveAt",1,args);removed++;}}auto completed=read<void*>(queue,"_completedModIds");RuntimeArg args[]={&id};invoke(klass(completed),completed,"Remove",1,args);}
  if(temporarilyOwned(id))throw std::runtime_error("The game still owns this automatic subscription. Refresh before trying again.");response(r,"{\"retained\":true,\"releasedAutomaticRecords\":"+std::to_string(removed)+"}");
 }
-static std::unordered_map<int,void*> presetMap(void* list){std::unordered_map<int,void*> values;auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));if(count<0 || count>10000)throw std::runtime_error("Unsupported preset library size.");for(int32_t i=0;i<count;i++){void* args[]={&i};auto preset=invoke(klass(list),list,"get_Item",1,args);snapshot(preset);if(!values.emplace(read<int32_t>(preset,"iPresetID"),preset).second)throw std::runtime_error("Duplicate preset identities.");}return values;}
+static std::unordered_map<int,void*> presetMap(void* list){std::unordered_map<int,void*> values;auto count=unbox<int32_t>(invoke(klass(list),list,"get_Count"));if(count<0 || count>10000)throw std::runtime_error("Unsupported preset library size.");for(int32_t i=0;i<count;i++){RuntimeArg args[]={&i};auto preset=invoke(klass(list),list,"get_Item",1,args);snapshot(preset);if(!values.emplace(read<int32_t>(preset,"iPresetID"),preset).second)throw std::runtime_error("Duplicate preset identities.");}return values;}
 static void library(Request* r,void* profile){
  auto collection=read<void*>(profile,"customizationPresets");auto local=read<void*>(profile,"localNotSafeData");auto data=read<void*>(local,"profileData");auto oldList=read<void*>(collection,"profileCustomizationPresets");auto oldGroups=read<void*>(data,"ItemsGroupDefinedContainers");
  auto livePresets=parse(invoke(klass(collection),collection,"GetJSON_Data"));auto liveProfile=parse(invoke(klass(local),local,"GetJSON_Data"));auto liveGroups=member(liveProfile,"ItemsGroupDefinedContainers");
@@ -482,23 +593,23 @@ static void library(Request* r,void* profile){
  auto wrapper=std::string("{\"ItemsGroupDefinedContainers\":")+utf8(tokenText(wantedGroups))+"}";auto profileType=runtimeType(api<void*(*)(void*)>("il2cpp_class_get_type")(klass(data)));auto partial=deserialize(string(wrapper.data(),static_cast<int>(wrapper.size())),profileType);auto newGroups=read<void*>(partial,"ItemsGroupDefinedContainers");if(!newGroups)throw std::runtime_error("Missing native groups.");
  auto oldPresets=presetMap(oldList);auto newPresets=presetMap(newList);std::vector<void*> changed;
  // Keep unchanged live objects, including cached icon references and race users.
- auto total=unbox<int32_t>(invoke(klass(newList),newList,"get_Count"));for(int32_t i=0;i<total;i++){void* get[]={&i};auto next=invoke(klass(newList),newList,"get_Item",1,get);auto id=read<int32_t>(next,"iPresetID");auto old=oldPresets.find(id);if(old!=oldPresets.end() && same(snapshot(old->second),snapshot(next))){void* set[]={&i,old->second};invoke(klass(newList),newList,"set_Item",2,set);newPresets[id]=old->second;}else changed.push_back(next);}
+ auto total=unbox<int32_t>(invoke(klass(newList),newList,"get_Count"));for(int32_t i=0;i<total;i++){RuntimeArg get[]={&i};auto next=invoke(klass(newList),newList,"get_Item",1,get);auto id=read<int32_t>(next,"iPresetID");auto old=oldPresets.find(id);if(old!=oldPresets.end() && same(snapshot(old->second),snapshot(next))){RuntimeArg set[]={&i,old->second};invoke(klass(newList),newList,"set_Item",2,set);newPresets[id]=old->second;}else changed.push_back(next);}
  for(auto old:oldPresets)if(newPresets.find(old.first)==newPresets.end()){
    // Game DeletePreset leaves historical IDs intact; only live active references conflict.
-   auto sync=staticRead<void*>(type("Ant_CurrentGameConfiguration"),"playersCustomization");for(int32_t player=0;player<6;player++){void* args[]={&player};auto active=invoke(klass(sync),sync,"GetPlayerData___LOCAL_PC_PLAYER",1,args);if(active && read<int32_t>(active,"iPresetID")==old.first)throw std::runtime_error("This preset is active for a local player. Choose another setup before deleting it.");}
+   auto sync=staticRead<void*>(type("Ant_CurrentGameConfiguration"),"playersCustomization");for(int32_t player=0;player<6;player++){RuntimeArg args[]={&player};auto active=invoke(klass(sync),sync,"GetPlayerData___LOCAL_PC_PLAYER",1,args);if(active && read<int32_t>(active,"iPresetID")==old.first)throw std::runtime_error("This preset is active for a local player. Choose another setup before deleting it.");}
  }
  auto menu=staticRead<void*>(type("MenuManager"),"Instance");bool inMenu=unityAlive(menu) && unbox<bool>(invoke(klass(menu),menu,"get_isActiveAndEnabled"));void* manager=nullptr;void* editing=nullptr;
- if(inMenu){r->screen=staticRead<int32_t>(type("MenuManager"),"_eCurrentMenuScreenType");manager=read<void*>(menu,"mainMenuPresetsManager");if(manager && r->screen==115 && !unbox<bool>(invoke(klass(manager),manager,"IsQuickPresetBeingEdited"))){editing=read<void*>(manager,"currentlySelectedPresetItem");if(editing){auto id=read<int32_t>(editing,"iPresetID");auto old=oldPresets.find(id),next=newPresets.find(id);if(old!=oldPresets.end() && (next==newPresets.end() || !same(snapshot(old->second),snapshot(next->second)))){if(next==newPresets.end())throw std::runtime_error("Finish editing this preset in the game before deleting it.");for(auto fieldName:{"customizationScreenEnterSavedPreset","customizationElementsClickedApprovedPreset","presetForCurrentItemsSelecting"})if(!same(snapshot(read<void*>(manager,fieldName)),snapshot(old->second)))throw std::runtime_error("This preset has unsaved game edits. Confirm or discard them before saving from Garage.");}}}}
+ if(inMenu){r->screen=staticRead<int32_t>(type("MenuManager"),"_eCurrentMenuScreenType");manager=read<void*>(menu,"mainMenuPresetsManager");if(manager && r->screen==fieldEnum(type("MenuManager"),"_eCurrentMenuScreenType","ETK_PRESET_CUSTOMIZATION") && !unbox<bool>(invoke(klass(manager),manager,"IsQuickPresetBeingEdited"))){editing=read<void*>(manager,"currentlySelectedPresetItem");if(editing){auto id=read<int32_t>(editing,"iPresetID");auto old=oldPresets.find(id),next=newPresets.find(id);if(old!=oldPresets.end() && (next==newPresets.end() || !same(snapshot(old->second),snapshot(next->second)))){if(next==newPresets.end())throw std::runtime_error("Finish editing this preset in the game before deleting it.");for(auto fieldName:{"customizationScreenEnterSavedPreset","customizationElementsClickedApprovedPreset","presetForCurrentItemsSelecting"})if(!same(snapshot(read<void*>(manager,fieldName)),snapshot(old->second)))throw std::runtime_error("This preset has unsaved game edits. Confirm or discard them before saving from Garage.");}}}}
  // A live in-game group editor keeps its own working references. Reject only a
  // conflicting groups transaction, not unrelated preset edits or a running race.
  if(!equalJson(liveGroups,wantedGroups) && staticRead<void*>(type("GroupsManager"),"<currentlyModifiedGroup>k__BackingField"))throw std::runtime_error("Finish the open group edit in the game before changing groups in Garage.");
- void* validateArgs[]={string("validateOnly")};auto validateFlag=invoke(klass(root),root,"get_Item",1,validateArgs);if(validateFlag && (utf8(tokenText(validateFlag))=="True" || utf8(tokenText(validateFlag))=="true")){wcscpy_s(r->warning,L"Library changes validated. Nothing was written.");return;}
+ RuntimeArg validateArgs[]={string("validateOnly")};auto validateFlag=invoke(klass(root),root,"get_Item",1,validateArgs);if(validateFlag && (utf8(tokenText(validateFlag))=="True" || utf8(tokenText(validateFlag))=="true")){wcscpy_s(r->warning,L"Library changes validated. Nothing was written.");return;}
  write<void*>(collection,"profileCustomizationPresets",newList);write<void*>(data,"ItemsGroupDefinedContainers",newGroups);
  try{
   if(!equalJson(parse(invoke(klass(collection),collection,"GetJSON_Data")),wantedPresets) || !equalJson(member(parse(invoke(klass(local),local,"GetJSON_Data")),"ItemsGroupDefinedContainers"),wantedGroups))throw std::runtime_error("The game could not preserve all library fields. Nothing was saved.");
   invoke(klass(profile),profile,"SaveProfileLocalData");r->saved=1;
  }catch(...){write<void*>(collection,"profileCustomizationPresets",oldList);write<void*>(data,"ItemsGroupDefinedContainers",oldGroups);try{invoke(klass(profile),profile,"SaveProfileLocalData");}catch(...){}throw;}
- if(inMenu){try{auto icons=staticRead<void*>(type("PTK_MenuIconRenderManager"),"Instance");if(icons)for(auto preset:changed){void* args[]={preset};invoke(klass(icons),icons,"EnsurePresetIcon",1,args);}if(editing){auto it=newPresets.find(read<int32_t>(editing,"iPresetID"));if(it!=newPresets.end() && it->second!=editing){write<void*>(manager,"currentlySelectedPresetItem",it->second);for(auto fieldName:{"customizationScreenEnterSavedPreset","customizationElementsClickedApprovedPreset","presetForCurrentItemsSelecting"}){auto working=read<void*>(manager,fieldName);if(working){void* args[]={it->second};invoke(klass(working),working,"CopyFrom",1,args);}}r->menuRefreshed=1;}}}catch(...){wcscpy_s(r->warning,L"Saved. Reopen the game collection to refresh its previews.");}}
+ if(inMenu){try{auto icons=staticRead<void*>(type("PTK_MenuIconRenderManager"),"Instance");if(icons)for(auto preset:changed){RuntimeArg args[]={preset};invoke(klass(icons),icons,"EnsurePresetIcon",1,args);}if(editing){auto it=newPresets.find(read<int32_t>(editing,"iPresetID"));if(it!=newPresets.end() && it->second!=editing){write<void*>(manager,"currentlySelectedPresetItem",it->second);for(auto fieldName:{"customizationScreenEnterSavedPreset","customizationElementsClickedApprovedPreset","presetForCurrentItemsSelecting"}){auto working=read<void*>(manager,fieldName);if(working){RuntimeArg args[]={it->second};invoke(klass(working),working,"CopyFrom",1,args);}}r->menuRefreshed=1;}}}catch(...){wcscpy_s(r->warning,L"Saved. Reopen the game collection to refresh its previews.");}}
  else wcscpy_s(r->warning,L"Saved for the next selection. The current race setup is unchanged.");
 }
 static void run(Request *r) {
@@ -535,7 +646,7 @@ static void run(Request *r) {
         unity, "UnityEngine", "GameObject");
     void *query =
         api<void *(*)(const char *)>("il2cpp_string_new")("__BobbysGarage_MainThreadCheck__");
-    void *args[] = {query};
+    RuntimeArg args[] = {query};
     invoke(go, nullptr, "Find", 1, args);
     auto profile = staticRead<void *>(type("PTK_PlayerProfile"), "Instance");
     if (!read<bool>(profile, "bIsProfileDataLoaded"))
@@ -552,7 +663,7 @@ static void run(Request *r) {
     if (r->operation == 4) {
       auto collection = read<void *>(profile, "customizationPresets");
       int32_t id = r->presetId;
-      void *args[] = {&id};
+      RuntimeArg args[] = {&id};
       auto created = invoke(klass(collection), collection, "GetPresetFromPresetID", 1, args);
       if (!created || !same(snapshot(created), r->baseline))
         throw std::runtime_error("The copied preset changed. Automatic cleanup was not applied.");
@@ -585,7 +696,7 @@ static void run(Request *r) {
     if (inMenu) {
       r->screen = staticRead<int32_t>(menuType, "_eCurrentMenuScreenType");
       manager = read<void *>(menu, "mainMenuPresetsManager");
-      if (manager && (r->screen == 106 || r->screen == 115) &&
+      if (manager && (r->screen == fieldEnum(menuType,"_eCurrentMenuScreenType","ETK_CHARACTER_PRESETS_SELECTION_SCREEN") || r->screen == fieldEnum(menuType,"_eCurrentMenuScreenType","ETK_PRESET_CUSTOMIZATION")) &&
           unbox<int32_t>(invoke(klass(menu), menu, "GetPresetEditorTargetLocalPlayer")) ==
               static_cast<int32_t>(r->player))
         editing = unbox<bool>(invoke(klass(manager), manager, "IsQuickPresetBeingEdited"));
@@ -622,11 +733,11 @@ static void run(Request *r) {
         auto sync =
             staticRead<void *>(type("Ant_CurrentGameConfiguration"), "playersCustomization");
         int32_t player = r->player;
-        void *getArgs[] = {&player};
+        RuntimeArg getArgs[] = {&player};
         auto active = invoke(klass(sync), sync, "GetPlayerData___LOCAL_PC_PLAYER", 1, getArgs);
         if (active && read<int32_t>(active, "iPresetID") == r->presetId) {
           bool force = false;
-          void *setArgs[] = {&player, preset, &force};
+          RuntimeArg setArgs[] = {&player, preset, &force};
           invoke(klass(sync), sync, "SetDataFor_LOCAL_Player", 3, setArgs);
         }
         if (editing) {
@@ -635,7 +746,7 @@ static void run(Request *r) {
         }
         auto icons = staticRead<void *>(type("PTK_MenuIconRenderManager"), "Instance");
         if (icons) {
-          void *iconArgs[] = {preset};
+          RuntimeArg iconArgs[] = {preset};
           invoke(klass(icons), icons, "EnsurePresetIcon", 1, iconArgs);
         }
       } catch (...) {

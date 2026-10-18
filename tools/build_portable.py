@@ -28,6 +28,7 @@ if __name__ == '__main__':
         raise SystemExit('Output must be a child folder beneath artifacts.')
     if os.name != 'nt': raise SystemExit('Portable builds require Windows x64.')
     run(sys.executable, 'tools/build_native_bridge.py')
+    run(sys.executable, 'tools/check_native_contracts.py')
     run('npm.cmd', 'ci')
     run('npm.cmd', 'run', 'build')
     run('npm.cmd', 'test')

@@ -1,10 +1,10 @@
-"""Verified 0.1.4.18 profile: three .NET BinaryWriter UTF-8 strings."""
+"""Schema-validated profile: three .NET BinaryWriter UTF-8 strings."""
 import copy
 from datetime import datetime
 import json
 import re
 
-SAVE_NAME = re.compile(r"^\d+PTK_PlayerData_v19tpp0_bt0$")
+SAVE_NAME = re.compile(r"^\d+PTK_PlayerData_v\d+tpp\d+_bt\d+$")
 MAX_SAVE = 32 * 1024 * 1024
 
 

@@ -7,6 +7,14 @@ a release is requested; development builds do not advance the release version.
 
 ### Live saving and lobby refinement
 
+- Remove game-version and binary-hash allowlists. Resolve field types/offsets,
+  array layouts, enum constants and overloads from current IL2CPP metadata;
+  validate actual contracts before calls. Compatible patches work automatically.
+  Preserve save baselines, permissions and local/Steam verification. Isolate
+  optional lobby-capability failures and add Windows native regression coverage.
+- Accept numeric profile generations and informational preset-pack build labels,
+  retaining strict schema and filename validation.
+
 - Reduce the development portable ZIP from 29.33 to approximately 21.9 MiB by
   excluding unused AVIF/font binaries and build/help modules. Preserve PNG/JPEG/
   WebP, native textures/animations, TLS and the Edge host; add a read-only frozen

@@ -1,4 +1,4 @@
-"""Portable customization presets for verified game build 0.1.4.18.
+"""Portable customization presets validated by their data schema.
 
 Only allowlisted cosmetic fields leave a profile. Native extension fields stay
 in the save. Imported preset IDs are allocated locally; group links are remapped.
@@ -102,8 +102,8 @@ def verify_edit_base(profile, change, baseline):
 
 
 def validate_pack(pack):
-    if not isinstance(pack, dict) or set(pack) != {'format','version','gameBuild','presets','groups'} or pack.get('format') != 'tk2-presets' or type(pack.get('version')) is not int or pack['version'] != 1 or pack.get('gameBuild') != '0.1.4.18':
-        raise ValueError('Expected tk2-presets version 1 for game 0.1.4.18.')
+    if not isinstance(pack, dict) or set(pack) != {'format','version','gameBuild','presets','groups'} or pack.get('format') != 'tk2-presets' or type(pack.get('version')) is not int or pack['version'] != 1 or not isinstance(pack.get('gameBuild'),str) or not 1 <= len(pack['gameBuild']) <= 100:
+        raise ValueError('Expected tk2-presets version 1 with valid build metadata.')
     if not isinstance(pack['presets'], list) or not 1 <= len(pack['presets']) <= 1000 or not isinstance(pack['groups'], list) or len(pack['groups']) > 100:
         raise ValueError('Select 1–1000 presets and up to 100 groups.')
     keys = set()
@@ -133,7 +133,7 @@ def export(profile, ids, groups):
     wanted = set(ids) | {i for g in selected for i in g['members']}
     entries = [p for p in state['presets'] if p['id'] in wanted]
     if {p['id'] for p in entries} != wanted: raise ValueError('A selected preset or group member is missing.')
-    return validate_pack({'format':'tk2-presets','version':1,'gameBuild':'0.1.4.18',
+    return validate_pack({'format':'tk2-presets','version':1,'gameBuild':'unspecified',
         'presets':[{'key':f"preset:{p['id']}", 'data':p['data']} for p in entries],
         'groups':[{'id':g['id'],'name':g['name'],'presets':[f'preset:{i}' for i in g['members']]} for g in selected]})
 

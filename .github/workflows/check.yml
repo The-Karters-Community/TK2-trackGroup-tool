@@ -1,6 +1,14 @@
 name: Validate tool and catalog
 on: [push, pull_request]
 jobs:
+  native-contracts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: python tools/check_native_contracts.py
   check:
     runs-on: ubuntu-latest
     steps:

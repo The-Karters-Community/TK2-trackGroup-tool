@@ -4,7 +4,7 @@ import { parse, stringify } from "lossless-json";
 // LosslessNumber retains every unrelated
 // numeric token (including 64-bit account IDs) without JS rounding.
 export const MAX_SAVE = 32 * 1024 * 1024;
-export const SAVE_NAME = /^\d+PTK_PlayerData_v19tpp0_bt0$/;
+export const SAVE_NAME = /^\d+PTK_PlayerData_v\d+tpp\d+_bt\d+$/;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const number = (value) => Number(value?.isLosslessNumber ? value.value : value);
@@ -130,7 +130,7 @@ export function encodeLength(size) {
 export function readProfile(bytes, filename) {
   if (filename && !SAVE_NAME.test(filename))
     throw new Error(
-      "Select the original PTK_PlayerData_v19tpp0_bt0 save, without a backup extension.",
+      "Select the original PTK_PlayerData save, without a backup extension.",
     );
   if (
     !(bytes instanceof Uint8Array) ||

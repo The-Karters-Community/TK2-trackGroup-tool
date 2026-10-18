@@ -1,9 +1,7 @@
-"""Version-pinned native Quick Setup transport. No BepInEx or game DLL redistribution."""
+"""Runtime-resolved native transport. No build allowlist or game DLL redistribution."""
 
 import ctypes as C
 import ctypes.wintypes as W
-from functools import lru_cache
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,8 +13,6 @@ import time
 from .runtime import ROOT, DATA, write_json
 from .presets import cosmetic, FIELDS, STICKER_FIELDS
 
-GAME_SHA256 = "e55fab2cdcbf3852160183504a847b1a1b7af61c24bc9619e3736e3753aee130"
-SUPPORTED_GAME_HASHES = {GAME_SHA256, "55f5c88972fe1ccf4c9d5f3871b71bcfa261b3e42a379e18438e92623fc4d6a2"}
 BRIDGE = ROOT / "native-bridge/BobbyGarage.QuickSetup.dll"
 
 
@@ -85,21 +81,11 @@ class Request(C.Structure):
     ]
 
 
-@lru_cache(maxsize=4)
-def _game_hash(path, mtime, size):
-    with Path(path).open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
-
-
 def available(game):
     if os.name != "nt" or not BRIDGE.is_file():
         return False
-    try:
-        path = Path(game) / "GameAssembly.dll"
-        stat = path.stat()
-        return _game_hash(str(path), stat.st_mtime_ns, stat.st_size) in SUPPORTED_GAME_HASHES
-    except OSError:
-        return False
+    from .native_runtime import runtime_problem
+    return not runtime_problem(game)
 
 
 def exchange(
@@ -116,9 +102,8 @@ def exchange(
 ):
     operation = (1 if desired is not None else 0) if operation is None else operation
     if not available(game):
-        raise ValueError(
-            "The native Quick Setup bridge supports the verified game builds 0.1.4.18 and 0.1.4.24. Rebuild or update Garage if its bridge is missing."
-        )
+        from .native_runtime import runtime_problem
+        raise ValueError(runtime_problem(game) or 'The native bridge is missing. Reinstall the complete Garage portable folder.')
     if (
         type(player) is not int
         or not 0 <= player < (6 if operation < 2 else 32)

@@ -30,7 +30,7 @@ class Service:
         except (OSError, ValueError): self.preferences = {}
         games = discover_games()
         self.game = self.preferences.get("game", games[0] if games else "")
-        self.profiles = sorted(p.name for p in PROFILE_DIR.glob("*PTK_PlayerData_v19tpp0_bt0") if SAVE_NAME.fullmatch(p.name))
+        self.profiles = sorted(p.name for p in PROFILE_DIR.glob("*PTK_PlayerData_v*tpp*_bt*") if p.is_file() and SAVE_NAME.fullmatch(p.name))
         selected = self.preferences.get("profile", "")
         self.profile = selected if selected in self.profiles else self.profiles[0] if len(self.profiles) == 1 else ""
         self.groups = catalog.load()
@@ -117,10 +117,10 @@ class Service:
         return getattr(self, '_library_review_history', {}).get(expected_hash) == self._library_fingerprint(profile)
 
     def supported_game(self):
+        """Validate the installation, independent of patch/version labels."""
         p = Path(self.game)
-        info = p / "build-info.txt"
-        if not info.is_file() or not any("Version: " + version + "\n" in info.read_text(encoding="utf-8").replace("\r\n", "\n") for version in ("0.1.4.18", "0.1.4.24")):
-            raise ValueError("This tool supports verified game builds 0.1.4.18 and 0.1.4.24. Select a supported installation in Settings.")
+        if not (p / 'TheKarters2.exe').is_file() or not (p / 'TheKarters2_Data/Plugins/x86_64/steam_api64.dll').is_file():
+            raise ValueError('Select the installed The Karters 2 folder containing TheKarters2.exe and its Steam library.')
 
     def settings(self, body):
         if getattr(self,"quick_saving",False) or self.job and self.job["state"] == "running": raise ValueError("Wait for the current operation before changing settings.")
@@ -409,6 +409,7 @@ class Service:
         in_room=result.get('inLobby') or result.get('inRace')
         public={'status':'ready' if in_room else 'not-in-lobby','online':result.get('online',False),'host':result.get('host') is True,'inRace':bool(result.get('inRace')),'players':players,
                 'message':'' if in_room else 'Join a race lobby in the game. Its current players will appear here.'}
+        if isinstance(result.get('warning'),str) and result['warning']: public['warning']=result['warning']
         if isinstance(result.get('settings'),dict):
             public['settings']={k:v for k,v in result['settings'].items() if k in ('autoDownloadTracks','autoDownloadPresets','keepAutoDownloaded','automaticDownloads','automaticSubscriptions','keepSubscriptions','allowDownloads','allowSubscriptions') and type(v)is bool}
         with self.lock:self._lobby_cache={'time':time.monotonic(),'profile':self.profile,'private':private,'public':public}

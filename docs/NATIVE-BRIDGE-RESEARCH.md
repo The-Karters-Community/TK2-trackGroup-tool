@@ -14,25 +14,42 @@ The bridge is authored C++ code loaded temporarily into the running game through
 a Windows thread-message hook. It uses native pointers and exported IL2CPP APIs
 to resolve types, fields and methods by name, then calls game-owned behavior on
 the game thread. It does not require BepInEx or a persistent installed plugin.
-Field access is resolved dynamically, but assumptions remain: x64 IL2CPP array
-headers, field/value types, method overloads, enum values and game behavior.
-This is not a supported public game API or an any-build compatibility guarantee.
+Compatibility is resolved from the current runtime rather than an executable
+hash or patch-number allowlist. IL2CPP supplies field offsets and types, array
+header/element sizes, reference assignability and named enum constants. Method
+selection checks argument types and rejects ambiguous overloads before invocation.
+No fixed game addresses or copied per-build field offsets are used.
 
-`native_quick.available` allows only verified GameAssembly SHA-256 values. A
-changed executable hash disables native access until it is checked. Separately,
-`Service.supported_game` gates desktop Steam refresh and save operations by the
-declared game version, including some operations that do not require the bridge.
-That broader gate means a new patch can restrict more than live integration.
-Independent rendering does not call the bridge, but still depends on readable
-installed asset formats. Saved-image viewing does not need a running game.
+`native_quick.available` inspects bounded PE metadata for common IL2CPP exports;
+`Service.supported_game` checks the installation, not its declared version.
+Compatible patches are attempted automatically, including writes. Profile
+filenames accept numeric schema generations, and portable-pack build labels are
+informational. Save contents, cosmetic schemas, baselines, account identity,
+permissions and local/Steam verification remain validated.
 
-The quoted 0.1.4.24 compatibility work compared declarations, adapted changed
-runtime behavior, added the verified build identity and exercised real reads,
-saves and restoration. Dynamic lookup reduces address/offset maintenance; it
-does not prove unchanged semantics on an untested patch. A future improvement is
-per-feature structural validation with read-only access on unfamiliar builds,
-while preserving separate validation for writes. The current gates remain in
-place; this size audit does not silently remove them.
+Optional lobby metadata/settings/CPU-permission lookup failures leave the roster
+available with a specific feature warning. A missing required runtime contract
+reports the actual API, field or method problem. This is a private in-process
+integration using pointers, not an official stable game API: a substantive API or
+save-schema change can still require adaptation. An ordinary patch identity
+change requires no Garage update. Independent rendering and saved-image viewing
+do not require native integration.
+
+### 2026-10-18 runtime compatibility verification
+
+Synthetic tests run the production C++ access helpers with relocated fields and
+array headers, changed scalar/enum types, reference assignments, boxed returns,
+added/ambiguous overloads and invalid bounds. Windows CI runs these tests.
+Python/browser tests accept unknown build labels and numeric profile generations
+while continuing to reject malformed data. No game binary is altered for testing.
+
+On the installed 0.1.4.24 game at its main menu, the new bridge read Quick Setup,
+21 presets and 27 groups. A changed-order validation wrote nothing. A real preset
+reorder saved through the game and matched Steam; the inverse restored the original
+order. All preset contents, Quick Setup slots, groups and other profile records
+were preserved, and the final local/Steam copies matched. A live Quick Setup
+Original/Modded switch and inverse also passed: all three profile records were
+restored exactly and the Steam copy matched.
 
 These observations come from the installed IL2CPP build 0.1.4.18 and local Ghidra
 pseudocode, not recovered original C#.
@@ -152,7 +169,7 @@ No BepInEx renderer, installer or ordinary-preset live-save endpoint remains.
 ## Protocol v3 and game 0.1.4.24 (2026-10-18)
 
 The current request header is 28,391 bytes with a bounded JSON tail, and the
-authored DLL is approximately 242 KiB. Exact supported builds are verified before use.
+authored DLL is approximately 242 KiB. Runtime contracts are resolved before use.
 Collection writes compare only reviewed preset/group libraries, let the game
 save, verify memory/local/Steam, and preserve concurrent progress and Quick slots.
 Race roster reads and renderer-independent preset allocation passed in the real

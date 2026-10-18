@@ -24,8 +24,9 @@ export default function Settings({ state, busy, run }) {
           <input value={game} onChange={(e) => setGame(e.target.value)} />
         </label>
         <p className="hint">
-          Folder containing TheKarters2.exe. Supported builds: 0.1.4.18 and
-          0.1.4.24.
+          Folder containing TheKarters2.exe. Garage resolves the installed
+          runtime automatically; game patches do not require a version allowlist
+          update.
         </p>
         <label>
           Local profile

@@ -9,9 +9,9 @@ Interactive 3D is optional and off by default. The page refreshes every four
 seconds while open, retaining stable cards and cached pictures. No persistent
 game plugin is installed.
 
-The bridge supports the verified IL2CPP builds 0.1.4.18 and 0.1.4.24. The original build is pinned to
-GameAssembly SHA-256
-`e55fab2cdcbf3852160183504a847b1a1b7af61c24bc9619e3736e3753aee130`.
+The bridge resolves the installed IL2CPP runtime's metadata automatically; no
+patch-version or GameAssembly hash allowlist is required. Tests cover 0.1.4.18
+and 0.1.4.24. See [runtime compatibility](NATIVE-BRIDGE-RESEARCH.md).
 This is an optional in-process integration through a temporary Windows message
 hook, not a file-only reload. Independent 3D rendering does not use this hook.
 
@@ -95,8 +95,8 @@ are not deleted or modified.
 The installed beta_dev game updated to 0.1.4.24, build 2026-10-16 22:27:38
 +02:00. Its GameAssembly SHA-256 is
 `55f5c88972fe1ccf4c9d5f3871b71bcfa261b3e42a379e18438e92623fc4d6a2`.
-The previous verified 0.1.4.18 hash remains accepted. No arbitrary game build is
-accepted. A new private Il2CppDumper declaration dump was compared with the
+At that earlier testing stage, access was hash-restricted. The subsequent runtime
+compatibility implementation removes those identity restrictions. A new private Il2CppDumper declaration dump was compared with the
 previous dump: 26 of 29 bridge-related types were identical after removing RVA
 and attribute lines. The settings type added fields; named IL2CPP reflection
 avoids offsets. The automatic-download manager added an orphaned queue registry.

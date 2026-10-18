@@ -140,9 +140,13 @@ export function validatePack(pack) {
     ]) ||
     pack.format !== "tk2-presets" ||
     pack.version !== 1 ||
-    pack.gameBuild !== "0.1.4.18"
+    typeof pack.gameBuild !== "string" ||
+    pack.gameBuild.length < 1 ||
+    pack.gameBuild.length > 100
   )
-    throw new Error("Expected tk2-presets version 1 for game 0.1.4.18.");
+    throw new Error(
+      "Expected tk2-presets version 1 with valid build metadata.",
+    );
   if (
     !Array.isArray(pack.presets) ||
     !pack.presets.length ||
@@ -197,7 +201,7 @@ export function exportPresets(state, ids, groupIds) {
   return validatePack({
     format: "tk2-presets",
     version: 1,
-    gameBuild: "0.1.4.18",
+    gameBuild: "unspecified",
     presets: presets.map((p) => ({
       key: `preset:${p.id}`,
       data: cosmetic(p.data),

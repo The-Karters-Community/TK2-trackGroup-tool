@@ -5,8 +5,9 @@ export default function HowTo({ onOpen }) {
       <h1>From the library to your game</h1>
       <p>
         The website edits a save you choose, entirely in your browser. It cannot
-        connect to Steam or write to your game automatically. Supports game
-        build <strong>0.1.4.18</strong>.
+        connect to Steam or write to your game automatically. Garage validates
+        the save’s preset and track-group structure before editing. Game patch
+        labels do not restrict compatible saves.
       </p>
       <div className="notice">
         <strong>Browser save editing is experimental</strong>
@@ -45,8 +46,8 @@ export default function HowTo({ onOpen }) {
           <p>
             Browse Speedrun groups or open a shared .tk2group.json file. Review
             its numbered tracks. If your save already has the same name,
-            explicitly choose whether to update it or add a copy. In My track groups,
-            you can also rename and reorder your existing tracks.
+            explicitly choose whether to update it or add a copy. In My track
+            groups, you can also rename and reorder your existing tracks.
           </p>
         </li>
         <li>

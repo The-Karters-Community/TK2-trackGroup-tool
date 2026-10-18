@@ -430,3 +430,29 @@
   native .text section equals the previously runtime-tested bridge.
 - Solid 7z experiment measured 17.72 MiB; default remains ordinary ZIP. No 10 MB
   full-feature build demonstrated; architecture changes would need separate proof.
+
+
+## 2026-10-18 - Runtime compatibility without build allowlists
+
+- Remove executable hash and game-version gates. Check actual installation and
+  IL2CPP exports; discover field types/offsets, typed overloads, enum constants,
+  reference assignability and array header/element sizes at runtime. Compatible
+  patches require no allowlist maintenance. Actual changed contracts report
+  feature-specific errors; optional lobby metadata/settings/CPU capability
+  failures retain readable roster entries.
+- Numeric save generations and pack build labels are informational compatibility
+  inputs; preserve strict schema, account, baseline, authority and save checks.
+- Windows CI exercises production access helpers with synthetic moved fields and
+  array layouts, new/ambiguous overloads, changed types, enums and invalid bounds.
+  Python/browser regressions cover unknown build labels and malformed data.
+- Live game 0.1.4.24 main-menu proof: read Quick Setup and 21 presets/27 groups;
+  changed-order preflight wrote nothing. Reorder/inverse and Quick Setup mode
+  switch/inverse both saved through the game and matched Steam. Original preset
+  data, Quick slots, groups and all three profile records restored exactly.
+- Full checks: 151 Python and 163 frontend tests; native contract harness,
+  desktop/web builds, static-web isolation, catalog and formatting checks pass.
+  Format existing frontend files needed by the repository formatting gate.
+- Runtime-compatible portable remains about 21.94 MiB. Relocated frozen native
+  Quick Setup/main-menu lobby reads, Steam hash agreement, fresh models/clips,
+  image formats, Edge/.NET/TLS, ZIP manifest and checksum passed. Existing user
+  Garage session prevented a separate startup run; it was left untouched.

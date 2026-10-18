@@ -25,7 +25,7 @@ class NativeQuickTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Cosmetic.encode(invalid)
 
-    def test_unavailable_for_an_unverified_game(self):
+    def test_unavailable_for_a_missing_runtime(self):
         with tempfile.TemporaryDirectory() as folder:
             self.assertFalse(available(folder))
 
