@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   activateControllerTarget,
   cancelDialog,
+  changeCustomizationCategory,
   changeRowPage,
   controllerDirection,
   moveFocus,
@@ -16,9 +17,33 @@ export default function InputNavigation() {
   const [connected, setConnected] = useState(false);
   useEffect(() => {
     function keyboard(event) {
-      if (event.defaultPrevented || event.altKey) return;
+      if (event.defaultPrevented) return;
       delete document.documentElement.dataset.inputNavigation;
       const target = event.target;
+      const editing = target.closest?.(
+        'input, select, textarea, [contenteditable="true"], [role="slider"]',
+      );
+      if (event.altKey) {
+        if (
+          !editing &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          (event.key === "ArrowLeft" || event.key === "ArrowRight")
+        ) {
+          const scope = navigationScope();
+          if (
+            scope.tagName === "DIALOG" &&
+            scope.querySelector("[data-customization-categories]")
+          ) {
+            // Keep a held shortcut or disabled editor from invoking the
+            // browser's Alt+Left history navigation.
+            event.preventDefault();
+            if (!event.repeat)
+              changeCustomizationCategory(event.key === "ArrowLeft" ? -1 : 1);
+          }
+        }
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         const scope = navigationScope();
         if (scope.tagName !== "DIALOG") return;
@@ -28,14 +53,7 @@ export default function InputNavigation() {
         if (!event.repeat) saveEditor();
         return;
       }
-      if (
-        event.ctrlKey ||
-        event.metaKey ||
-        target.closest?.(
-          'input, select, textarea, [contenteditable="true"], [role="slider"]',
-        )
-      )
-        return;
+      if (event.ctrlKey || event.metaKey || editing) return;
       if (
         (event.key === "PageUp" || event.key === "PageDown") &&
         target.closest?.(
@@ -58,6 +76,8 @@ export default function InputNavigation() {
       repeatAt = 0,
       priorA = false,
       priorB = false,
+      priorLeftCategory = false,
+      priorRightCategory = false,
       priorLeftPage = false,
       priorRightPage = false,
       priorSave = false;
@@ -76,13 +96,22 @@ export default function InputNavigation() {
       );
       if (!pad) {
         priorDirection = null;
-        priorA = priorB = priorLeftPage = priorRightPage = priorSave = false;
+        priorA =
+          priorB =
+          priorLeftCategory =
+          priorRightCategory =
+          priorLeftPage =
+          priorRightPage =
+          priorSave =
+            false;
         return;
       }
       const a = Boolean(pad.buttons[0]?.pressed),
         b = Boolean(pad.buttons[1]?.pressed),
-        leftPage = Boolean(pad.buttons[4]?.pressed),
-        rightPage = Boolean(pad.buttons[5]?.pressed),
+        leftCategory = Boolean(pad.buttons[4]?.pressed),
+        rightCategory = Boolean(pad.buttons[5]?.pressed),
+        leftPage = Boolean(pad.buttons[6]?.pressed),
+        rightPage = Boolean(pad.buttons[7]?.pressed),
         save = Boolean(pad.buttons[9]?.pressed);
       const direction = controllerDirection(pad),
         now = performance.now();
@@ -90,7 +119,17 @@ export default function InputNavigation() {
         const editing = document.activeElement?.matches(
           'input, select, textarea, [contenteditable="true"]',
         );
-        if (!editing && (direction || a || b || leftPage || rightPage || save))
+        if (
+          !editing &&
+          (direction ||
+            a ||
+            b ||
+            leftCategory ||
+            rightCategory ||
+            leftPage ||
+            rightPage ||
+            save)
+        )
           document.documentElement.dataset.inputNavigation = "controller";
         if (
           !editing &&
@@ -102,6 +141,10 @@ export default function InputNavigation() {
         }
         if (!editing && a && !priorA) activateControllerTarget();
         if (b && !priorB) cancelDialog();
+        if (!editing && leftCategory && !priorLeftCategory && !rightCategory)
+          changeCustomizationCategory(-1);
+        if (!editing && rightCategory && !priorRightCategory && !leftCategory)
+          changeCustomizationCategory(1);
         if (!editing && leftPage && !priorLeftPage && !rightPage)
           changeRowPage(-1);
         if (!editing && rightPage && !priorRightPage && !leftPage)
@@ -110,6 +153,8 @@ export default function InputNavigation() {
       }
       priorA = a;
       priorB = b;
+      priorLeftCategory = leftCategory;
+      priorRightCategory = rightCategory;
       priorLeftPage = leftPage;
       priorRightPage = rightPage;
       priorSave = save;
@@ -148,8 +193,12 @@ export default function InputNavigation() {
           change page
         </p>
         <p>
+          <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> switch Character,
+          Vehicle, Wheels, Stickers
+        </p>
+        <p>
           {connected
-            ? "Controller: D-pad / left stick to move, A to choose, B to go back, LB / RB to change page. Menu / Start saves editor changes."
+            ? "Controller: LB / RB switches Character, Vehicle, Wheels, Stickers. LT / RT changes page. D-pad / left stick moves, A chooses, B goes back. Menu / Start saves editor changes."
             : "A standard controller is optional. Press one of its buttons with Garage focused to connect."}
         </p>
       </div>

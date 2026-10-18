@@ -24,7 +24,8 @@ export default function Settings({ state, busy, run }) {
           <input value={game} onChange={(e) => setGame(e.target.value)} />
         </label>
         <p className="hint">
-          Folder containing TheKarters2.exe. Supported build: 0.1.4.18.
+          Folder containing TheKarters2.exe. Supported builds: 0.1.4.18 and
+          0.1.4.24.
         </p>
         <label>
           Local profile
@@ -53,7 +54,7 @@ export default function Settings({ state, busy, run }) {
         </p>
         <p>
           Steam must be running, the account must own the game, and Steam Cloud
-          must be enabled. Keep the game closed during imports.
+          must be enabled. Imports can save through the supported running game.
         </p>
         <button disabled={busy} onClick={() => run("refresh", {})}>
           Connect / refresh Steam
@@ -70,7 +71,8 @@ export default function Settings({ state, busy, run }) {
           {state.nativeQuickSaveAvailable
             ? "Native integration is available for this game build."
             : "Native integration is unavailable for this installation or game build. Offline editing still works."}{" "}
-          Group and collection changes require the game closed.
+          Presets and track groups can save while the supported game runs. The
+          current race is unchanged.
         </p>
       </div>
       <div className="settings-section">

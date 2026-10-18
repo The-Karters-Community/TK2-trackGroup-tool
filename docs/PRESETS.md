@@ -1,6 +1,6 @@
 # Presets and preset groups
 
-Development support targets game **0.1.4.18**. Presets are the first length-prefixed
+Development support targets game **0.1.4.18** and **0.1.4.24**. Presets are the first length-prefixed
 JSON record; custom preset groups are `Type=1`, `SubType=4` in the third record.
 The separator record, track groups, built-in groups and unrelated profile fields
 are preserved. Original and modded character, vehicle, wheel selections and all
@@ -50,9 +50,9 @@ reuses pictured appearances from saved presets, rather than reading Unity bundle
 The editor uses visual category tabs and hierarchical thumbnail grids, with fixed
 header/footer controls and inline errors. A child preset editor leaves its group's
 unsaved name and membership draft intact. Remove icons only change membership.
-The Original/Modded tabs choose which cosmetic fields to edit; selecting a preset
-in the game sets `bUsingModdedVersion` from the game's own display control, so the
-app preserves that flag rather than offering a misleading global switch.
+The Original/Modded tabs choose which cosmetic fields to edit. Choosing an
+appearance also sets the corresponding in-game Original/Modded display flag;
+the editor labels the active version before saving.
 
 **Full setup** now renders locally in Three.js from installed official, Workshop
 and local bundles. It attaches the character to the vehicle's authored seating
@@ -69,8 +69,9 @@ updates its icon; it never calls a BepInEx renderer. A closed game cannot create
 new Unity image, while local 3D still reflects the exact current selection.
 
 Saving keeps the editor open. Quick Setup can save through the optional native
-bridge while the game runs; ordinary presets and collection changes use the
-verified local/Steam transaction with the game closed. **Lobby** reads actual
+bridge while the game runs. Ordinary presets and collection changes use a
+collection-only native transaction while running, or the backed-up local/Steam
+transaction when closed. **Lobby** reads actual
 players and copies a selected setup into All presets through the game’s own
 allocation/save method. See [LOBBY.md](LOBBY.md) for verification status.
 
@@ -89,10 +90,8 @@ Workshop resolution is not yet implemented; existing track subscription support
 does not prove cosmetic dependencies are installed. Import requires acknowledging
 this limitation. The game itself may replace missing cosmetics on loading.
 
-Desktop imports and group edits use the existing backed-up local/Steam transaction,
-with the game closed. Quick Setup can also be changed through the running
-game’s own save method after Steam/profile checks. Ordinary saved presets remain
-editable with the game closed; the former BepInEx save integration is removed. Browser changes remain
+Desktop imports and group edits use backed-up local/Steam transactions. With a verified running game, Garage replaces only the reviewed preset/group collections on the game thread and lets the game save. Other progress and Quick Setup slots stay current. Quick Setup can also be changed through the running
+game’s own save method after Steam/profile checks. Ordinary saved presets can also save through the native collection transaction. The former BepInEx save integration is removed. Browser changes remain
 in memory and use the same backup/download flow
 as track groups; follow the website's Steam Cloud instructions before replacing a
 save. A browser cannot inspect the local Mods folder or contact the Steam client.
@@ -120,5 +119,5 @@ The native bridge now saves one Quick Setup while the game runs, without BepInEx
 The open editor refreshes after a verified save. Local and Steam copies are checked,
 and only the selected slot's cosmetics change. During a race the current racer is
 left alone; the stored setup is available for the next Quick Setup selection.
-Race-return/lobby transitions remain unverified. Group/import/order writes still
-require the game closed. See [native evidence](NATIVE-BRIDGE-RESEARCH.md).
+Race-return transitions remain unverified. Group/import/order writes can also
+use the verified running game through the collection-only transaction. See [native evidence](NATIVE-BRIDGE-RESEARCH.md).

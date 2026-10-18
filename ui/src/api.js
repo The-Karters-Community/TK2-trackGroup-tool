@@ -18,6 +18,9 @@ export async function loadPreview(source, signal) {
     throw new Error("Invalid preview");
   const response = await fetch(source, {
     signal,
+    ...(source.startsWith("/api/preset-image/Icon_")
+      ? { cache: "no-store" }
+      : {}),
     headers: {
       "X-TK2-Token": document.querySelector('meta[name="tk2-session"]').content,
     },

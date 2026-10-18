@@ -45,9 +45,29 @@ export function centerModel(root) {
   return { asset, size, longest };
 }
 
+export function alphaBounds(pixels, width, height) {
+  let left = width,
+    right = -1,
+    top = height,
+    bottom = -1;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      if (pixels[(y * width + x) * 4 + 3] > 8) {
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    }
+  return right < left
+    ? null
+    : { left, top, width: right - left + 1, height: bottom - top + 1 };
+}
+
 // One renderer and lighting environment per editor. Keep the previous setup
 // interactive while fetching a selection; only model resources are replaced.
 export function createViewport(host, isPlaying) {
+  let activeHost = host;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   host.replaceChildren(renderer.domElement);
   renderer.domElement.setAttribute(
@@ -109,17 +129,19 @@ export function createViewport(host, isPlaying) {
     dirty = true;
   }
   reset();
-  const resize = new ResizeObserver(() => {
-    const width = host.clientWidth,
-      height = host.clientHeight;
+  function fitHost() {
+    const width = activeHost.clientWidth,
+      height = activeHost.clientHeight;
     if (!width || !height) return;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
     reframe();
     dirty = true;
-  });
+  }
+  const resize = new ResizeObserver(fitHost);
   resize.observe(host);
+  fitHost();
   const clock = new THREE.Clock();
   function draw() {
     frame = requestAnimationFrame(draw);
@@ -149,6 +171,74 @@ export function createViewport(host, isPlaying) {
   }
   return {
     reset,
+    async snapshot() {
+      // Serialize only after images have decoded, then render/copy in the same
+      // task. No preserveDrawingBuffer or continuously rendered card canvases.
+      const target = current;
+      if (!target) throw new Error("The setup is not ready yet.");
+      const deadline = performance.now() + 5000;
+      while (target.resources.some((r) => r.isTexture && !r.image)) {
+        if (performance.now() >= deadline)
+          throw new Error("Setup textures are still loading.");
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      if (target !== current)
+        throw new Error("The setup changed before its picture was ready.");
+      reset();
+      renderer.render(scene, camera);
+      // Card pictures should use their space, rather than inherit the orbit
+      // viewer's conservative camera margins. Trim only transparent pixels.
+      const source = renderer.domElement;
+      const copy = document.createElement("canvas");
+      copy.width = source.width;
+      copy.height = source.height;
+      const context = copy.getContext("2d", { willReadFrequently: true });
+      context.drawImage(source, 0, 0);
+      const bounds = alphaBounds(
+        context.getImageData(0, 0, copy.width, copy.height).data,
+        copy.width,
+        copy.height,
+      );
+      if (!bounds)
+        throw new Error("The setup did not produce a visible image.");
+      const padding = Math.max(
+        6,
+        Math.ceil(Math.max(bounds.width, bounds.height) * 0.06),
+      );
+      const picture = document.createElement("canvas");
+      picture.width = bounds.width + padding * 2;
+      picture.height = bounds.height + padding * 2;
+      picture
+        .getContext("2d")
+        .drawImage(
+          copy,
+          bounds.left,
+          bounds.top,
+          bounds.width,
+          bounds.height,
+          padding,
+          padding,
+          bounds.width,
+          bounds.height,
+        );
+      return picture.toDataURL("image/png");
+    },
+    // Enlarging moves the existing canvas into a native top-layer dialog.
+    // Retain the scene, animation position and GPU resources during the move.
+    attach(nextHost) {
+      if (!nextHost || nextHost === activeHost) return;
+      resize.disconnect();
+      delete activeHost.dataset.meshes;
+      delete activeHost.dataset.animated;
+      activeHost = nextHost;
+      activeHost.replaceChildren(renderer.domElement);
+      if (current) {
+        activeHost.dataset.meshes = String(current.meshCount);
+        activeHost.dataset.animated = String(current.motion);
+      }
+      resize.observe(activeHost);
+      fitHost();
+    },
     setSpeed(value) {
       speed = value;
     },
@@ -193,6 +283,7 @@ export function createViewport(host, isPlaying) {
           models,
           resources,
           motion,
+          meshCount: result.meshCount,
           size: size.multiplyScalar(1.8 / longest),
           duration: Math.max(
             ...(kind === "characters"
@@ -205,8 +296,8 @@ export function createViewport(host, isPlaying) {
         scene.add(asset);
         reframe();
         dirty = true;
-        host.dataset.meshes = String(result.meshCount);
-        host.dataset.animated = String(motion);
+        activeHost.dataset.meshes = String(result.meshCount);
+        activeHost.dataset.animated = String(motion);
         return {
           motion,
           warning: models.find((m) => m.warning)?.warning || "",
@@ -224,6 +315,7 @@ export function createViewport(host, isPlaying) {
       resize.disconnect();
       controls.dispose();
       release(current);
+      current = null;
       lighting.dispose();
       renderer.dispose();
       renderer.forceContextLoss();

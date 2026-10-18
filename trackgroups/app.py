@@ -50,7 +50,7 @@ def make_server(service):
                 self.send_response(200)
                 self.send_header('Content-Type','image/png')
                 self.send_header('Content-Length',str(len(raw)))
-                self.send_header('Cache-Control','private, max-age=60')
+                self.send_header('Cache-Control','no-store' if path.rsplit('/',1)[-1].startswith('Icon_') else 'private, max-age=31536000, immutable')
                 self.send_header('X-Content-Type-Options','nosniff')
                 self.end_headers(); self.wfile.write(raw)
                 return
@@ -81,6 +81,10 @@ def make_server(service):
                     return self.reply(200, service.lobby_state())
                 if action == "copy-lobby-preset":
                     return self.reply(200, service.copy_lobby_preset(body))
+                if action == "subscribe-lobby-part":
+                    return self.reply(200, service.subscribe_lobby_part(body))
+                if action == "edit-lobby-player":
+                    return self.reply(200, service.edit_lobby_player(body))
                 if action == "live-save-quick":
                     return self.reply(200, service.save_live_quick(body))
                 if action == "library-preferences":

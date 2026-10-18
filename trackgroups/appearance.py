@@ -17,6 +17,40 @@ import time
 from .runtime import write_json
 
 KINDS = {9: "characters", 12: "vehicles", 14: "wheels", 16: "stickers"}
+INDEX_VERSION = 13
+PNG_HEADER = b"\x89PNG\r\n\x1a\n"
+
+
+def file_stamp(path):
+    """A missing or concurrently replaced download is a changed source too."""
+    try:
+        info = path.stat()
+        return (str(path), info.st_mtime_ns, info.st_size)
+    except OSError:
+        return (str(path), None, None)
+
+
+def valid_png(path):
+    try:
+        if not 8 < path.stat().st_size <= 4 * 1024 * 1024:
+            return False
+        with path.open('rb') as stream:
+            return stream.read(8) == PNG_HEADER
+    except OSError:
+        return False
+
+
+def package_origin(game, file):
+    """Trust the Steam library layout, never a numeric local mod folder name."""
+    workshop = Path(game).resolve().parent.parent/'workshop/content/2269950'
+    try:
+        relative = Path(file).resolve().relative_to(workshop.resolve())
+        identity = relative.parts[0]
+        if len(relative.parts) > 1 and identity.isascii() and identity.isdigit():
+            return {'workshopId': identity, 'localOnly': False}
+    except (OSError, ValueError, IndexError):
+        pass
+    return {'localOnly': True}
 
 
 def clean_name(value):
@@ -100,10 +134,13 @@ class Appearance:
         self.model_refs = {}
         self.warning = ""
         self.signature = ""
+        self.revision = ""
         self.files = {}
         self.preview_error = ""
         self._observed = None
         self._checked = 0
+        self._requested_generation = 0
+        self._retry_at = None
 
     def observe(self, game):
         """Notice completed/new Workshop and local packages without decoding them."""
@@ -117,12 +154,18 @@ class Appearance:
                 for package in sorted(location.iterdir())[:2000]:
                     if not package.is_dir(): continue
                     for path in (package, package/'catalog_config.json', package/'StandaloneWindows64/catalog_config.json'):
-                        try:
-                            info = path.stat(); stamps.append((str(path), info.st_mtime_ns, info.st_size))
-                        except OSError: pass
+                        stamps.append(file_stamp(path))
+                    directory = package/'StandaloneWindows64' if (package/'StandaloneWindows64').is_dir() else package
+                    # Steam writes existing bundle files in place. Their parent
+                    # directory and unchanged catalog do not get a new mtime.
+                    stamps.extend(file_stamp(p) for p in sorted(directory.glob('*.bundle')))
             except OSError: pass
+        official = root/'TheKarters2_Data/StreamingAssets/aa'
+        stamps.append(file_stamp(official/'catalog.json'))
+        stamps.extend(file_stamp(p) for p in sorted((official/'StandaloneWindows64').glob('*thekartersgameconfig*.bundle')))
         stamp = (str(root), tuple(stamps))
-        if stamp != self._observed:
+        retry = self._retry_at is not None and now >= self._retry_at and not self.loading
+        if stamp != self._observed or retry:
             self._observed = stamp
             self.refresh(game)
 
@@ -184,22 +227,26 @@ class Appearance:
                 self.signature = ''
                 (self.folder / 'index.json').unlink(missing_ok=True)
             self.requested_game = game
+            self._requested_generation += 1
             if self.loading:
                 return
             self.loading = True
         threading.Thread(target=self._build, args=(game,), daemon=True).start()
 
     def _build(self, game):
+        with self.lock:
+            generation = self._requested_generation
         try:
             sources = self.sources(game)
+            dependencies = sorted({p for file, _ in sources for p in file.parent.glob('*.bundle')})
             signature = hashlib.sha256(
                 json.dumps(
                     [
-                        (str(p.resolve()), p.stat().st_size, p.stat().st_mtime_ns,
-                         (p.parent / "catalog_config.json").stat().st_mtime_ns
-                         if (p.parent / "catalog_config.json").is_file() else 0)
+                        (file_stamp(p.resolve()), file_stamp(p.parent / "catalog_config.json"))
                         for p, _ in sources
-                    ]
+                    ] + [file_stamp(p) for p in dependencies]
+                      + ([file_stamp(Path(game)/'TheKarters2_Data/StreamingAssets/aa/catalog.json')]
+                         if (Path(game)/'TheKarters2_Data/StreamingAssets/aa/catalog.json').is_file() else [])
                 ).encode()
             ).hexdigest()
             if signature == self.signature and game == self.game:
@@ -208,21 +255,26 @@ class Appearance:
             try:
                 saved = json.loads(cache.read_text(encoding="utf-8"))
                 if (
-                    saved.get("version") == 11
+                    saved.get("version") == INDEX_VERSION
                     and saved.get("signature") == signature
                     and not saved.get("previewError")
+                    and self._cached_images_valid(saved.get('items', {}))
                 ):
                     with self.lock:
                         self.items = saved["items"]
                         self.model_refs = saved.get("modelRefs", {})
                         self.signature = signature
+                        self.revision = hashlib.sha256(json.dumps([signature, self.items, self.model_refs], sort_keys=True).encode()).hexdigest()
                         self.game = game
+                        self.warning = ''
+                        self._retry_at = None
                     return
             except (OSError, ValueError, KeyError):
                 pass
             import UnityPy
 
             self.preview_error = ""
+            decode_error = False
             _model_prefab.cache_clear()
 
             result = {kind: {} for kind in KINDS.values()}
@@ -307,6 +359,7 @@ class Appearance:
                             entry["image"] = self._sprite(
                                 file, objects, tree.get("configSprite", {}), identity
                             )
+                            entry['thumbnailUnavailable'] = not tree.get('configSprite', {}).get('m_PathID')
                             result[kind][str(identity)] = entry
                         elif isinstance(tree.get("modContentInfo"), dict):
                             try:
@@ -319,6 +372,7 @@ class Appearance:
                                 )
                                 for t in tree.get("thumbnailsForObjects", [])
                             }
+                            origin = {**package_origin(game, file), 'package': clean_name(tree.get('ModName') or source)}
                             for kind, variant, parts, raw_parts in mod_variants(
                                 tree["modContentInfo"], names.get(file.parent)
                             ):
@@ -336,16 +390,16 @@ class Appearance:
                                     "entity": parts[0] if parts else "Custom appearance",
                                     "skin": parts[1] if len(parts) > 1 else "Default",
                                     "variant": parts[2] if len(parts) > 2 else "Default",
+                                    **origin,
                                 }
+                                pointer = thumbs.get(variant.get('strPrefabFileName_AddressableKey'), {})
                                 entry["image"] = self._sprite(
                                     file,
                                     objects,
-                                    thumbs.get(
-                                        variant.get("strPrefabFileName_AddressableKey"),
-                                        {},
-                                    ),
+                                    pointer,
                                     identity,
                                 )
+                                entry['thumbnailUnavailable'] = not pointer.get('m_PathID')
                                 result[kind][str(identity)] = entry
                                 reference = package_catalog.resolve(variant.get('strPrefabFileName_AddressableKey'), asset=kind=='stickers') if package_catalog else None
                                 if not reference and kind != 'stickers':
@@ -363,38 +417,61 @@ class Appearance:
                             finished.add(file.parent)
                 except Exception:
                     # One damaged/unavailable package must not hide the library.
+                    # A transient Steam download must not become a permanently
+                    # successful, incomplete on-disk index.
+                    decode_error = True
                     continue
             write_json(
                 cache,
                 {
-                    "version": 11,
+                    "version": INDEX_VERSION,
                     "signature": signature,
                     "items": result,
                     "modelRefs": model_refs,
-                    "previewError": self.preview_error,
+                    "previewError": self.preview_error or ('Package still downloading or unavailable.' if decode_error else ''),
                 },
             )
             with self.lock:
                 self.items = result
                 self.model_refs = model_refs
-                self.signature = signature if not self.preview_error else ""
+                self.revision = hashlib.sha256(json.dumps([signature, result, model_refs], sort_keys=True).encode()).hexdigest()
+                incomplete = bool(self.preview_error or decode_error)
+                self.signature = signature if not incomplete else ""
+                self._retry_at = time.monotonic() + 5 if incomplete else None
                 self.game = game
                 self.warning = (
-                    "Some appearance thumbnails are unavailable. Saved setup previews can still be used."
-                    if self.preview_error
-                    else ""
+                    "Some installed content is still downloading or unavailable. Garage will retry automatically."
+                    if decode_error else
+                    "Some appearance thumbnails are unavailable. Garage will retry automatically."
+                    if self.preview_error else ""
                 )
         except Exception as exc:
             with self.lock:
                 self.warning = (
                     "Appearance labels could not be refreshed: " + str(exc)[:200]
                 )
+                self._retry_at = time.monotonic() + 5
         finally:
             with self.lock:
                 self.loading = False
                 next_game = self.requested_game
-            if next_game is not None and next_game != game:
+                newer_request = self._requested_generation > generation
+            if next_game is not None and (next_game != game or newer_request):
                 self.refresh(next_game)
+
+    def _cached_images_valid(self, items):
+        if not isinstance(items, dict): return False
+        for entries in items.values():
+            if not isinstance(entries, dict): return False
+            for entry in entries.values():
+                if not isinstance(entry, dict): return False
+                image = entry.get('image', '')
+                if not image:
+                    continue  # Some mods intentionally ship no thumbnail.
+                name = image.removeprefix('/api/preset-image/')
+                if not re.fullmatch(r'[a-f0-9]{64}\.png', name) or not valid_png(self.folder/name):
+                    return False
+        return True
 
     def _sprite(self, bundle, objects, pointer, identity):
         if pointer.get("m_FileID", 0) != 0 or pointer.get("m_PathID") not in objects:
@@ -410,7 +487,7 @@ class Appearance:
         )
         path = self.folder / key
         try:
-            if not path.is_file():
+            if not valid_png(path):
                 image = obj.read().image
                 image.thumbnail((160, 160))
                 temporary = path.with_suffix(".tmp")
@@ -428,12 +505,13 @@ class Appearance:
             result = {
                 "items": self.items,
                 "loading": self.loading,
-                "revision": self.signature,
+                "revision": self.revision,
                 "warning": self.warning,
                 "models": {kind: [int(key.split(":", 1)[1]) for key in self.model_refs if key.startswith(kind + ":")]
                            for kind in ("characters", "vehicles", "wheels")},
             }
             images = {}
+            preview_stamps = []
             for p in presets:
                 for mode in ("original", "modded"):
                     name = (
@@ -442,31 +520,38 @@ class Appearance:
                         + ".png"
                     )
                     path = self.profiles / "PresetIcons" / name
-                    if (
-                        path.is_file()
+                    stamp = file_stamp(path)
+                    preview_stamps.append(stamp)
+                    if (stamp[1] is not None
                         and path.resolve().is_relative_to(self.profiles.resolve())
-                        and path.stat().st_size <= 4 * 1024 * 1024
-                    ):
+                        and valid_png(path)):
                         key = name
                         self.files[key] = path
                         images.setdefault(str(p["id"]), {})[mode] = (
                             "/api/preset-image/"
                             + key
                             + "?v="
-                            + str(path.stat().st_mtime_ns)
+                            + str(stamp[1]) + '-' + str(stamp[2])
                         )
             stale = []
+            stale_views = {}
             fields = ("iCharacterSkinMaterialID", "iVehicleMaterialID", "iWheelMaterialID", "iCharacterSkinMaterialID_Modded", "iVehicleMaterialID_Modded", "iWheelMaterialID_Modded")
             for p in presets:
                 marker = self.profiles / "PresetIcons" / f'Icon_PresetID_{p["id"]}.hash'
+                preview_stamps.append(file_stamp(marker))
                 try:
                     saved = marker.read_text(encoding="utf-8").strip().split("_")[:6]
-                    if saved != [str(p["data"][key]) for key in fields]:
+                    expected = [str(p["data"][key]) for key in fields]
+                    mismatch = [mode for mode, start in [('original', 0), ('modded', 3)]
+                                if saved[start:start+3] != expected[start:start+3]]
+                    if mismatch:
                         stale.append(p["id"])
-                except (OSError, KeyError):
+                        stale_views[str(p['id'])] = mismatch
+                except (OSError, KeyError, UnicodeError):
                     pass
             result["stalePreviews"] = stale
-            result['staleViews'] = {str(identity): ['original', 'modded'] for identity in stale}
+            result['staleViews'] = stale_views
+            result['previewRevision'] = hashlib.sha256(json.dumps(preview_stamps).encode()).hexdigest()
             result["previews"] = images
             return result
 
@@ -475,7 +560,7 @@ class Appearance:
             r"(?:[a-f0-9]{64}|Icon_PresetID_-?\d+(?:_Modded)?)\.png", name
         ):
             raise ValueError("Invalid preview.")
-        path = self.files.get(name) or self.folder / name
+        path = self.profiles/'PresetIcons'/name if name.startswith('Icon_') else self.folder/name
         if not path.is_file() or path.stat().st_size > 4 * 1024 * 1024:
             raise ValueError("Preview not found.")
         root = self.profiles if name.startswith("Icon_") else self.folder

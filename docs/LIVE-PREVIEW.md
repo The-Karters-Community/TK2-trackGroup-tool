@@ -28,9 +28,12 @@ Partial writes retain the last valid snapshot and are retried. This observes dis
 saves, not changes that the game has not saved yet. Cached preset icons also use
 file revisions to refresh when the game replaces them.
 
-Original character seating and menu overrides currently target **0.1.4.18**.
-A fingerprint verifies the narrow native menu record before using its references;
-an incompatible layout fails explicitly. Generic streamed/dense/constant Unity
+Original character seating and menu overrides resolve the installed
+`PTK_PlayerPreviewItem` component by its MonoScript and serialized object table.
+This avoids a scene byte offset that broke after the 0.1.4.24 update, without
+loading the million-object scene. Dependency names, record bounds and consistent
+presentation references are checked before use; game updates invalidate caches.
+The installed 0.1.4.24 official characters were decoded and rendered locally. Generic streamed/dense/constant Unity
 transform animation is supported; humanoid muscle retargeting and arbitrary
 script curves are not. Standard Three.js materials approximate Unity shaders;
 sticker tint/color effects are not reproduced. Missing assets are reported. Clips that expand the model abnormally fall back
@@ -68,7 +71,8 @@ still an in-process integration, rather than a file-only hot reload.
 
 Quick Setup can be edited with the game closed through the normal backed-up
 local/Steam transaction, or saved live through the game’s own serializer. Group,
-order and ordinary-preset writes require the game closed. A race keeps its active
+order and ordinary-preset writes use a collection-only native transaction while
+the verified game runs. A race keeps its active
 racer; the stored Quick Setup is for a later selection. Race-return transitions
 remain a separate runtime test.
 

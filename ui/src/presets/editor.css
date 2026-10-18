@@ -256,3 +256,24 @@
     min-height: 36px;
   }
 }
+
+.category-navigation-hint {
+  margin: 0;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+.controller-category-hint {
+  display: none;
+}
+[data-controller-connected="true"] .controller-category-hint {
+  display: inline;
+}
+[data-controller-connected="true"] .keyboard-category-hint {
+  display: none;
+}
+@media (max-width: 500px) {
+  .category-navigation-hint {
+    display: none;
+  }
+}

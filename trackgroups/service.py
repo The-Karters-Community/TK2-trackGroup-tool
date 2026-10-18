@@ -77,6 +77,10 @@ class Service:
             presets = {**view(profile), 'localPackages':local_packages(self.game), 'error': ''}
             self.local_groups, self.preset_state = groups, presets
             self.local_hash = digest(raw)
+            history = getattr(self, '_library_review_history', {})
+            history[self.local_hash] = self._library_fingerprint(profile)
+            while len(history) > 8: history.pop(next(iter(history)))
+            self._library_review_history = history
             self._profile_stamp = (self.profile, after.st_mtime_ns, after.st_size)
             self._pending_profile = None
             if external: self.previews.clear()
@@ -104,11 +108,19 @@ class Service:
         elif time.monotonic() - pending[1] >= .35:
             self.load_local(external=True)
 
+    @staticmethod
+    def _library_fingerprint(profile):
+        from .transaction import library_state
+        return digest(json.dumps(library_state(profile), sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode())
+
+    def _same_reviewed_library(self, expected_hash, profile):
+        return getattr(self, '_library_review_history', {}).get(expected_hash) == self._library_fingerprint(profile)
+
     def supported_game(self):
         p = Path(self.game)
         info = p / "build-info.txt"
-        if not info.is_file() or "Version: 0.1.4.18\n" not in info.read_text(encoding="utf-8").replace("\r\n", "\n"):
-            raise ValueError("This tool currently supports game build 0.1.4.18. Select that installation in Settings.")
+        if not info.is_file() or not any("Version: " + version + "\n" in info.read_text(encoding="utf-8").replace("\r\n", "\n") for version in ("0.1.4.18", "0.1.4.24")):
+            raise ValueError("This tool supports verified game builds 0.1.4.18 and 0.1.4.24. Select a supported installation in Settings.")
 
     def settings(self, body):
         if getattr(self,"quick_saving",False) or self.job and self.job["state"] == "running": raise ValueError("Wait for the current operation before changing settings.")
@@ -263,12 +275,107 @@ class Service:
         finally:
             with self.lock:self.quick_saving=False
 
+    @staticmethod
+    def _lobby_workshop_id(value):
+        if isinstance(value,str) and value.isascii() and value.isdigit() and 0<len(value)<=20 and value[0]!='0' and 0<int(value)<2**64:
+            return value
+        return None
+
+    def _lobby_appearance(self):
+        appearance=getattr(self,'appearance',None)
+        return copy.deepcopy(appearance.snapshot([])) if appearance else {'items':{}}
+
+    def _lobby_part_sources(self,entry,appearance):
+        """Exact local source paths win; native sources are game-resolved package IDs."""
+        from types import SimpleNamespace
+        from .models import effective_ids
+        result={}
+        resolved=effective_ids(SimpleNamespace(lock=self.lock,items=appearance.get('items',{})),entry['data'])
+        fields={'characters':'iCharacterSkinMaterialID','vehicles':'iVehicleMaterialID','wheels':'iWheelMaterialID'}
+        for kind,field in fields.items():
+            requested=entry['data'][field+'_Modded']
+            modded=entry['data'].get('bUsingModdedVersion') is True
+            identity=resolved[kind]
+            items=appearance.get('items',{}).get(kind,{})
+            item=items.get(str(identity));requested_item=items.get(str(requested)) if modded else item
+            fallback=modded and identity!=requested
+            view='modded' if modded and not fallback else 'original'
+            raw=entry.get('workshop',{}).get(kind,{})
+            native=self._lobby_workshop_id(raw.get('id')) if modded and isinstance(raw,dict) else None
+            # An explicitly local/official package cannot acquire a Workshop
+            # origin from a matching number in a remote record.
+            workshop=self._lobby_workshop_id(requested_item.get('workshopId')) if requested_item else native
+            result[kind]={'item':item,'workshopId':workshop,'native':raw,'configId':identity,'requestedConfigId':requested,'view':view,'fallback':fallback}
+        return result
+
+    def _lobby_workshop_details(self,ids):
+        """Bound public metadata queries; roster polls never query Steam every time."""
+        ids=sorted({value for value in ids if self._lobby_workshop_id(value)})[:96]
+        scope=(self.game,self.account)
+        now=time.monotonic()
+        with self.lock:
+            cache=getattr(self,'_lobby_workshop_cache',None)
+            if not cache or cache['scope']!=scope:
+                cache={'scope':scope,'entries':{}};self._lobby_workshop_cache=cache
+            missing=[value for value in ids if now>=cache['entries'].get(value,{}).get('until',0)]
+        if missing and self.account:
+            try:
+                reply=Worker(self.game).request('details',{'ids':missing},timeout=35)
+                if reply.get('account')!=self.account:raise ValueError('The Steam account changed. Refresh Steam.')
+                with self.lock:
+                    if (self.game,self.account)==scope:
+                        for value in missing:
+                            cache['entries'][value]={'until':time.monotonic()+120,'info':copy.deepcopy(reply.get('items',{}).get(value,{})), 'status':copy.deepcopy(reply.get('status',{}).get(value,{}))}
+                        for value in sorted(cache['entries'],key=lambda value:cache['entries'][value].get('until',0)):
+                            if len(cache['entries'])<=512:break
+                            if value not in ids:cache['entries'].pop(value,None)
+            except Exception:
+                # Native room data stays useful if Steam metadata is temporarily
+                # unavailable. Actions recheck provenance and account themselves.
+                with self.lock:
+                    for value in missing:
+                        previous=cache['entries'].get(value,{})
+                        cache['entries'][value]={**previous,'until':time.monotonic()+30}
+        with self.lock:
+            return {value:copy.deepcopy(cache['entries'].get(value,{})) for value in ids}
+
+    def _lobby_public_parts(self,entry,appearance,details):
+        parts={}
+        has_index=bool(appearance.get('items'))
+        for kind,source in self._lobby_part_sources(entry,appearance).items():
+            item=source['item'];workshop=source['workshopId']
+            metadata=details.get(workshop,{})
+            info=metadata.get('info',{});status=metadata.get('status',{})
+            available=info.get('available') is True and info.get('kind')!='track'
+            installed=bool(item) if has_index else True
+            native=source['native']
+            temporary=isinstance(native,dict) and native.get('temporary') is True
+            subscribed=bool(status.get('subscribed')) and not temporary
+            if not workshop:
+                reason='Included with the game.' if item and item.get('source')=='official' else ('This appearance is installed locally and has no verified Workshop page.' if item else 'The Workshop source for this appearance could not be resolved.')
+            elif not available:reason='Workshop details are unavailable. Refresh the lobby or try again shortly.'
+            elif subscribed:reason='Permanently subscribed on Steam.'
+            elif source['fallback']:reason='The game is showing the original appearance. Subscribe and download this package to use the selected mod.'
+            elif not installed:reason='Subscribe and download this Workshop package to use its exact appearance.'
+            else:reason='Keep this Workshop item permanently subscribed on Steam.'
+            part={'installed':installed,'canCopy':installed and not entry.get('local',False),'subscribed':subscribed,
+                  'canSubscribe':bool(workshop and available and self.account and not subscribed),'reason':reason,
+                  'label':item.get('label','') if item else info.get('title',''), 'localOnly':bool(item and item.get('localOnly')),
+                  'configId':source['configId'],'requestedConfigId':source['requestedConfigId'],'view':source['view'],'fallback':source['fallback'],'checking':bool(appearance.get('loading'))}
+            if workshop and available:
+                part['workshopId']=workshop
+                if isinstance(info.get('previewUrl'),str) and info['previewUrl'].startswith('https://'):
+                    part['previewUrl']=info['previewUrl'];part['previewKind']='package'
+                if temporary:part['temporary']=True
+            parts[kind]=part
+        return parts
+
     def lobby_state(self):
         """Read the current game room only; player identities remain server-side."""
         from .native_quick import available, request
         if not self.profile: return {'status':'unavailable','message':'Choose a game profile in Settings.','players':[]}
         if not game_running(): return {'status':'offline','message':'Open the game and join a race lobby to browse player setups.','players':[]}
-        if not available(self.game): return {'status':'unavailable','message':'Lobby browsing needs the supported game build 0.1.4.18 and native bridge.','players':[]}
+        if not available(self.game): return {'status':'unavailable','message':'Lobby browsing needs a supported game build and the native bridge.','players':[]}
         with self.lock:
             if getattr(self,'quick_saving',False): return {'status':'busy','message':'Finishing the current save…','players':[]}
             cached=getattr(self,'_lobby_cache',None)
@@ -276,21 +383,43 @@ class Service:
         game,profile=self.game,self.profile
         result=request(game,profile,operation=2)
         if (self.game,self.profile)!=(game,profile): raise ValueError('The selected profile changed. Refresh the lobby.')
+        appearance=self._lobby_appearance()
+        sources=[self._lobby_part_sources(entry,appearance) for entry in result.get('players',[])]
+        details=self._lobby_workshop_details([part['workshopId'] for source in sources for part in source.values() if part['workshopId']])
+        saved=getattr(self,'preset_state',{}).get('presets',[])
+        try:
+            from .presets import view
+            saved=view(Profile((PROFILE_DIR/self.profile).read_bytes()))['presets']
+        except (OSError,ValueError,KeyError,TypeError):pass
         players=[];private={}
         for entry in result.get('players',[]):
             old=getattr(self,'_lobby_cache',None) or {}
-            key=next((key for key,value in old.get('private',{}).items() if value==entry),uuid.uuid4().hex) if old.get('profile')==self.profile else uuid.uuid4().hex
+            key=next((key for key,value in old.get('private',{}).items() if all(value.get(field)==entry.get(field) for field in ('identity','player','local','ai'))),uuid.uuid4().hex) if old.get('profile')==self.profile else uuid.uuid4().hex
             private[key]=entry
-            players.append({k:v for k,v in entry.items() if k!='identity'}|{'key':key,'canCopy':not entry['local']})
-        public={'status':'ready' if result.get('inLobby') else 'not-in-lobby','online':result.get('online',False),'players':players,
-                'message':'' if result.get('inLobby') else 'Join a race lobby in the game. Its current players will appear here.'}
+            parts=self._lobby_public_parts(entry,appearance,details)
+            usable=not entry.get('local',False) and all(part['installed'] for part in parts.values())
+            # Allowlist public player fields. Native networking identifiers and
+            # future native result fields never leak into the browser response.
+            saved_match=next((preset for preset in saved if preset['data']==entry['data']),None)
+            can_edit_cpu=entry.get('canEditCpu') is True and entry.get('ai') is True and bool(result.get('inLobby')) and not result.get('inRace') and (not result.get('online') or result.get('host') is True)
+            player={k:copy.deepcopy(entry[k]) for k in ('player','id','data','name','local','ai') if k in entry}|{'key':key,'canCopy':usable,'canSave':usable and not saved_match,'alreadySaved':bool(saved_match),'savedPresetId':saved_match['id'] if saved_match else None,'parts':parts,'canEdit':entry.get('canEdit') is True,'canEditCpu':can_edit_cpu}
+            local_player=entry.get('localPlayer',entry.get('localPlayerTarget'))
+            if entry.get('canEdit') is True and type(local_player)is int and 0<=local_player<6:player['localPlayerTarget']=local_player
+            players.append(player)
+        in_room=result.get('inLobby') or result.get('inRace')
+        public={'status':'ready' if in_room else 'not-in-lobby','online':result.get('online',False),'host':result.get('host') is True,'inRace':bool(result.get('inRace')),'players':players,
+                'message':'' if in_room else 'Join a race lobby in the game. Its current players will appear here.'}
+        if isinstance(result.get('settings'),dict):
+            public['settings']={k:v for k,v in result['settings'].items() if k in ('autoDownloadTracks','autoDownloadPresets','keepAutoDownloaded','automaticDownloads','automaticSubscriptions','keepSubscriptions','allowDownloads','allowSubscriptions') and type(v)is bool}
         with self.lock:self._lobby_cache={'time':time.monotonic(),'profile':self.profile,'private':private,'public':public}
         return copy.deepcopy(public)
 
     def copy_lobby_preset(self,body):
         """Ask the game to allocate/save one copy; never write its live save file."""
         self.supported_game()
-        if not isinstance(body,dict) or set(body)!={'key'} or not isinstance(body['key'],str): raise ValueError('Choose a player from the current lobby.')
+        if not isinstance(body,dict) or set(body)-{'key','mode','player','part'} or not isinstance(body.get('key'),str): raise ValueError('Choose a player from the current lobby.')
+        mode=body.get('mode','save');part=body.get('part');player=body.get('player',0)
+        if mode not in ('quick','save') or (mode=='save' and ('part'in body or 'player'in body)) or (mode=='quick' and (type(player)is not int or not 0<=player<6 or part not in (None,'characters','vehicles','wheels'))): raise ValueError('Choose Copy preset, Save preset, or one appearance part.')
         if not game_running(): raise ValueError('The game is no longer running. Join a lobby before copying.')
         with self.lock:
             if getattr(self,'quick_saving',False) or self.job and self.job.get('state')=='running': raise ValueError('Finish the current operation before copying.')
@@ -304,9 +433,32 @@ class Service:
             from .native_quick import request
             from .presets import cosmetic,view
             target=cosmetic(selected['data'],strict=True)
+            if mode=='quick':
+                fresh=request(self.game,self.profile,operation=2)
+                current=next((entry for entry in fresh.get('players',[]) if entry.get('identity')==selected.get('identity') and entry.get('player')==selected.get('player') and entry.get('id')==selected.get('id')),None)
+                if not current or cosmetic(current.get('data'),strict=True)!=target:raise ValueError('This racer left or changed their setup. Refresh players before copying.')
+                slot=next((entry for entry in view(Profile((PROFILE_DIR/self.profile).read_bytes()))['quickSetups'] if entry['player']==player),None)
+                if not slot:raise ValueError('This local player has no initialized Quick Setup. Open Quick Setup for that player in the game first.')
+                if part:
+                    field={'characters':'iCharacterSkinMaterialID','vehicles':'iVehicleMaterialID','wheels':'iWheelMaterialID'}[part]
+                    combined=copy.deepcopy(slot['data'])
+                    for key in (field,field+'_Modded'):combined[key]=target[key]
+                    target=combined
+                change={'mode':'quick','player':player,'presetId':slot['id'],'data':target}
+                # Transfer the existing operation guard atomically into the
+                # verified live-save path. RLock prevents another request from
+                # entering between releasing and reacquiring the save guard.
+                with self.lock:
+                    self.quick_saving=False
+                    result=self.save_live_quick({'profile':self.profile,'change':change,'baseline':{'id':slot['id'],'data':slot['data']}})
+                    if getattr(self,'_lobby_cache',None):self._lobby_cache['time']=0
+                noun={'characters':'Character','vehicles':'Vehicle','wheels':'Wheels'}.get(part,'Preset')
+                return {**result,'mode':'quick','player':player,'message':f'{noun} copied to Player {player+1} Quick Setup. No preset was added to your collection. '+result.get('message','')}
             path=PROFILE_DIR/self.profile;before=path.read_bytes();previous=view(Profile(before))
             existing=next((p for p in previous['presets'] if p['data']==target),None)
-            if existing:return {'message':'This exact setup is already in All presets.','presetId':existing['id'],'alreadySaved':True}
+            if existing:
+                self._lobby_mark_saved(target,existing['id'])
+                return {'message':'This exact setup is already in All presets.','presetId':existing['id'],'alreadySaved':True,'mode':'save','key':body['key']}
             worker=Worker(self.game)
             def synced(raw):
                 remote=worker.request('read-save',{'profile':self.profile,'account':self.account},timeout=20)
@@ -341,8 +493,104 @@ class Service:
                 except Exception: pass
                 outcome='The unverified copy was removed.' if restored else 'Refresh All presets before retrying.'
                 raise ValueError(f'The copy could not be verified. {str(failure)+" " if failure else ""}{outcome} Safety copy: {backup}')
-            with self.lock:self.load_local();self._lobby_cache=None
-            return {'message':'Player setup copied to All presets. Local and Steam copies verified.','presetId':identity,'backup':str(backup)}
+            with self.lock:self.load_local();self._lobby_mark_saved(target,identity)
+            return {'message':'Player setup saved to All presets. Local and Steam copies verified.','presetId':identity,'backup':str(backup),'alreadySaved':True,'mode':'save','key':body['key']}
+        finally:
+            with self.lock:self.quick_saving=False
+
+    def _lobby_mark_saved(self,target,identity):
+        with self.lock:
+            cached=getattr(self,'_lobby_cache',None)
+            if cached and cached.get('profile')==self.profile:
+                for entry in cached.get('public',{}).get('players',[]):
+                    if entry.get('data')==target:entry.update({'alreadySaved':True,'savedPresetId':identity,'canSave':False})
+
+    def edit_lobby_player(self,body):
+        """Apply an authorized CPU appearance through the game's own lobby action."""
+        from .presets import cosmetic
+        from .native_quick import request
+        self.supported_game()
+        if not isinstance(body,dict) or set(body)!={'key','data','baseline'} or not isinstance(body['key'],str):raise ValueError('Choose an editable CPU from the current lobby.')
+        target=cosmetic(body['data'],strict=True);baseline=body['baseline']
+        if not isinstance(baseline,dict) or set(baseline)!={'id','data'} or type(baseline['id'])is not int:raise ValueError('Reopen this CPU setup before editing.')
+        original=cosmetic(baseline['data'],strict=True)
+        if not game_running():raise ValueError('The game is no longer running. Reopen the lobby before editing.')
+        with self.lock:
+            if getattr(self,'quick_saving',False) or self.job and self.job.get('state')=='running':raise ValueError('Finish the current operation before editing a CPU.')
+            if not self.account or not self.profile or self.sync_error:raise ValueError('Refresh Steam and resolve the active game profile before editing.')
+            cached=getattr(self,'_lobby_cache',None)
+            if not cached or cached['profile']!=self.profile or time.monotonic()-cached['time']>30:raise ValueError('The lobby selection expired. Refresh players and reopen this CPU.')
+            selected=copy.deepcopy(cached['private'].get(body['key']))
+            public=next((entry for entry in cached.get('public',{}).get('players',[]) if entry['key']==body['key']),None)
+            if not selected or not selected.get('ai') or not public or public.get('canEditCpu') is not True:raise ValueError('Only an authorized CPU in your local or hosted lobby can be edited. Other online racers cannot be changed.')
+            if selected.get('id')!=baseline['id'] or selected.get('data')!=original:raise ValueError('This CPU setup changed. Reopen it before editing; your draft was not applied.')
+            self.quick_saving=True
+        try:
+            try:
+                result=request(self.game,self.profile,selected['id'],selected['player'],original,target,operation=8,identity=selected['identity'])
+            except Exception as failure:
+                fresh=request(self.game,self.profile,operation=2)
+                current=next((entry for entry in fresh.get('players',[]) if entry.get('identity')==selected.get('identity') and entry.get('player')==selected.get('player') and entry.get('data')==target),None)
+                if not current:raise failure
+                result={'current':current['data'],'saved':True}
+            if not result.get('saved') or cosmetic(result.get('current'),strict=True)!=target:raise ValueError('The game did not confirm this CPU appearance. Refresh players to review its actual setup.')
+            with self.lock:
+                cached=getattr(self,'_lobby_cache',None)
+                if cached:
+                    cached['time']=0
+                    if body['key']in cached.get('private',{}):cached['private'][body['key']]['data']=copy.deepcopy(target)
+                    for entry in cached.get('public',{}).get('players',[]):
+                        if entry.get('key')==body['key']:entry['data']=copy.deepcopy(target)
+            return {'message':'CPU setup updated in the lobby. Your saved presets are unchanged.','key':body['key'],'data':target,'mode':'cpu'}
+        finally:
+            with self.lock:self.quick_saving=False
+
+    def subscribe_lobby_part(self,body):
+        """Keep one verified cosmetic package subscribed after leaving a room."""
+        self.supported_game()
+        if not isinstance(body,dict) or set(body)!={'key','kind'} or not isinstance(body['key'],str) or body['kind'] not in ('characters','vehicles','wheels'):raise ValueError('Choose a Workshop appearance from a current lobby player.')
+        if not game_running():raise ValueError('The game is no longer running. Refresh the lobby before subscribing.')
+        with self.lock:
+            if getattr(self,'quick_saving',False) or self.job and self.job.get('state')=='running':raise ValueError('Finish the current operation before subscribing.')
+            if not self.account or not self.profile or self.sync_error:raise ValueError('Refresh Steam before subscribing to lobby content.')
+            cached=getattr(self,'_lobby_cache',None)
+            if not cached or cached['profile']!=self.profile or time.monotonic()-cached['time']>30:raise ValueError('The lobby selection expired. Refresh its players.')
+            selected=copy.deepcopy(cached['private'].get(body['key']))
+            if not selected:raise ValueError('This racer is no longer in the current lobby.')
+            self.quick_saving=True
+        try:
+            from .native_quick import request
+            fresh=request(self.game,self.profile,operation=2)
+            entry=next((entry for entry in fresh.get('players',[]) if entry.get('identity')==selected.get('identity') and entry.get('player')==selected.get('player') and entry.get('id')==selected.get('id') and entry.get('data')==selected.get('data')),None)
+            if not entry:raise ValueError('This racer left or changed their setup. Refresh players before subscribing.')
+            source=self._lobby_part_sources(entry,self._lobby_appearance())[body['kind']]
+            workshop=source['workshopId']
+            if not workshop:raise ValueError('This appearance has no verified Workshop source. Local-only mods cannot be subscribed from the lobby.')
+            game,account=self.game,self.account
+            worker=Worker(game)
+            result=worker.request('subscribe-cosmetic',{'id':workshop,'account':account},timeout=125)
+            if result.get('account')!=account or not result.get('subscribed'):raise ValueError('Steam did not confirm this permanent subscription. Refresh Steam before retrying.')
+            for attempt in range(2):
+                try:
+                    retained=request(game,self.profile,operation=7,payload={'workshopId':workshop})
+                    if retained.get('retained')is not True:raise ValueError('The game did not confirm retaining this automatic download.')
+                except Exception as exc:
+                    raise ValueError('Steam subscribed and downloaded this package, but the game has not finished releasing its temporary download ownership. Wait for its current downloads to finish, then choose Subscribe again. Its current subscription was not removed.') from exc
+                confirmed=worker.request('details',{'ids':[workshop]},timeout=35)
+                if confirmed.get('account')!=account:raise ValueError('The Steam account changed while confirming this subscription. Refresh Steam before retrying.')
+                if confirmed.get('status',{}).get(workshop,{}).get('subscribed'):break
+                if attempt:raise ValueError('Steam did not confirm the subscription after releasing automatic download ownership. Refresh Steam and try Subscribe again.')
+                # A queued game cleanup may have completed between the first
+                # SubscribeItem and ownership transfer. Re-subscribe once after
+                # transfer, then independently verify ownership and Steam again.
+                result=worker.request('subscribe-cosmetic',{'id':workshop,'account':account},timeout=125)
+                if result.get('account')!=account or not result.get('subscribed'):raise ValueError('Steam could not confirm this subscription after releasing automatic download ownership.')
+            with self.lock:
+                if (self.game,self.account)!=(game,account):raise ValueError('The Steam selection changed during subscription. Refresh Steam.')
+                if hasattr(self,'appearance'):self.appearance.refresh(self.game)
+                if getattr(self,'_lobby_cache',None):self._lobby_cache['time']=0
+                if getattr(self,'_lobby_workshop_cache',None):self._lobby_workshop_cache['entries'].pop(workshop,None)
+            return {'message':'Workshop customization permanently subscribed and downloaded. Your appearance library is refreshing.','workshopId':workshop,'subscribed':True}
         finally:
             with self.lock:self.quick_saving=False
 
@@ -363,7 +611,6 @@ class Service:
 
     def make_preview(self, action, body):
         self.supported_game()
-        if game_running(): raise ValueError("Close The Karters 2 before changing groups.")
         if not self.profile or not self.account or self.sync_error: raise ValueError("Connect Steam and resolve the profile status first.")
         local = (PROFILE_DIR / self.profile).read_bytes()
         p = Profile(local)
@@ -410,7 +657,7 @@ class Service:
             'missingSubscriptions':[item for item in ids if not status[item]['subscribed']],
             'pendingDownloads':[item for item in ids if not status[item]['ready']], 'trackStatus':copy.deepcopy(status)}
         with self.lock:
-            self.previews[key] = {'group':change, 'mode':mode, 'hash':digest(local), 'time':time.monotonic(), 'profile':self.profile, 'account':self.account}
+            self.previews[key] = {'group':change, 'mode':mode, 'hash':digest(local), 'libraryHash':self._library_fingerprint(p), 'time':time.monotonic(), 'profile':self.profile, 'account':self.account}
         return {'message':'Review the group before saving it to My groups.', 'preview':preview}
 
     def perform(self, action, body):
@@ -461,22 +708,21 @@ class Service:
             elif action == 'presets':
                 from .presets import apply, verify_edit_base
                 self.supported_game()
-                if game_running(): raise ValueError('Close The Karters 2 before editing presets.')
                 if not self.profile or not self.account or self.sync_error: raise ValueError('Refresh Steam and resolve the profile status first.')
                 local = (PROFILE_DIR / self.profile).read_bytes()
                 if digest(local) != body['expectedHash']:
                     with self.lock: self.load_local()
-                    verify_edit_base(Profile(local), body['change'], body.get('baseline'))
+                    if not self._same_reviewed_library(body['expectedHash'], Profile(local)):
+                        verify_edit_base(Profile(local), body['change'], body.get('baseline'))
                 apply(Profile(local), body['change'])
                 result = Worker(self.game).request('presets', {'group':body['change'], 'expectedHash':digest(local), 'account':self.account, 'profile':self.profile}, self.progress, self.cancel.is_set)
                 with self.lock: self.load_local()
-                result['message'] = 'Presets saved to the local and Steam copies. You can start the game.'
+                result['message'] = 'Presets saved to the local and Steam copies.'
             elif action == 'edit':
                 self.supported_game()
-                if game_running(): raise ValueError('Close The Karters 2 before editing groups.')
                 if not self.account or self.sync_error: raise ValueError('Refresh Steam and resolve the profile status first.')
                 local = (PROFILE_DIR / self.profile).read_bytes()
-                if digest(local) != body['expectedHash']: raise ValueError('Profile changed while editing. Refresh and edit again.')
+                if digest(local) != body['expectedHash'] and not self._same_reviewed_library(body['expectedHash'], Profile(local)): raise ValueError('The group library changed while editing. Refresh and review it again.')
                 change = {k:body[k] for k in ('id', 'name', 'order')}
                 Profile(local).edit_group(change['id'], change['name'], change['order'])
                 result = Worker(self.game).request('edit', {'group':change, 'expectedHash':digest(local), 'account':self.account, 'profile':self.profile}, self.progress, self.cancel.is_set)
@@ -491,12 +737,17 @@ class Service:
                 if not preview or time.monotonic() - preview["time"] > 600:
                     raise ValueError("Import preview expired. Preview again.")
                 self.supported_game()
+                current = (PROFILE_DIR / self.profile).read_bytes()
+                if digest(current) != preview['hash']:
+                    if preview.get('libraryHash') != self._library_fingerprint(Profile(current)):
+                        raise ValueError('The group library changed since preview. Preview it again.')
+                    preview['hash'] = digest(current)
                 result = Worker(self.game).request(preview['mode'], {"group": preview["group"], "expectedHash": preview["hash"],
                     "account": preview["account"], "profile": preview["profile"], "allowUpdate": True}, self.progress, self.cancel.is_set)
                 with self.lock: self.load_local()
                 for track in preview["group"].get("tracks", []):
                     if track["kind"] == "workshop": self.track_status[track["workshopId"]] = {"subscribed": True, "ready": True}
-                result["message"] = "Group " + result["outcome"] + ". You can start the game."
+                result["message"] = "Group " + result["outcome"] + ". Saved to the local and Steam copies."
                 result['groupId'] = preview['group']['id']
             with self.lock: self.job.update(state="completed", result=result, message=result["message"])
             if update_folder: self.on_update(update_folder)

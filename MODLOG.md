@@ -144,7 +144,7 @@
 - App stays 0.1.1-dev. No release, portable EXE or ZIP built for this change.
 
 
-## 2026-10-16 — independent full-setup Three.js renderer
+## 2026-10-16 ï¿½ independent full-setup Three.js renderer
 
 - Applied Universal Modder/reverse-engineering guidance. REA opened the installed
   GameAssembly.dll; native analysis was unavailable on this Windows provider.
@@ -186,7 +186,7 @@
   DLLs were distributed.
 
 
-## 2026-10-16 — seated-pose and missing-material correction
+## 2026-10-16 ï¿½ seated-pose and missing-material correction
 
 - User screenshots exposed that the prior menu-idle choice was a standing pose,
   and texture-only rendering dropped the kart's authored layered shader.
@@ -306,7 +306,7 @@
 
 ### 2026-10-16 - Garage home, collection navigation and native bridge research
 
-- Add a real Home entrance using user-supplied BobbysGarageV4.png; restore
+- Add a real Home entrance using user-supplied BobbyGarageArtwork.png; restore
   logo.png in the sidebar. Rename track navigation and import action labels.
 - Shared bounded pagination covers track/preset libraries, appearance grids and
   group membership. Keep batch selections across pages/search and merge page
@@ -373,3 +373,40 @@
 - Verification: 137 frontend and 102 Python tests passed. Desktop/static-web builds and web isolation passed. Browser screenshots checked Home, actual lobby and compact Quick Setup; 390/740px layouts had no picker overflow and reachable footer.
 - Flat portable ZIP 29.3 MiB: every manifest hash and ZIP checksum verified, no game assets or Bep companion bundled. Frozen Windows-only-PATH startup connected Steam (107 downloaded tracks), read six slots, decoded Broly geometry/Victory animation, preserved profile bytes, shut down cleanly and released folder locks. Relocated frozen native/Steam helpers and eight-player lobby read passed. Updated development Garage reopened; game left running.
 - Release description maintained in CHANGELOG.md; UI audit in docs/UX-AUDIT-2026-10-17.md. No push, hosted deployment or public release. Both origin push URLs preserved.
+
+
+## 2026-10-18 - Live libraries, robust lobby and official-character previews
+
+- Move feedback into the topmost native modal, preserve its 10-second visibility,
+  fix Enlarge by moving the existing canvas, refresh genuine game PNGs independently
+  of profile writes, and add LB/RB category navigation plus keyboard equivalents.
+- Save ordinary presets/groups/imports/order through bounded collection-only game
+  transactions while running; retain baselines, backup journals, exact target-only
+  recovery and local/Steam verification. No whole-profile race-progress rollback.
+- Add explicit saved local Quick Setup targets, distinct Copy/Save, per-part
+  permanent Workshop retention, stable player cards, saved deduplication, verified
+  CPU edit capabilities and a reusable pictured preset chooser.
+- Generate lazy full-setup PNGs through one serial offscreen renderer with bounded
+  decoded/image caches. Optional interactive 3D remains off by default. Correct
+  Original fallback previews, including Selected part and category thumbnails.
+- Replace the official menu decoder's absolute scene offset with a bounded
+  serialized object-table/MonoScript lookup. Real 0.1.4.24 original poses decode;
+  all eight actual lobby cards render, with standing official character previews.
+- Fix destroyed Unity static references after race transitions using op_Implicit.
+  Real game proofs: library reorder/restore, CPU change/restore, fallback copy and
+  cleanup, race copy/cleanup, explicit race CPU-edit rejection. Existing presets,
+  groups, six Quick slots, other records and local/Steam agreement preserved.
+- One earlier pre-save native reference-setter experiment crashed before writing;
+  fixed field_set_value_object and verified real reversible collection writes on
+  supported builds. The failed pre-save experiment changed neither save copy.
+- Release description maintained in CHANGELOG.md. Remaining physical-controller,
+  remote-human, online-authority and automatic-download lifecycle limits are
+  documented in LOBBY.md. No game assets, passwords or extracted code bundled.
+  No public release, push or hosted deployment requested.
+
+- Final verification: 161 frontend + 146 Python tests, desktop/web build and static
+  isolation, 4-group/72-reference catalog. REA verified all eight actual lobby PNGs
+  and enlarged official seated/standing previews with no page errors. Frozen
+  Windows-only-PATH startup, six Quick slots, official standing clip, Broly/Victory,
+  real eight-player native read and Steam read passed. Profile unchanged; clean
+  shutdown and portable relocation/deletion checks passed. ZIP remains 29.3 MiB.

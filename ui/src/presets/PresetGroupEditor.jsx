@@ -179,7 +179,8 @@ export default function PresetGroupEditor({
       <footer className="editor-footer">
         {!canSave && (
           <p className="hint">
-            Arrange this group freely. Close the game to save group changes.
+            Arrange this group freely. Changes apply to your next group
+            selection.
           </p>
         )}
         {error && (

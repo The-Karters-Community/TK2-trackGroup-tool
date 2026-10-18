@@ -2,7 +2,7 @@
 
 A desktop and browser companion for **The Karters 2: Turbo Charged**. Share ordered track groups, organize customization presets, and browse installed cosmetic appearances. The desktop app also manages Workshop track subscriptions.
 
-**Development version: 0.1.1-dev.** The Garage redesign and presets are in current source and the hosted website. **Stable Windows release: 0.1.0**, which predates these features. Supports game build **0.1.4.18**, Steam app **2269950**. No BepInEx or mod toolkit is required. [Independent 3D setups](docs/LIVE-PREVIEW.md) render from installed assets. An optional native bridge supports live Quick Setup saves and [lobby preset copying](docs/LOBBY.md). [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
+**Development version: 0.1.1-dev.** The Garage redesign and presets are in current source and the hosted website. **Stable Windows release: 0.1.0**, which predates these features. Supports verified game builds **0.1.4.18** and **0.1.4.24**, Steam app **2269950**. No BepInEx or mod toolkit is required. [Independent 3D setups](docs/LIVE-PREVIEW.md) render from installed assets. An optional native bridge supports live Quick Setup saves and [lobby preset copying](docs/LOBBY.md). [Download the portable app](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest).
 
 **Prefer a website?** [Open the browser edition](https://the-karters-community.github.io/TK2-trackGroup-tool/). Browse the Speedrun library, download group files, and prepare save edits locally without an executable or profile upload. Applying them requires manual Workshop subscriptions and file replacement with Steam Cloud disabled for this game. [Browser instructions and limits](docs/WEB.md).
 
@@ -41,7 +41,7 @@ Portable builds contain the runtime and compiled interface. Extract the ZIP into
 
 1. Close the game and open the app. In **Settings**, check the detected game folder and profile. If multiple profiles exist, explicitly select the correct one.
 2. Steam connects automatically at launch; use **Refresh Steam** to recheck. The app checks the active account, Workshop metadata, and local/Steam save agreement. Resolve any conflict before continuing.
-3. In **Tracks → Discover groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. A focused review dialog opens over the library, showing numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Keep the game closed until completion.
+3. In **Tracks → Discover groups**, choose **Speedrun** for reviewed Speedrun.com collections or **Community** for other curated collections. Select a group and choose **Preview import**. A focused review dialog opens over the library, showing numbered track names, installation status, and any name/order changes. Confirm **Add to My groups** or **Update My groups**. Desktop imports can also use the verified running game; the browser edition requires its offline save workflow.
 4. Missing Workshop items are subscribed and downloaded automatically. Per-track progress and cancellation stay in the review page; no files are downloaded before confirmation. Completed subscriptions remain if importing fails or is cancelled; the app never unsubscribes content. When saving finishes, **View in My groups** opens the saved collection.
 5. Start the game and open Track Groups. Importing the same group again is a no-op; an update preserves its position. A different group ID with the same name becomes a numbered copy.
 
@@ -92,8 +92,7 @@ game-generated icon and refreshes when the game writes a new PNG. Quick Setup
 can save through the optional version-pinned native bridge without BepInEx. It
 backs up, validates the exact live slot, asks the game to save, verifies local
 and Steam copies and refreshes an open Quick Setup editor. The bridge temporarily runs authored code
-inside the game; it installs no plugin or game files. Group/order/import changes
-still need the game closed. Dragging can prepare a draft while playing. Pictures load as you scroll. In the browser edition, use
+inside the game; it installs no plugin or game files. Preset and group changes save through the same verified game-owned library path while the game runs. Dragging can prepare a draft while playing. Pictures load as you scroll. In the browser edition, use
 **Connect game folder** and choose `TheKarters2` to load the save and pictures together.
 Edge/Chrome can remember the granted folder. Setup numbers describe library entries.
 
@@ -107,7 +106,7 @@ Sticker placement stays unchanged and is edited in the game.
 
 ![Direct editing with conditional Save and Discard controls](docs/images/inline-edit.png)
 
-Both Browse groups and My groups offer Gallery and List views, remembered independently. Track previews appear in galleries, group details and import reviews. Transient notifications dismiss after ten seconds.
+Both Discover groups and My groups in Tracks offer Gallery and List views, remembered independently. Track previews appear in galleries, group details and import reviews. Transient notifications dismiss after ten seconds.
 
 Only reviewed catalog submissions appear in Browse groups. The bundled four collections are under Speedrun; the Community category is ready for future reviewed submissions.
 
@@ -207,7 +206,7 @@ An older single `QuickCreationPreset` field is used only when the player-slot
 array is absent. Editing a slot preserves the legacy field and other players;
 **Save as new preset** creates a separate ordinary preset. Viewing and preparation work with the game closed. Quick Setup saves use the
 normal backed-up transaction offline, or the optional native bridge while the
-game runs. Ordinary presets and structural changes require the game closed.
+game runs. Ordinary preset and collection changes also save through the verified running game, preserving current race progress.
 
 The desktop animation showcase groups installed character motions, lazily decodes
 the chosen clip, and offers pause, scrub and playback speed controls. Separate

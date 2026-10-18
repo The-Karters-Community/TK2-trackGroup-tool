@@ -118,7 +118,7 @@ it("keeps drag available during a race while leaving order saving disabled", asy
   const instance = instances[0];
   instance.node.appendChild(instance.node.children[0]);
   instance.options.onEnd({ oldIndex: 0, newIndex: 3 });
-  await screen.findByText(/Close the game to save this order/);
+  await screen.findByText(/Applies to the next selection/);
   expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
     true,
   );

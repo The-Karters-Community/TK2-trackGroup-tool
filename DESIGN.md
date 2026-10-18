@@ -24,3 +24,11 @@ render or advertise it as current. A closed game cannot regenerate a game image.
 Complete-row pagination supports custom positive rows and Show all. Use compact
 narrow defaults. Keyboard arrows follow rendered tile positions, native Tab
 reaches actions, and controller input is scoped to the focused Garage window.
+
+Lobby cards use cached static setup pictures and compact part actions. One serial
+render queue creates pictures, with a bounded PNG cache and an idle GPU release.
+Interactive 3D is optional, off by default. Destination labels explicitly say
+saved local Quick Setup slots; never imply authority over remote human racers.
+Only game-verified editable CPUs expose customization. Saving one setup preserves
+other card identities and marks the matching setup Saved. Notices follow the
+active native dialog so its top layer cannot hide results.

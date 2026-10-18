@@ -88,3 +88,43 @@ No release was published. Backups, complete profiles, account IDs, private diagn
 - Website collection details and save reviews, plus desktop import reviews, share a native Dialog component. A primary press must start and end on the backdrop; content, padding, scrollbar interactions, cancelled pointers and drags out of the dialog do not dismiss it. Escape, focus trapping and close buttons retain their native behavior.
 - Desktop collection side panels close on outside clicks; clicking another collection still selects it. Unsaved edits and busy operations retain the existing close guard. Website editor dismissal uses the existing explicit discard confirmation. Running desktop import transactions block both Escape and backdrop dismissal.
 - All 43 frontend tests pass, including seven new dismissal regressions. Both production builds, formatting and the restricted static website check pass. Visible checks on the compiled website verified actual backdrop clicks, content clicks and Escape. The real desktop backend's compiled interface verified side-panel and import-review dismissal; an unsaved local rename stayed open on an outside click, then Discard restored it before closing. No profile writes or subscriptions were performed.
+
+
+## Garage live saving and official previews, 2026-10-18
+
+- Game 0.1.4.24: real eight-racer reads during an offline race; native preset
+  allocation/save/copy cleanup preserved all 21 original presets, 27 groups, six
+  Quick Setup slots, other profile records, source CPU and local/Steam agreement.
+  Offline CPU application/restore passed. The race CPU-edit denial preserved the
+  complete profile. Collection reorder/restore passed through the game serializer.
+- A retained destroyed Ant_MainGame object caused a read failure after a race.
+  The bridge now tests Unity native lifetime before accessing scene components;
+  a fresh actual eight-player lobby read passed after the transition.
+- Official poses now resolve PTK_PlayerPreviewItem by MonoScript/object metadata,
+  without an absolute scene offset or loading the million scene objects. All four
+  installed official character types decoded seated and standing animations.
+  Synthetic regression fixtures cover scene relocation, semantic script identity,
+  contradictory records and invalid boundaries/dependencies; no game data shipped.
+- REA/Chrome verified eight locally generated full-setup card PNGs, including
+  Pablo, Bobby, Sir Roland and Puma. One serial offscreen renderer supplies bounded
+  cached pictures; optional interactive 3D is off by default. Browser evidence:
+  ev_6275d8b05f718659727bdde76095d7671db45e86f9a3c9e45ba437361f86fde8.
+- REA verified enlarged Full setup and Selected part with actual official Pablo.
+  The latter uses standing menu idle; the same existing canvas moves into the
+  enlarged native dialog. A startup toast was visibly above both nested dialogs.
+  No JavaScript page errors were observed. Evidence:
+  ev_58a0db12510497b8acead20941f3bbf1777cda185f907d8ecf86db7cd47706c5,
+  ev_3cd5f20886d088186d2d87efefab64bfc00924e45c67accbf7d984efa9f0a9da.
+- Physical controller hardware, real remote-human unavailable cosmetics, online
+  host/nonhost CPU edits and a genuine automatic-download unsubscribe lifecycle
+  remain unverified. Unknown remote Workshop provenance is reported rather than
+  inferred from a cosmetic configuration ID. See LOBBY.md for precise boundaries.
+
+- Final automated checks: 161 frontend and 146 Python tests passed; desktop and
+  static-web production builds, browser isolation and catalog validation passed.
+  The 29.3 MiB portable ZIP passed complete manifest/checksum and game-file
+  exclusion checks. With Windows-only PATH, the frozen app connected to Steam,
+  read six Quick slots, decoded Broly/Victory and an official character's standing
+  animation, preserved profile bytes, shut down cleanly and released folder locks.
+  Relocated frozen native/Steam helpers read the actual eight-player lobby and
+  verified the unchanged save. No Python/Node installation is needed to run it.

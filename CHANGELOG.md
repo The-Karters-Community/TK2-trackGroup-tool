@@ -5,6 +5,38 @@
 Highlights since the stable **0.1.0** release. This section remains a draft until
 a release is requested; development builds do not advance the release version.
 
+### Live saving and lobby refinement
+
+- Keep save notifications above native modals. Enlarge moves the existing 3D canvas
+  into a larger dialog without another renderer or model reload.
+- Refresh game PNGs independently of profile writes, bypass stale browser caches,
+  and retry brief image replacements. Queue asset rescans, retry partial indexes,
+  detect in-place bundle updates and regenerate missing thumbnail caches.
+- LB/RB switches customization categories; LT/RT pages. Alt+Left/Right switches
+  categories on the keyboard. Selecting an appearance also selects its in-game
+  Original/Modded version explicitly.
+- Add native collection transactions for ordinary preset edits, duplication,
+  deletion, reordering, groups and track imports while the game runs. Compare
+  reviewed collections, retain backups, let the game save, verify memory/local/
+  Steam, and roll back only those collections if needed. Unrelated race progress
+  does not invalidate an unchanged collection review.
+- Verify native compatibility for game builds 0.1.4.18 and 0.1.4.24. An initial
+  reference-setter bug was corrected before successful real save/restore tests;
+  both save copies were unchanged by the failed pre-save test.
+- Find official character menu poses by MonoScript and serialized references,
+  avoiding a scene byte offset that broke on game updates. Cache trimmed full-setup
+  lobby pictures with comfortable margins.
+- Resolve lobby appearances using the game's actual Original fallback rules,
+  including official assets with unset Modded fields. Distinguish unsupported
+  installed geometry from a missing package.
+- Separate Copy to a saved local Quick Setup slot from Save preset. Keep card
+  identities stable across polling, disable already-saved setups, and update only
+  the affected card. Each card gets a cached local setup PNG through one serial
+  renderer; interactive 3D is optional and off by default.
+- Add permission-gated CPU customization and a shared saved-preset chooser for
+  CPU and local Quick Setup. Remote human racers are never editable. Native race,
+  room-authority and temporary-download behavior is documented in LOBBY.md.
+
 ### Bobby’s Garage
 
 - Rebrand the desktop window and browser app with the new name and supplied
@@ -19,7 +51,7 @@ a release is requested; development builds do not advance the release version.
 
 ### Navigation and large collections
 
-- Open on a dedicated Home page with BobbysGarageV4 artwork and shortcuts to
+- Open on a dedicated Home page with BobbyGarageArtwork.png artwork and shortcuts to
   Quick Setup, presets, track groups, downloaded tracks and settings. Restore
   the game logo in the sidebar; rename track navigation explicitly.
 - Paginate visual libraries by complete rows, a custom positive row count or
@@ -65,7 +97,7 @@ a release is requested; development builds do not advance the release version.
 - Add a small native Quick Setup bridge without BepInEx. Validate the exact live
   target and installed choices, back up first, save through the game's API and
   verify local/Steam copies. Refresh an open Quick Setup editor after saving.
-  Live write/restore and UI-to-game round trips passed in build 0.1.4.18.
+  Live write/restore and UI-to-game round trips passed in build 0.1.4.18; collection writes and read paths were also verified in 0.1.4.24.
 - Open 3D on large screens and collapse it in smaller windows. Remove duplicate
   side controls and show larger
   contained part thumbnails next to categories. Selected characters support
@@ -78,7 +110,7 @@ a release is requested; development builds do not advance the release version.
   Saving keeps the modal open. Convert older
   character/skin stars to representative exact appearances.
 - Restore draft dragging during gameplay, including group order and members.
-  Reordering saves remain disabled with an explanation until the game closes.
+  Reordering saves use the verified native collection transaction while the game runs.
 
 ### Simpler navigation and input
 

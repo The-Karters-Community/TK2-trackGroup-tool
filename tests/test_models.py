@@ -2,10 +2,38 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from trackgroups.models import _geometry, _rig, _pack_textures, _material, setup_plan, _cache
+from trackgroups.models import _geometry, _rig, _pack_textures, _material, setup_plan, _cache, effective_ids
 
 
 class ModelTests(unittest.TestCase):
+    def test_effective_setup_uses_actual_original_fields_when_modded_flag_is_off(self):
+        import gzip, json, threading
+        from test_presets import fixture
+        from trackgroups.profile import Profile
+        from trackgroups.presets import view
+        data = view(Profile(fixture()))['presets'][0]['data']
+        data['bUsingModdedVersion'] = False
+        appearance = SimpleNamespace(lock=threading.RLock(), items={'characters':{'0':{}}, 'vehicles':{'0':{}}, 'wheels':{'0':{}}})
+        for field in ['iCharacterSkinMaterialID', 'iVehicleMaterialID', 'iWheelMaterialID']:
+            data[field+'_Modded'] = 0
+        plan = json.loads(gzip.decompress(setup_plan(appearance, {'data':data, 'view':'effective'})))
+        self.assertEqual(plan['parts'], {'characters':1, 'vehicles':2, 'wheels':3})
+        self.assertEqual(data['iCharacterSkinMaterialID_Modded'], 0)
+
+    def test_effective_resolution_checks_installed_config_not_geometry_and_explicit_modded_stays_strict(self):
+        import gzip, json, threading
+        from test_presets import fixture
+        from trackgroups.profile import Profile
+        from trackgroups.presets import view
+        data = view(Profile(fixture()))['presets'][0]['data']
+        data['bUsingModdedVersion'] = True
+        data['iCharacterSkinMaterialID_Modded'] = -123
+        data['iVehicleMaterialID_Modded'] = 0
+        data['iWheelMaterialID_Modded'] = 99
+        appearance = SimpleNamespace(lock=threading.RLock(), items={'characters':{'-123':{}}, 'vehicles':{'2':{}}, 'wheels':{'3':{}}}, model_refs={})
+        self.assertEqual(effective_ids(appearance, data), {'characters':-123, 'vehicles':2, 'wheels':3})
+        plan = json.loads(gzip.decompress(setup_plan(appearance, {'data':data, 'view':'modded'})))
+        self.assertEqual(plan['parts'], {'characters':-123, 'vehicles':0, 'wheels':99})
     def test_animation_cache_entries_share_the_model_cache_size_limit(self):
         import tempfile, os
         from pathlib import Path

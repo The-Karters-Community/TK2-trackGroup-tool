@@ -14,6 +14,7 @@ import AppearanceChoice from "./AppearanceChoice.jsx";
 import LivePresetPreview from "./LivePresetPreview.jsx";
 import PresetPreview from "./PresetPreview.jsx";
 import LocalPlayers from "./LocalPlayers.jsx";
+import SavedPresetChooser from "./SavedPresetChooser.jsx";
 
 export default function PresetEditor({
   preset,
@@ -42,7 +43,13 @@ export default function PresetEditor({
   initialDraft,
   onDraft,
   quickDraftPlayers = [],
+  title,
+  subtitle,
+  hideCollectionActions = false,
+  saveLabel,
+  choosePreset = quick,
 }) {
+  const [choosingPreset, setChoosingPreset] = useState(false);
   const [saving, setSaving] = useState(false);
   const busy = Boolean(working || saving);
   const [value, setValue] = useState(
@@ -128,7 +135,7 @@ export default function PresetEditor({
       if (await action()) onClose();
       else
         setError(
-          "Changes were not saved. Check that the game is closed and the save is current. Your draft is still here.",
+          "Changes were not saved. Check the connection and refresh the save. Your draft is still here.",
         );
     } catch (err) {
       setError(err.message);
@@ -172,343 +179,385 @@ export default function PresetEditor({
     "iStickerMaterialID",
   ];
   const field = modded ? `${baseField}_Modded` : baseField;
-  const modelId = category < 3 ? value[field] : null;
+  const previewUsesOriginal =
+    modded && category < 3 && !appearance?.items?.[kind]?.[value[field]];
+  const modelId =
+    category < 3 ? value[previewUsesOriginal ? baseField : field] : null;
+  const partInfo = (index) => {
+    const [, partKind, partField] = slots[index];
+    const items = appearance?.items?.[partKind];
+    return (
+      items?.[value[modded ? `${partField}_Modded` : partField]] ||
+      (modded ? items?.[value[partField]] : undefined)
+    );
+  };
   const modelAvailable =
     category < 3 && appearance?.models?.[kind]?.includes(modelId);
+  const editorTitle =
+    title || (quick ? "Quick Setup" : setupTitle(preset, appearance, position));
   return (
-    <Dialog
-      className="preset-dialog editor-shell customization-dialog"
-      aria-label={`Edit ${setupTitle(preset, appearance, position)}`}
-      onClose={close}
-      dismissDisabled={busy}
-    >
-      <header className="detail-heading editor-header">
-        <div>
-          <span className="eyebrow">
-            {quick ? "Current game setup" : "Your customization"}
-          </span>
-          <h2>
-            {quick ? "Quick Setup" : setupTitle(preset, appearance, position)}
-          </h2>
-        </div>
-        {quick && quickPlayers.length > 1 && (
-          <LocalPlayers
-            players={quickPlayers}
-            selected={quickPlayer}
-            drafts={quickDraftPlayers}
-            busy={busy}
-            onSelect={(player) => {
-              draftReporter.current?.(value, baseline);
-              onQuickPlayer(player);
-            }}
-            appearance={appearance}
-            loadImage={loadImage}
-          />
-        )}
-        <button
-          className="preview-toggle"
-          type="button"
-          aria-expanded={previewOpen}
-          onClick={() => {
-            previewPreference.current = true;
-            setPreviewOpen(!previewOpen);
-          }}
-        >
-          {previewOpen
-            ? "Hide preview"
-            : loadModel
-              ? "Show 3D preview"
-              : "Show saved preview"}
-        </button>
-        <button
-          className="icon-button"
-          aria-label="Close preset"
-          onClick={close}
-          disabled={busy}
-        >
-          <Cross2Icon />
-        </button>
-      </header>
-      <div
-        className={`editor-body customization-layout${previewOpen ? " with-preview" : ""}`}
+    <>
+      <Dialog
+        className="preset-dialog editor-shell customization-dialog"
+        aria-label={`Edit ${editorTitle}`}
+        onClose={close}
+        dismissDisabled={busy}
       >
-        <aside
-          className={`setup-inspector${previewOpen ? " preview-open" : ""}`}
-        >
-          {previewOpen && (
-            <LivePresetPreview
-              data={value}
-              view={version}
-              source={appearance?.previews?.[preset.id]?.[version]}
-              changed={changed}
+        <header className="detail-heading editor-header">
+          <div>
+            <span className="eyebrow">
+              {subtitle ||
+                (quick ? "Current game setup" : "Your customization")}
+            </span>
+            <h2>{editorTitle}</h2>
+          </div>
+          {quick && quickPlayers.length > 1 && (
+            <LocalPlayers
+              players={quickPlayers}
+              selected={quickPlayer}
+              drafts={quickDraftPlayers}
+              busy={busy}
+              onSelect={(player) => {
+                draftReporter.current?.(value, baseline);
+                onQuickPlayer(player);
+              }}
+              appearance={appearance}
               loadImage={loadImage}
-              loadModel={loadModel}
-              refreshModels={refreshModels}
-              modelKind={kind}
-              modelId={modelId}
-              modelAvailable={modelAvailable}
-              appearanceLoading={appearance?.loading}
-              revision={appearance?.revision}
             />
           )}
-        </aside>
-        <section className="customization-picker">
-          {quick && gameRunning && !saveToRunningGame && (
-            <p className="notice">
-              {saveToRunningGame
-                ? "Save changes applies through the running game. An open Quick Setup editor refreshes automatically."
-                : "Preview and arrange freely. Live saving is unavailable for this game build or Steam profile."}
-            </p>
+          {choosePreset && presets?.length > 0 && (
+            <button disabled={busy} onClick={() => setChoosingPreset(true)}>
+              <CopyIcon aria-hidden="true" /> Choose saved preset
+            </button>
           )}
-          <div className="customization-picker-heading">
-            <div
-              className="tabs category-tabs"
-              aria-label="Appearance category"
-            >
-              {["Character", "Vehicle", "Wheels", "Stickers"].map(
-                (title, i) => (
-                  <button
-                    aria-label={title}
-                    title={
-                      i < 3
-                        ? appearance?.items?.[slots[i][1]]?.[
-                            value[
-                              modded ? `${slots[i][2]}_Modded` : slots[i][2]
-                            ]
-                          ]?.label
-                        : title
-                    }
-                    key={title}
-                    className={category === i ? "active" : ""}
-                    aria-pressed={category === i}
-                    onClick={() => setCategory(i)}
-                  >
-                    {i < 3 ? (
-                      <PresetPreview
-                        source={
-                          appearance?.items?.[slots[i][1]]?.[
-                            value[
-                              modded ? `${slots[i][2]}_Modded` : slots[i][2]
-                            ]
-                          ]?.image
-                        }
-                        loadImage={loadImage}
-                        alt=""
-                      />
-                    ) : (
-                      <span className="category-icon" aria-hidden="true">
-                        <DrawingPinFilledIcon />
-                      </span>
-                    )}
-                    <span>
-                      {title}
-                      {i < 3 && (
-                        <small>
-                          {appearance?.items?.[slots[i][1]]?.[
-                            value[
-                              modded ? `${slots[i][2]}_Modded` : slots[i][2]
-                            ]
-                          ]?.label || "Saved appearance"}
-                        </small>
-                      )}
-                      {i === 3 && (
-                        <small>{value.stickersData.length} slots</small>
-                      )}
-                    </span>
-                  </button>
-                ),
-              )}
-            </div>
-            <div
-              className="tabs customization-version"
-              aria-label="Customization version"
-            >
-              {["modded", "original"].map((view) => (
-                <button
-                  key={view}
-                  className={version === view ? "active" : ""}
-                  aria-pressed={version === view}
-                  onClick={() => setVersion(view)}
-                >
-                  {view === "modded" ? "Modded" : "Original"}
-                </button>
-              ))}
-            </div>
-          </div>
-          {category === 3 && (
-            <>
+          <button
+            className="preview-toggle"
+            type="button"
+            aria-expanded={previewOpen}
+            onClick={() => {
+              previewPreference.current = true;
+              setPreviewOpen(!previewOpen);
+            }}
+          >
+            {previewOpen
+              ? "Hide preview"
+              : loadModel
+                ? "Show 3D preview"
+                : "Show saved preview"}
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Close preset"
+            onClick={close}
+            disabled={busy}
+          >
+            <Cross2Icon />
+          </button>
+        </header>
+        <div
+          className={`editor-body customization-layout${previewOpen ? " with-preview" : ""}`}
+        >
+          <aside
+            className={`setup-inspector${previewOpen ? " preview-open" : ""}`}
+          >
+            {previewOpen && (
+              <LivePresetPreview
+                data={value}
+                view={version}
+                source={appearance?.previews?.[preset.id]?.[version]}
+                changed={changed}
+                loadImage={loadImage}
+                loadModel={loadModel}
+                refreshModels={refreshModels}
+                modelKind={kind}
+                modelId={modelId}
+                modelAvailable={modelAvailable}
+                appearanceLoading={appearance?.loading}
+                revision={appearance?.revision}
+                imageRevision={appearance?.previewRevision}
+              />
+            )}
+          </aside>
+          <section className="customization-picker">
+            {quick && gameRunning && !saveToRunningGame && (
+              <p className="notice">
+                {saveToRunningGame
+                  ? "Save changes applies through the running game. An open Quick Setup editor refreshes automatically."
+                  : "Preview and arrange freely. Live saving is unavailable for this game build or Steam profile."}
+              </p>
+            )}
+            <div className="customization-picker-heading">
               <div
-                className="sticker-slots"
-                role="group"
-                aria-label="Sticker slots"
+                className="tabs category-tabs"
+                data-customization-categories
+                aria-label="Appearance category"
               >
-                {value.stickersData.map((_, i) => (
+                {["Character", "Vehicle", "Wheels", "Stickers"].map(
+                  (title, i) => (
+                    <button
+                      aria-label={title}
+                      title={i < 3 ? partInfo(i)?.label : title}
+                      key={title}
+                      data-customization-category
+                      className={category === i ? "active" : ""}
+                      aria-pressed={category === i}
+                      onClick={() => setCategory(i)}
+                    >
+                      {i < 3 ? (
+                        <PresetPreview
+                          source={partInfo(i)?.image}
+                          loadImage={loadImage}
+                          alt=""
+                        />
+                      ) : (
+                        <span className="category-icon" aria-hidden="true">
+                          <DrawingPinFilledIcon />
+                        </span>
+                      )}
+                      <span>
+                        {title}
+                        {i < 3 && (
+                          <small>
+                            {partInfo(i)?.label || "Saved appearance"}
+                          </small>
+                        )}
+                        {i === 3 && (
+                          <small>{value.stickersData.length} slots</small>
+                        )}
+                      </span>
+                    </button>
+                  ),
+                )}
+              </div>
+              <p className="category-navigation-hint">
+                <span className="controller-category-hint">
+                  LB / RB: switch part
+                </span>
+                <span className="keyboard-category-hint">
+                  Alt + Left / Right: switch part
+                </span>
+              </p>
+              <div
+                className="tabs customization-version"
+                aria-label="Customization version"
+              >
+                {["modded", "original"].map((view) => (
                   <button
-                    key={i}
-                    aria-pressed={sticker === i}
-                    className={sticker === i ? "selected" : ""}
-                    onClick={() => setSticker(i)}
+                    key={view}
+                    className={version === view ? "active" : ""}
+                    aria-pressed={version === view}
+                    onClick={() => setVersion(view)}
                   >
-                    {i + 1}
+                    {view === "modded" ? "Modded" : "Original"}
                   </button>
                 ))}
               </div>
+            </div>
+            <p className="appearance-active-view" role="status">
+              In game: {value.bUsingModdedVersion ? "Modded" : "Original"}.
+              Selecting an item applies that appearance version.
+              {previewUsesOriginal &&
+                " This part uses its Original appearance until you select an installed mod."}
+            </p>
+            {category === 3 && (
+              <>
+                <div
+                  className="sticker-slots"
+                  role="group"
+                  aria-label="Sticker slots"
+                >
+                  {value.stickersData.map((_, i) => (
+                    <button
+                      key={i}
+                      aria-pressed={sticker === i}
+                      className={sticker === i ? "selected" : ""}
+                      onClick={() => setSticker(i)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">
+                  Sticker slot {sticker + 1}. Placement is preserved; adjust
+                  positioning in the game.
+                </p>
+              </>
+            )}
+            {browser && (
               <p className="hint">
-                Sticker slot {sticker + 1}. Placement is preserved; adjust
-                positioning in the game.
+                The browser can reuse appearances found in your saved presets.
+                The desktop edition reads the full installed cosmetic library.
               </p>
-            </>
-          )}
-          {browser && (
-            <p className="hint">
-              The browser can reuse appearances found in your saved presets. The
-              desktop edition reads the full installed cosmetic library.
-            </p>
-          )}
-          {!quick && !canSave && !busy && (
-            <p className="notice">
-              {gameRunning && saveToRunningGame
-                ? "You can save this preset through the running game. Group and collection changes still need the game closed."
-                : gameRunning
-                  ? "Close the game to save this preset. Quick Setup can be saved while the game runs."
-                  : "Connect Steam and resolve the profile status to save changes. You can still preview unsaved selections."}
-            </p>
-          )}
-          <fieldset disabled={busy} className="preset-fields">
-            <AppearanceChoice
-              key={`${field}-${category === 3 ? sticker : category}`}
-              label={label}
-              kind={kind}
-              field={field}
-              data={category === 3 ? value.stickersData[sticker] : value}
-              presets={presets}
-              appearance={appearance}
-              library={library}
-              loadImage={loadImage}
-              onChange={(id) =>
-                setValue(
-                  category === 3
-                    ? {
-                        ...value,
-                        stickersData: value.stickersData.map((s, i) =>
-                          i === sticker ? { ...s, [field]: id } : s,
-                        ),
-                      }
-                    : { ...value, [field]: id },
-                )
-              }
-            />
-          </fieldset>
-        </section>
-      </div>
-      <footer className="editor-footer">
-        {conflict && (
-          <p className="editor-error" role="alert">
-            This preset changed in the game. Your unsaved changes are preserved.{" "}
-            <button
-              onClick={() => {
-                setValue(cosmetic(preset.data));
-                setBaseline(cosmetic(preset.data));
-                setError("");
-                setSaveStatus("");
-              }}
-            >
-              Load game version
-            </button>
-          </p>
-        )}
-        {error && (
-          <p className="editor-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="editor-footer-actions">
-          <div className="preset-actions">
-            {!quick && (
-              <button disabled={busy || dirty} onClick={onExport}>
-                <DownloadIcon />
-                Export preset
-              </button>
             )}
-            <button
-              disabled={busy || dirty || !canSave}
-              onClick={() =>
-                act(() =>
-                  onChange({
-                    mode: quick ? "save-quick-preset" : "duplicate",
-                    presetId: preset.id,
-                  }),
-                )
-              }
-            >
-              <CopyIcon />
-              {quick ? "Save as new preset" : "Duplicate"}
-            </button>
-            {!quick && (
-              <button
-                disabled={busy || dirty || !canSave}
-                onClick={() =>
-                  window.confirm(
-                    "Delete this setup from the save and its groups?",
-                  ) &&
-                  act(() => onChange({ mode: "delete", presetId: preset.id }))
+            {!quick && !canSave && !busy && (
+              <p className="notice">
+                {gameRunning && saveToRunningGame
+                  ? "Changes save through the running game. A race in progress keeps its current setup."
+                  : gameRunning
+                    ? "Live saving needs the supported native integration. Your draft stays here if it is unavailable."
+                    : "Connect Steam and resolve the profile status to save changes. You can still preview unsaved selections."}
+              </p>
+            )}
+            <fieldset disabled={busy} className="preset-fields">
+              <AppearanceChoice
+                key={`${field}-${category === 3 ? sticker : category}`}
+                label={label}
+                kind={kind}
+                field={field}
+                data={category === 3 ? value.stickersData[sticker] : value}
+                presets={presets}
+                appearance={appearance}
+                library={library}
+                loadImage={loadImage}
+                onChange={(id) =>
+                  setValue(
+                    category === 3
+                      ? {
+                          ...value,
+                          bUsingModdedVersion: modded,
+                          stickersData: value.stickersData.map((s, i) =>
+                            i === sticker ? { ...s, [field]: id } : s,
+                          ),
+                        }
+                      : { ...value, [field]: id, bUsingModdedVersion: modded },
+                  )
                 }
-              >
-                <TrashIcon />
-                Delete
-              </button>
-            )}
-          </div>
-          <div className="preset-actions">
-            <span className="hint" role="status">
-              {busy ? (
-                "Savingâ€¦"
-              ) : dirty ? (
-                <>
-                  <span>Unsaved changes</span>
-                  <small className="save-part-count">
-                    {" "}
-                    Â· {changedParts || 1}{" "}
-                    {changedParts === 1 ? "part" : "parts"}
-                  </small>
-                </>
-              ) : (
-                saveStatus || "No changes"
-              )}
-            </span>
-            <button
-              disabled={busy || !dirty}
-              onClick={() => {
-                setValue(cosmetic(preset.data));
-                setBaseline(cosmetic(preset.data));
-                setError("");
-              }}
-            >
-              Discard
-            </button>
-            <button
-              className="primary save-action"
-              data-save-action
-              aria-keyshortcuts="Control+S Meta+S"
-              disabled={busy || !canSavePreset || !dirty || conflict}
-              onClick={save}
-            >
-              <CheckIcon aria-hidden="true" />
-              {browser
-                ? "Apply to edited save"
-                : saveToRunningGame
-                  ? "Save to running game"
-                  : "Save changes"}
-              <kbd className="keyboard-save-hint" aria-hidden="true">
-                Ctrl S
-              </kbd>
-              <kbd className="controller-save-hint" aria-hidden="true">
-                Menu
-              </kbd>
-            </button>
-          </div>
+              />
+            </fieldset>
+          </section>
         </div>
-      </footer>
-    </Dialog>
+        <footer className="editor-footer">
+          {conflict && (
+            <p className="editor-error" role="alert">
+              This preset changed in the game. Your unsaved changes are
+              preserved.{" "}
+              <button
+                onClick={() => {
+                  setValue(cosmetic(preset.data));
+                  setBaseline(cosmetic(preset.data));
+                  setError("");
+                  setSaveStatus("");
+                }}
+              >
+                Load game version
+              </button>
+            </p>
+          )}
+          {error && (
+            <p className="editor-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="editor-footer-actions">
+            <div className="preset-actions">
+              {!hideCollectionActions && (
+                <>
+                  {!quick && (
+                    <button disabled={busy || dirty} onClick={onExport}>
+                      <DownloadIcon />
+                      Export preset
+                    </button>
+                  )}
+                  <button
+                    disabled={busy || dirty || !canSave}
+                    onClick={() =>
+                      act(() =>
+                        onChange({
+                          mode: quick ? "save-quick-preset" : "duplicate",
+                          presetId: preset.id,
+                        }),
+                      )
+                    }
+                  >
+                    <CopyIcon />
+                    {quick ? "Save as new preset" : "Duplicate"}
+                  </button>
+                  {!quick && (
+                    <button
+                      disabled={busy || dirty || !canSave}
+                      onClick={() =>
+                        window.confirm(
+                          "Delete this setup from the save and its groups?",
+                        ) &&
+                        act(() =>
+                          onChange({ mode: "delete", presetId: preset.id }),
+                        )
+                      }
+                    >
+                      <TrashIcon />
+                      Delete
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="preset-actions">
+              <span className="hint" role="status">
+                {busy ? (
+                  "Savingâ€¦"
+                ) : dirty ? (
+                  <>
+                    <span>Unsaved changes</span>
+                    <small className="save-part-count">
+                      {" "}
+                      Â· {changedParts || 1}{" "}
+                      {changedParts === 1 ? "part" : "parts"}
+                    </small>
+                  </>
+                ) : (
+                  saveStatus || "No changes"
+                )}
+              </span>
+              <button
+                disabled={busy || !dirty}
+                onClick={() => {
+                  setValue(cosmetic(preset.data));
+                  setBaseline(cosmetic(preset.data));
+                  setError("");
+                }}
+              >
+                Discard
+              </button>
+              <button
+                className="primary save-action"
+                data-save-action
+                aria-keyshortcuts="Control+S Meta+S"
+                disabled={busy || !canSavePreset || !dirty || conflict}
+                onClick={save}
+              >
+                <CheckIcon aria-hidden="true" />
+                {saveLabel ||
+                  (browser
+                    ? "Apply to edited save"
+                    : saveToRunningGame
+                      ? "Save to running game"
+                      : "Save changes")}
+                <kbd className="keyboard-save-hint" aria-hidden="true">
+                  Ctrl S
+                </kbd>
+                <kbd className="controller-save-hint" aria-hidden="true">
+                  Menu
+                </kbd>
+              </button>
+            </div>
+          </div>
+        </footer>
+      </Dialog>
+      {choosingPreset && (
+        <SavedPresetChooser
+          presets={presets}
+          appearance={appearance}
+          loadImage={loadImage}
+          busy={busy}
+          onClose={() => setChoosingPreset(false)}
+          onChoose={(selected) => {
+            setValue(cosmetic(selected.data));
+            setError("");
+            setSaveStatus("");
+            setChoosingPreset(false);
+          }}
+        />
+      )}
+    </>
   );
 }

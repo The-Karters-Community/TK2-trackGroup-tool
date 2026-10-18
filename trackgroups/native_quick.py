@@ -16,6 +16,7 @@ from .runtime import ROOT, DATA, write_json
 from .presets import cosmetic, FIELDS, STICKER_FIELDS
 
 GAME_SHA256 = "e55fab2cdcbf3852160183504a847b1a1b7af61c24bc9619e3736e3753aee130"
+SUPPORTED_GAME_HASHES = {GAME_SHA256, "55f5c88972fe1ccf4c9d5f3871b71bcfa261b3e42a379e18438e92623fc4d6a2"}
 BRIDGE = ROOT / "native-bridge/BobbyGarage.QuickSetup.dll"
 
 
@@ -80,6 +81,7 @@ class Request(C.Structure):
         ("inLobby", W.DWORD),
         ("targetIdentity", W.WCHAR * 128),
         ("lobby", LobbyEntry * 32),
+        ("payloadBytes", W.DWORD),("responseBytes",W.DWORD),("responseCapacity",W.DWORD),
     ]
 
 
@@ -95,7 +97,7 @@ def available(game):
     try:
         path = Path(game) / "GameAssembly.dll"
         stat = path.stat()
-        return _game_hash(str(path), stat.st_mtime_ns, stat.st_size) == GAME_SHA256
+        return _game_hash(str(path), stat.st_mtime_ns, stat.st_size) in SUPPORTED_GAME_HASHES
     except OSError:
         return False
 
@@ -109,11 +111,13 @@ def exchange(
     desired=None,
     operation=None,
     identity="",
+    payload=None,
+    response_capacity=None,
 ):
     operation = (1 if desired is not None else 0) if operation is None else operation
     if not available(game):
         raise ValueError(
-            "The native Quick Setup bridge supports the verified game build 0.1.4.18 only. Rebuild or update Garage if its bridge is missing."
+            "The native Quick Setup bridge supports the verified game builds 0.1.4.18 and 0.1.4.24. Rebuild or update Garage if its bridge is missing."
         )
     if (
         type(player) is not int
@@ -124,11 +128,22 @@ def exchange(
     ):
         raise ValueError("Invalid Quick Setup target.")
     if (
-        operation not in (0, 1, 2, 3, 4)
+        operation not in (0, 1, 2, 3, 4, 5, 6, 7, 8)
         or not isinstance(identity, str)
         or len(identity) >= 128
     ):
         raise ValueError("Invalid lobby request.")
+    encoded = b"" if payload is None else json.dumps(payload,ensure_ascii=False,separators=(",",":"),allow_nan=False).encode("utf-8")
+    if len(encoded)>48*1024*1024:raise ValueError("The library transaction exceeds the 48 MiB safety limit.")
+    if operation==5 and (not isinstance(payload,dict) or not {"baseline","desired"}<=set(payload) or set(payload)-{"baseline","desired","validateOnly"} or ("validateOnly"in payload and type(payload["validateOnly"])is not bool) or any(not isinstance(payload[k],dict) or set(payload[k])!={"presets","groups"} or any(not isinstance(payload[k][n],list) for n in ("presets","groups")) for k in ("baseline","desired"))):
+        raise ValueError("Expected complete baseline and desired native preset/group lists.")
+    if operation==7 and (not isinstance(payload,dict) or set(payload)!={"workshopId"} or not isinstance(payload["workshopId"],str) or not payload["workshopId"].isascii() or not payload["workshopId"].isdigit() or not 0<int(payload["workshopId"])<2**63):
+        raise ValueError("Expected one exact Steam Workshop identity.")
+    if operation==8 and (baseline is None or desired is None or not identity):
+        raise ValueError("CPU changes need an exact current identity, baseline and chosen appearance.")
+    response_capacity=(16*1024*1024 if operation==6 else 1024*1024 if operation in (2,3,7,8) else 0) if response_capacity is None else response_capacity
+    if type(response_capacity)is not int or not 0<=response_capacity<=48*1024*1024:raise ValueError("Invalid native response capacity.")
+    mapping_size=C.sizeof(Request)+len(encoded)+response_capacity
     # A fresh, bounded current-owner mapping for every invocation. No network listener.
     k = C.WinDLL("kernel32", use_last_error=True)
     u = C.WinDLL("user32", use_last_error=True)
@@ -215,22 +230,24 @@ def exchange(
             C.byref(sa),
             4,
             0,
-            C.sizeof(Request),
+            mapping_size,
             f"Local\\BobbysGarageQuick_{pid}_{nonce:x}",
         )
         if not mapping:
             raise C.WinError(C.get_last_error())
-        view = k.MapViewOfFile(mapping, 0xF001F, 0, 0, C.sizeof(Request))
+        view = k.MapViewOfFile(mapping, 0xF001F, 0, 0, mapping_size)
         if not view:
             raise C.WinError(C.get_last_error())
         r = Request.from_address(view)
         r.magic = 0x42475153
-        r.version = 2
+        r.version = 3
         r.player = player
         r.presetId = preset_id
         r.profile = profile
         r.operation = operation
         r.targetIdentity = identity
+        r.payloadBytes=len(encoded);r.responseCapacity=response_capacity
+        if encoded:C.memmove(view+C.sizeof(Request),encoded,len(encoded))
         if baseline is not None:
             r.baseline = Cosmetic.encode(baseline)
         if desired is not None:
@@ -277,6 +294,8 @@ def exchange(
             "warning": r.warning,
             "message": r.error,
         }
+        if operation==8:
+            result["current"]=r.current.decode()
         if operation >= 2:
             if r.lobbyCount > 32:
                 raise ValueError("Invalid lobby result.")
@@ -293,10 +312,21 @@ def exchange(
                         "identity": e.identity,
                         "local": bool(e.flags & 1),
                         "ai": bool(e.flags & 2),
+                        "canEditCpu": bool(e.flags & 32),
+                        "canEdit": bool(e.flags & 1) or bool(e.flags & 32),
+                        "localPlayer": (e.flags >> 8)-1 if e.flags >> 8 else None,
                     }
                     for e in r.lobby[: r.lobbyCount]
                 ],
             )
+        if r.responseBytes:
+            if r.responseBytes>response_capacity:raise ValueError("Invalid native JSON response.")
+            decoded=json.loads(C.string_at(view+C.sizeof(Request)+len(encoded),r.responseBytes))
+            if operation==6: result["library"]=decoded
+            else: result.update(decoded)
+            metadata=result.pop("entryMetadata",{})
+            for entry in result.get("players",[]):
+                entry.update(metadata.get(str(entry["player"]),{}))
         if r.error and not r.saved:
             raise ValueError(r.error)
         return result
@@ -320,6 +350,8 @@ def request(
     *,
     operation=None,
     identity="",
+    payload=None,
+    response_capacity=None,
 ):
     DATA.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="native-quick-", dir=DATA) as temp:
@@ -335,6 +367,7 @@ def request(
                 "desired": desired,
                 "operation": operation,
                 "identity": identity,
+                "payload":payload, "responseCapacity":response_capacity,
             },
         )
         command = (
@@ -373,6 +406,7 @@ def run(folder):
             data["desired"],
             data.get("operation"),
             data.get("identity", ""),
+            data.get("payload"),data.get("responseCapacity"),
         )
     except Exception as exc:
         result = {"error": str(exc)}

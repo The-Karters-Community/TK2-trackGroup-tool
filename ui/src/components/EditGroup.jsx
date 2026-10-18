@@ -128,7 +128,7 @@ export default function EditGroup({
         Drag the grip to reorder tracks, or use the arrows.{" "}
         {browser
           ? "Changes stay in this tab until you download the edited save."
-          : "Keep the game closed when saving."}
+          : "Changes are backed up before saving."}
       </p>
       <div className="edit-actions-slot">
         <div

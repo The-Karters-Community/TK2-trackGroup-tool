@@ -87,7 +87,8 @@ Quick Setup can be saved while the game runs. Open-editor refresh is verified.
 During a race, the bridge only saves the stored slot and does not call the menu
 refresh/synchronization path. Automatic race-return and online-lobby transitions
 have not been exercised; the message promises the next Quick Setup selection.
-Group/order/import transactions still require the game closed.
+This earlier Quick Setup-only restriction is superseded by the collection-only
+native transaction described in LOBBY.md and RECOVERY.md.
 
 The original investigation checklist is retained below:
 
@@ -120,3 +121,15 @@ room UI entries; unused CPU-pool entries are excluded.
 Quick Setup saves queue `PTK_MenuIconRenderManager.EnsurePresetIcon` when a menu
 renderer exists. Saved images read only the game's actual PresetIcons files.
 No BepInEx renderer, installer or ordinary-preset live-save endpoint remains.
+
+
+## Protocol v3 and game 0.1.4.24 (2026-10-18)
+
+The current request header is 28,391 bytes with a bounded JSON tail, and the
+authored DLL is approximately 242 KiB. Exact supported builds are verified before use.
+Collection writes compare only reviewed preset/group libraries, let the game
+save, verify memory/local/Steam, and preserve concurrent progress and Quick slots.
+Race roster reads and renderer-independent preset allocation passed in the real
+offline race. CPU editing uses game-owned permission checks and is blocked during
+races; the offline lobby change/restore passed. See LOBBY.md for full evidence
+and remaining online authority and download-cleanup lifecycle limits.

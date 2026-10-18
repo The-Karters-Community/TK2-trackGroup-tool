@@ -43,6 +43,7 @@ export default function PresetManager({
   onPreviewImages,
   onConnectFolder,
   openQuickRequest = 0,
+  quickRequestPlayer = 0,
   onQuickOpened,
   refreshModels,
   initialLibraryPreferences,
@@ -151,8 +152,10 @@ export default function PresetManager({
       openedQuick.current = openQuickRequest;
       setEditor({
         kind: "quick",
-        value: state.quickSetup,
-        player: state.quickSetups?.[0]?.player ?? 0,
+        value:
+          state.quickSetups?.find((p) => p.player === quickRequestPlayer) ||
+          state.quickSetup,
+        player: quickRequestPlayer,
         hash: state.profileHash,
       });
       onQuickOpened?.();
@@ -548,7 +551,7 @@ export default function PresetManager({
               >
                 <span className="hint">
                   Unsaved preset order
-                  {gameRunning ? " · Close the game to save this order" : ""}
+                  {gameRunning ? " · Applies to the next selection" : ""}
                 </span>
                 <button disabled={busy} onClick={() => setDraftOrder(null)}>
                   Discard
@@ -727,7 +730,7 @@ export default function PresetManager({
         <div className="group-order-save">
           <span className="hint">
             Unsaved group order
-            {gameRunning ? " · Close the game to save this order" : ""}
+            {gameRunning ? " · Applies to the next selection" : ""}
           </span>
           <button onClick={() => setDraftGroupOrder(null)}>Discard</button>
           <button
@@ -751,9 +754,9 @@ export default function PresetManager({
         {browser
           ? "Changes stay on this device until you download an edited save."
           : quickSaveAvailable
-            ? "Quick Setup saves live. Close the game to save collection changes."
+            ? "Changes save through the running game. A race already in progress keeps its current setup."
             : gameRunning
-              ? "Arrange drafts while playing. Close the game to save collection changes."
+              ? "Changes save through the running game when native integration is available."
               : "Changes are backed up before saving."}
       </p>
       {state?.localPackages?.length > 0 && (

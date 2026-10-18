@@ -251,7 +251,13 @@ def _source(appearance, kind, identity):
     with appearance.lock:
         reference = appearance.model_refs.get(f"{kind}:{identity}")
         game = appearance.game
+        installed = getattr(appearance, 'items', {}).get(kind, {}).get(str(identity))
+        loading = getattr(appearance, 'loading', False)
     if not reference or not game:
+        if loading:
+            raise ValueError("Installed appearances are still being indexed. The preview will refresh when the scan finishes.")
+        if installed:
+            raise ValueError("This appearance is installed, but its model is not supported by the local viewer yet. Its saved game image remains available.")
         raise ValueError(f"The selected {kind.rstrip('s')} asset is not installed or could not be resolved. Install its Workshop/local content or choose another appearance.")
     directory = Path(reference["directory"]).resolve()
     root = Path(game).resolve()
@@ -264,8 +270,8 @@ def _source(appearance, kind, identity):
         raise ValueError('An installed model dependency is unavailable.')
     if not bundles or sum(p.stat().st_size for p in bundles) > MAX_PACKAGE or any(p.stat().st_size > 64 * 1024 * 1024 for p in bundles):
         raise ValueError("This model package is too large for the lightweight viewer.")
-    native_files = [root / 'TheKarters2_Data' / name for name in ('level5','sharedassets5.assets','sharedassets1.assets','sharedassets0.assets')] if 'characterType' in reference else []
-    signature = hashlib.sha256(json.dumps([13, reference,
+    native_files = [root / 'TheKarters2_Data' / name for name in ('level5','globalgamemanagers.assets','sharedassets5.assets','sharedassets1.assets','sharedassets0.assets')] if 'characterType' in reference else []
+    signature = hashlib.sha256(json.dumps([14 if native_files else 13, reference,
         *[(p.name,p.stat().st_size,p.stat().st_mtime_ns) for p in native_files],
         *[(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in bundles]]).encode()).hexdigest()
     cache = appearance.folder / "models" / (signature + ".json.gz")
@@ -390,17 +396,44 @@ def sticker_texture(appearance, identity):
     return result
 
 
+SETUP_FIELDS = (
+    ('characters', 'iCharacterSkinMaterialID'),
+    ('vehicles', 'iVehicleMaterialID'),
+    ('wheels', 'iWheelMaterialID'),
+)
+
+
+def effective_ids(appearance, data):
+    """Resolve the setup the game displays, without changing saved selections.
+
+    Verified build 0.1.4.18's PTK_PlayerPreviewItem.Resolved*ConfigId methods
+    use a modded field only when its flag is enabled and ContainsConfigID is
+    true. An indexed config with unsupported geometry is still recognized;
+    model_refs must never decide whether a valid selected mod gets replaced.
+    Explicit Original/Modded editor previews deliberately bypass this helper.
+    """
+    with appearance.lock:
+        installed = {kind: set(appearance.items.get(kind, {})) for kind, _ in SETUP_FIELDS}
+    return {
+        kind: data[field + '_Modded']
+        if data['bUsingModdedVersion'] and str(data[field + '_Modded']) in installed[kind]
+        else data[field]
+        for kind, field in SETUP_FIELDS
+    }
+
+
 def setup(appearance, body):
     from .presets import cosmetic
     data = cosmetic(body.get('data'), strict=True)
     view = body.get('view')
-    if view not in ('original','modded'):
-        raise ValueError('Choose Original or Modded for the 3D setup.')
-    suffix = '_Modded' if view == 'modded' else ''
+    if view not in ('original','modded', 'effective'):
+        raise ValueError('Choose In game, Original or Modded for the 3D setup.')
+    suffix = '_Modded' if view == 'modded' or (view == 'effective' and data['bUsingModdedVersion']) else ''
+    selected = effective_ids(appearance, data) if view == 'effective' else {kind:data[field+suffix] for kind, field in SETUP_FIELDS}
     parts = {}
-    for kind, field in [('characters','iCharacterSkinMaterialID'), ('vehicles','iVehicleMaterialID'), ('wheels','iWheelMaterialID')]:
+    for kind, _ in SETUP_FIELDS:
         if kind == 'wheels' and parts['vehicles']['rig'].get('hideWheels'): continue
-        parts[kind] = json.loads(gzip.decompress(model(appearance, kind, data[field + suffix])))
+        parts[kind] = json.loads(gzip.decompress(model(appearance, kind, selected[kind])))
         if kind == 'characters' and parts[kind]['rig']['hideVehicle']:
             break
     stickers = []
@@ -420,11 +453,11 @@ def setup_plan(appearance, body):
     """Small setup descriptor; clients reuse unchanged, independently cached parts."""
     from .presets import cosmetic
     data = cosmetic(body.get('data'), strict=True)
-    if body.get('view') not in ('original', 'modded'):
-        raise ValueError('Choose Original or Modded for the 3D setup.')
-    suffix = '_Modded' if body['view'] == 'modded' else ''
-    parts = {kind:data[field + suffix] for kind, field in (
-        ('characters','iCharacterSkinMaterialID'), ('vehicles','iVehicleMaterialID'), ('wheels','iWheelMaterialID'))}
+    view = body.get('view')
+    if view not in ('original', 'modded', 'effective'):
+        raise ValueError('Choose In game, Original or Modded for the 3D setup.')
+    suffix = '_Modded' if view == 'modded' or (view == 'effective' and data['bUsingModdedVersion']) else ''
+    parts = effective_ids(appearance, data) if view == 'effective' else {kind:data[field + suffix] for kind, field in SETUP_FIELDS}
     stickers = []
     for slot in data['stickersData']:
         identity = slot['iStickerMaterialID' + suffix]

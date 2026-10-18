@@ -1,3 +1,4 @@
+import Feedback from "../components/Feedback.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   StackIcon,
@@ -476,30 +477,11 @@ export default function WebApp() {
             </button>
           </section>
         )}
-        {error && (
-          <div className="feedback error" role="alert">
-            {error}
-            <button
-              className="icon-button"
-              aria-label="Dismiss error"
-              onClick={() => setError("")}
-            >
-              <Cross2Icon />
-            </button>
-          </div>
-        )}
-        {message && (
-          <div className="feedback toast" role="status">
-            {message}
-            <button
-              className="icon-button"
-              aria-label="Dismiss message"
-              onClick={() => setMessage("")}
-            >
-              <Cross2Icon />
-            </button>
-          </div>
-        )}
+        <Feedback
+          message={error || message}
+          error={Boolean(error)}
+          onDismiss={() => (error ? setError("") : setMessage(""))}
+        />
         {dirty && (
           <SaveDownloads
             key={source.filename}

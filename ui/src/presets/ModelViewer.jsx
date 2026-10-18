@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createModelLoader } from "./modelData.js";
+import Dialog from "../components/Dialog.jsx";
+import "./ModelViewer.css";
 
 export default function ModelViewer({
   kind,
@@ -9,8 +11,10 @@ export default function ModelViewer({
   preset,
   view,
   revision = "",
+  assetsLoading = false,
 }) {
   const host = useRef(null),
+    expandedHost = useRef(null),
     viewport = useRef(null),
     playing = useRef(true);
   const [message, setMessage] = useState("Loading installed models…");
@@ -31,7 +35,7 @@ export default function ModelViewer({
     () => createModelLoader(loadModel),
     [loadModel, revision, retry],
   );
-  const identity = `${kind}:${id}:${revision}:${view}:${preset?.[view === "modded" ? "iCharacterSkinMaterialID_Modded" : "iCharacterSkinMaterialID"]}`;
+  const identity = `${kind}:${id}:${revision}:${view}:${preset?.bUsingModdedVersion}:${preset?.iCharacterSkinMaterialID}:${preset?.iCharacterSkinMaterialID_Modded}`;
   const selected = selection?.identity === identity ? selection.clip : "";
   const request = JSON.stringify(
     kind === "setup"
@@ -54,7 +58,10 @@ export default function ModelViewer({
     viewport.current = import("./modelViewport.js").then(
       ({ createViewport }) => {
         if (disposed) return null;
-        instance = createViewport(host.current, () => playing.current);
+        instance = createViewport(
+          expandedHost.current || host.current,
+          () => playing.current,
+        );
         return instance;
       },
     );
@@ -66,7 +73,25 @@ export default function ModelViewer({
 
   useEffect(() => {
     let disposed = false;
+    viewport.current?.then((instance) => {
+      if (!disposed) instance?.attach(expandedHost.current || host.current);
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    let disposed = false;
     const abort = new AbortController();
+    if (assetsLoading) {
+      setMessage("Reading installed assets…");
+      setLoading(true);
+      return () => {
+        disposed = true;
+        abort.abort();
+      };
+    }
     setMessage("Updating preview…");
     setLoading(true);
     const timer = setTimeout(async () => {
@@ -95,7 +120,7 @@ export default function ModelViewer({
       abort.abort();
       clearTimeout(timer);
     };
-  }, [request, kind, load, retry]);
+  }, [request, kind, load, retry, assetsLoading]);
 
   useEffect(() => {
     if (!animated || !hasMotion) return;
@@ -107,68 +132,105 @@ export default function ModelViewer({
     return () => clearInterval(timer);
   }, [animated, hasMotion]);
 
+  const overlay = message && (
+    <div
+      className="preview-loading preview-loading-overlay"
+      role={loading ? "status" : "alert"}
+    >
+      {loading && <span className="loading-spinner" />}
+      {message}
+      {!loading && (
+        <button
+          disabled={loading}
+          onClick={async () => {
+            setLoading(true);
+            setMessage("Checking installed assets…");
+            try {
+              await refreshModels?.();
+              setRetry((n) => n + 1);
+            } catch (err) {
+              setMessage(err.message);
+              setLoading(false);
+            }
+          }}
+        >
+          Rescan & retry
+        </button>
+      )}
+    </div>
+  );
+  const controls = (
+    <div className="model-tools">
+      <button onClick={async () => (await viewport.current)?.reset()}>
+        Reset view
+      </button>
+      {!expanded && (
+        <button
+          aria-pressed={expanded}
+          aria-haspopup="dialog"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          Enlarge
+        </button>
+      )}
+      {hasMotion && (
+        <button aria-pressed={animated} onClick={() => setAnimated((v) => !v)}>
+          {animated ? "Pause motion" : "Play motion"}
+        </button>
+      )}
+    </div>
+  );
+  const hint = (
+    <p
+      className={message ? "model-message" : "model-hint"}
+      role={message ? "status" : undefined}
+    >
+      {loading
+        ? "Previous setup stays visible while loading."
+        : "Drag to rotate · Scroll to zoom"}
+    </p>
+  );
+
   return (
     <>
-      <div
-        className={`model-viewer${expanded ? " expanded" : ""}`}
-        aria-busy={loading}
-      >
+      <div className="model-viewer" aria-busy={loading}>
         <div className="model-canvas" ref={host} />
-        {message && (
-          <div
-            className="preview-loading preview-loading-overlay"
-            role={loading ? "status" : "alert"}
-          >
-            {loading && <span className="loading-spinner" />}
-            {message}
-            {!loading && (
-              <button
-                disabled={loading}
-                onClick={async () => {
-                  setLoading(true);
-                  setMessage("Checking installed assets…");
-                  try {
-                    await refreshModels?.();
-                    setRetry((n) => n + 1);
-                  } catch (err) {
-                    setMessage(err.message);
-                    setLoading(false);
-                  }
-                }}
-              >
-                Rescan & retry
-              </button>
-            )}
-          </div>
+        {!expanded && (
+          <>
+            {overlay}
+            {controls}
+            {hint}
+          </>
         )}
-        <div className="model-tools">
-          <button onClick={async () => (await viewport.current)?.reset()}>
-            Reset view
-          </button>
-          <button
-            aria-pressed={expanded}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? "Smaller" : "Enlarge"}
-          </button>
-          {hasMotion && (
-            <button
-              aria-pressed={animated}
-              onClick={() => setAnimated((v) => !v)}
-            >
-              {animated ? "Pause motion" : "Play motion"}
-            </button>
-          )}
-        </div>
-        <p
-          className={message ? "model-message" : "model-hint"}
-          role={message ? "status" : undefined}
-        >
-          {loading
-            ? "Previous setup stays visible while loading."
-            : "Drag to rotate · Scroll to zoom"}
-        </p>
       </div>
+      {expanded && (
+        <Dialog
+          className="model-enlarged-dialog"
+          aria-label={
+            kind === "setup"
+              ? "Full setup 3D preview"
+              : "Selected part 3D preview"
+          }
+          onClose={() => setExpanded(false)}
+        >
+          <header className="model-enlarged-header">
+            <strong>{kind === "setup" ? "Full setup" : "Selected part"}</strong>
+            <button
+              autoFocus
+              aria-label="Close enlarged preview"
+              onClick={() => setExpanded(false)}
+            >
+              Close
+            </button>
+          </header>
+          <div className="model-enlarged-stage" aria-busy={loading}>
+            <div className="model-canvas" ref={expandedHost} />
+            {overlay}
+            {controls}
+            {hint}
+          </div>
+        </Dialog>
+      )}
       {(kind === "setup" || kind === "characters") && choices.length > 0 && (
         <section className="motion-browser" aria-label="Animation showcase">
           <label>

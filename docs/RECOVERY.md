@@ -16,4 +16,23 @@ For interrupted operations or recovery-required:
 4. Ask a maintainer to reconcile copies through Steam Remote Storage, preserving unrelated fields. Share journal/error text first; full saves contain private data and must not be posted publicly.
 5. Refresh Steam. Import only when copies agree and the supported profile decodes correctly.
 
-Without an interrupted import, use the game's normal Steam synchronization/conflict UI, close the game, and reconnect. The app stops rather than choosing conflicting saves.
+## Running-game library transactions
+
+A journal with `mode: live-library` follows a different recovery path. Its
+`original.save` is retained evidence, **not a file to restore over a running
+game**. New race progress, Quick Setup slots and settings may have changed since
+that backup.
+
+Garage changes only the saved-preset list and group containers on the game's
+thread. It compares both complete collections with the reviewed baseline before
+assignment, lets the game serialize/save, then verifies memory, local and Steam
+copies. An uncertain acknowledgement is checked before any retry.
+
+On failure, Garage reads the current collections using native operation 6. Only
+when they exactly match the attempted result may operation 5 replace those two
+collections with the original ones. It never restores a whole profile while the
+game runs. An external collection change stops automatic recovery and retains
+the journal for reconciliation. Resolve that journal before another library
+write; keep both the current save and safety copy.
+
+Without an interrupted import, use the game's normal Steam synchronization/conflict UI and reconnect. The app stops rather than choosing conflicting saves.

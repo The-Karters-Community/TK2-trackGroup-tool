@@ -1,3 +1,4 @@
+import Feedback from "./components/Feedback.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   StackIcon,
@@ -14,6 +15,7 @@ import Settings from "./pages/Settings.jsx";
 import Tracks from "./pages/Tracks.jsx";
 import Home from "./pages/Home.jsx";
 import Lobby from "./pages/Lobby.jsx";
+import LobbyEditor from "./pages/LobbyEditor.jsx";
 import InputNavigation from "./input/InputNavigation.jsx";
 import TracksHub, { TRACK_PAGES } from "./pages/TracksHub.jsx";
 import ImportDialog from "./components/ImportDialog.jsx";
@@ -26,6 +28,9 @@ export default function App() {
   const [page, setPage] = useState("home");
   const [trackPage, setTrackPage] = useState("browse");
   const [quickRequest, setQuickRequest] = useState(0);
+  const [quickRequestPlayer, setQuickRequestPlayer] = useState(0);
+  const [lobbyEditor, setLobbyEditor] = useState(null);
+  const [editedLobbyPlayer, setEditedLobbyPlayer] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState(null);
@@ -304,30 +309,11 @@ export default function App() {
             )}
           </div>
         )}
-        {error && (
-          <div className="feedback error" role="alert">
-            {error}
-            <button
-              className="icon-button"
-              aria-label="Dismiss error"
-              onClick={() => setError("")}
-            >
-              <Cross2Icon />
-            </button>
-          </div>
-        )}
-        {message && !busy && (
-          <div className="feedback toast" role="status">
-            {message}
-            <button
-              className="icon-button"
-              aria-label="Dismiss message"
-              onClick={() => setMessage("")}
-            >
-              <Cross2Icon />
-            </button>
-          </div>
-        )}
+        <Feedback
+          message={error || message}
+          error={Boolean(error)}
+          onDismiss={() => (error ? setError("") : setMessage(""))}
+        />
         {state.syncError && state.steamConnected && (
           <div className="feedback error">{state.syncError}</div>
         )}
@@ -379,10 +365,20 @@ export default function App() {
         ) : page === "lobby" ? (
           <Lobby
             state={state}
-            busy={busy}
+            busy={state.job?.state === "running"}
+            editedPlayer={editedLobbyPlayer}
             loadImage={loadPreview}
+            loadModel={loadModel}
+            refreshModels={refreshModels}
             onCopied={refresh}
             onNotice={setMessage}
+            onEditPlayer={(player) => {
+              if (player.local && Number.isInteger(player.localPlayerTarget)) {
+                setQuickRequestPlayer(player.localPlayerTarget);
+                setQuickRequest((n) => n + 1);
+                setPage("presets");
+              } else if (player.ai && player.canEditCpu) setLobbyEditor(player);
+            }}
           />
         ) : page === "presets" ? (
           <PresetManager
@@ -390,6 +386,7 @@ export default function App() {
             saveLibraryPreferences={saveLibraryPreferences}
             libraryScope={state.settings?.profile || "local"}
             openQuickRequest={quickRequest}
+            quickRequestPlayer={quickRequestPlayer}
             onQuickOpened={() => setQuickRequest(0)}
             refreshModels={refreshModels}
             state={state.presetState}
@@ -397,9 +394,17 @@ export default function App() {
             loadModel={loadModel}
             busy={busy}
             available={
-              state.steamConnected && !state.syncError && !state.gameRunning
+              state.steamConnected &&
+              !state.syncError &&
+              (!state.gameRunning || state.nativeQuickSaveAvailable)
             }
             gameRunning={state.gameRunning}
+            liveSaveAvailable={
+              state.gameRunning &&
+              state.steamConnected &&
+              !state.syncError &&
+              state.nativeQuickSaveAvailable
+            }
             quickSaveAvailable={
               state.gameRunning &&
               state.steamConnected &&
@@ -462,6 +467,33 @@ export default function App() {
             onConfirm={async () => {
               if (await run("import", { token: preview.token }))
                 setConfirmed(true);
+            }}
+          />
+        )}
+        {lobbyEditor && (
+          <LobbyEditor
+            player={lobbyEditor}
+            state={state.presetState}
+            busy={busy}
+            loadImage={loadPreview}
+            loadModel={loadModel}
+            refreshModels={refreshModels}
+            onClose={() => setLobbyEditor(null)}
+            onSave={async (data, baseline) => {
+              const result = await api("edit-lobby-player", {
+                key: lobbyEditor.key,
+                data,
+                baseline,
+              });
+              setMessage(result.message);
+              setEditedLobbyPlayer({
+                key: lobbyEditor.key,
+                data,
+                serial: Date.now(),
+              });
+              setLobbyEditor((previous) => ({ ...previous, data }));
+              await refresh();
+              return true;
             }}
           />
         )}

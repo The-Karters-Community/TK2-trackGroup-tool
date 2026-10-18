@@ -7,12 +7,19 @@ import urllib.error
 import unittest
 from unittest.mock import patch
 
-from trackgroups.appearance import Appearance, clean_name, mod_variants, model_prefab
+from trackgroups.appearance import Appearance, INDEX_VERSION, clean_name, mod_variants, model_prefab, package_origin
 
 PNG = b"\x89PNG\r\n\x1a\nfixture"
 
 
 class AppearanceTests(unittest.TestCase):
+    def test_workshop_provenance_comes_from_installed_steam_path_not_numeric_local_name(self):
+        root = Path('installed-library').resolve()
+        game = root/'steamapps/common/Game'
+        self.assertEqual(package_origin(game, root/'steamapps/workshop/content/2269950/12345/config.bundle'),
+                         {'workshopId':'12345', 'localOnly':False})
+        self.assertEqual(package_origin(game, game/'Mods/12345/config.bundle'), {'localOnly':True})
+        self.assertEqual(package_origin(game, root/'steamapps/workshop/content/2269950/not-an-id/config.bundle'), {'localOnly':True})
     def test_model_prefab_requires_exact_variant_and_rejects_ambiguous_paths(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -53,7 +60,7 @@ class AppearanceTests(unittest.TestCase):
             unsaved = art.snapshot([draft])
             self.assertEqual(unsaved['previews']['100']['modded'], before)
             self.assertEqual(unsaved['stalePreviews'], [100])
-            self.assertEqual(unsaved['staleViews'], {'100': ['original', 'modded']})
+            self.assertEqual(unsaved['staleViews'], {'100': ['modded']})
             self.assertEqual(art.image(game_icon.name), PNG+b'original')
             with self.assertRaises(ValueError):
                 art.image(legacy.name)
@@ -197,13 +204,135 @@ class AppearanceTests(unittest.TestCase):
                 "stickers": {},
             }
             (art.folder / "index.json").write_text(
-                json.dumps({"version": 11, "signature": signature, "items": items, "modelRefs": {}})
+                json.dumps({"version": INDEX_VERSION, "signature": signature, "items": items, "modelRefs": {}})
             )
             with patch.object(art, "sources", return_value=[]):
                 art._build("fake-game")
             self.assertEqual(art.snapshot([])["items"], items)
             self.assertFalse(art.loading)
             self.assertEqual(art.warning, "")
+
+    def test_existing_bundle_write_triggers_refresh_without_catalog_or_directory_change(self):
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            game = root/'steamapps/common/Game'
+            package = game/'Mods/Character/StandaloneWindows64'
+            package.mkdir(parents=True)
+            bundle = package/'existing.bundle'
+            bundle.write_bytes(b'downloading')
+            art = Appearance(root/'cache', root/'profile')
+            with patch.object(art, 'refresh') as refresh, patch('trackgroups.appearance.time.monotonic', side_effect=[100,103]):
+                art.observe(game)
+                self.assertEqual(refresh.call_count, 1)
+                before = package.stat()
+                old = bundle.stat()
+                bundle.write_bytes(b'complete bundle')
+                os.utime(bundle, ns=(old.st_atime_ns, old.st_mtime_ns+1_000_000_000))
+                os.utime(package, ns=(before.st_atime_ns, before.st_mtime_ns))
+                art.observe(game)
+                self.assertEqual(refresh.call_count, 2)
+
+    def test_failed_package_is_retried_and_never_becomes_a_successful_cached_index(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            file = root/'config.bundle'; file.write_bytes(b'fixture')
+            art = Appearance(root/'cache', root/'profile')
+            with patch.object(art, 'sources', return_value=[(file, 'custom')]), patch('UnityPy.load', side_effect=OSError('Download in progress')):
+                art._build('game')
+            partial = json.loads((art.folder/'index.json').read_text(encoding='utf8'))
+            self.assertTrue(partial['previewError'])
+            self.assertEqual(art.signature, '')
+            self.assertIsNotNone(art._retry_at)
+            previous_revision = art.snapshot([])['revision']
+            tree = {'pixelSerializedData': {'eConfigTypeSerialized': 9},
+                    'iMainScriptableObjectConfigIDUnique':1, 'DisplayName':'Recovered character'}
+            recovered = SimpleNamespace(type=SimpleNamespace(name='MonoBehaviour'), path_id=1,
+                                        read_typetree=lambda:tree)
+            with patch.object(art, 'sources', return_value=[(file, 'official')]), patch('UnityPy.load', return_value=SimpleNamespace(objects=[recovered])) as load:
+                art._build('game')
+                load.assert_called_once()
+            self.assertTrue(art.signature)
+            self.assertNotEqual(previous_revision, art.snapshot([])['revision'])
+            self.assertIn('1', art.items['characters'])
+            self.assertIsNone(art._retry_at)
+            self.assertEqual(art.warning, '')
+
+    def test_same_game_refresh_queued_during_build_is_not_dropped(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            file = root/'config.bundle'; file.write_bytes(b'fixture')
+            art = Appearance(root/'cache', root/'profile')
+            art.requested_game = 'same-game'
+            def downloading(_):
+                art._requested_generation += 1
+                return SimpleNamespace(objects=[])
+            with patch.object(art, 'sources', return_value=[(file, 'custom')]), patch('UnityPy.load', side_effect=downloading), patch.object(art, 'refresh') as refresh:
+                art._build('same-game')
+                refresh.assert_called_once_with('same-game')
+
+    def test_model_dependency_write_invalidates_index_even_when_config_source_unchanged(self):
+        from types import SimpleNamespace
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            config = root/'config.bundle'; config.write_bytes(b'config')
+            model = root/'large-model.bundle'; model.write_bytes(b'incomplete model')
+            art = Appearance(root/'cache', root/'profile')
+            with patch.object(art, 'sources', return_value=[(config, 'custom')]), patch('UnityPy.load', return_value=SimpleNamespace(objects=[])) as load:
+                art._build('game')
+                initial = art.signature
+                before = model.stat()
+                model.write_bytes(b'complete downloaded model')
+                os.utime(model, ns=(before.st_atime_ns, before.st_mtime_ns+1_000_000_000))
+                art._build('game')
+                self.assertEqual(load.call_count, 2)
+                self.assertNotEqual(initial, art.signature)
+
+    def test_missing_cached_thumbnail_rebuilds_instead_of_serving_stale_index(self):
+        from types import SimpleNamespace
+        import hashlib
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            art = Appearance(root/'cache', root/'profile')
+            missing = '/api/preset-image/'+'a'*64+'.png'
+            saved = {'version': INDEX_VERSION, 'signature': hashlib.sha256(b'[]').hexdigest(),
+                     'items': {'characters': {'1': {'image':missing}}}, 'modelRefs': {}}
+            (art.folder/'index.json').write_text(json.dumps(saved), encoding='utf8')
+            with patch.object(art, 'sources', return_value=[]):
+                art._build('game')
+            self.assertEqual(art.items['characters'], {})
+            self.assertEqual(art.warning, '')
+
+    def test_saved_image_revision_observes_late_png_and_hash_writes_without_profile_change(self):
+        from test_presets import fixture
+        from trackgroups.presets import view
+        from trackgroups.profile import Profile
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            icons = root/'profile/PresetIcons'; icons.mkdir(parents=True)
+            art = Appearance(root/'cache', root/'profile')
+            presets = view(Profile(fixture()))['presets']
+            empty = art.snapshot(presets)
+            icon = icons/'Icon_PresetID_100_Modded.png'
+            icon.write_bytes(PNG)
+            populated = art.snapshot(presets)
+            self.assertNotEqual(empty['previewRevision'], populated['previewRevision'])
+            self.assertEqual(art.image(icon.name), PNG)
+            # Size also changes the URL when a copier preserves file timestamps.
+            info = icon.stat()
+            icon.write_bytes(PNG+b'updated')
+            os.utime(icon, ns=(info.st_atime_ns, info.st_mtime_ns))
+            updated = art.snapshot(presets)
+            self.assertNotEqual(populated['previews'], updated['previews'])
+            self.assertNotEqual(populated['previewRevision'], updated['previewRevision'])
+            (icons/'Icon_PresetID_100.hash').write_text('0_2_3_-2147483648_2_3', encoding='utf8')
+            mismatch = art.snapshot(presets)
+            self.assertNotEqual(updated['previewRevision'], mismatch['previewRevision'])
+            self.assertEqual(mismatch['staleViews'], {'100':['original']})
 
     def test_sources_read_only_cosmetic_packages_and_skip_escape(self):
         with tempfile.TemporaryDirectory() as folder:

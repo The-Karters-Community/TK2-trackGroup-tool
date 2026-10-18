@@ -81,7 +81,7 @@ export default function ImportReview({
           {rename
             ? "Confirm to save the name to your local and Steam profile."
             : "Nothing has been downloaded or saved yet. After confirmation, download progress appears here for each track."}{" "}
-          Keep the game closed.
+          The running game applies library changes to the next selection.
         </p>
       )}
       {confirmed && (

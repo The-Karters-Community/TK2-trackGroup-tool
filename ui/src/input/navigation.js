@@ -5,7 +5,7 @@ const FOCUSABLE =
 const GRID =
   "[data-navigation-grid], .appearance-grid, .preset-order, .group-gallery";
 const CONTROLLER_ACTION =
-  '[data-controller-activate="true"], .appearance-tile, .favorite-button, .preset-row-label, .local-players button, .nav-items button, .home-destinations button, .tabs button, [role="tab"], .appearance-steps button, .sticker-slots button, .appearance-toolbar button[aria-pressed], .preview-mode button, .preview-toggle, summary';
+  '[data-controller-activate="true"], [data-customization-category], .appearance-tile, .favorite-button, .preset-row-label, .local-players button, .nav-items button, .home-destinations button, .tabs button, [role="tab"], .appearance-steps button, .sticker-slots button, .appearance-toolbar button[aria-pressed], .preview-mode button, .preview-toggle, summary';
 
 export function navigationScope(doc = document) {
   return [...doc.querySelectorAll("dialog[open]")].at(-1) || doc.body;
@@ -142,6 +142,36 @@ export function saveEditor(doc = document) {
   if (!save || !isVisibleControl(save)) return false;
   save.click();
   return true;
+}
+
+export function changeCustomizationCategory(delta, doc = document) {
+  const scope = navigationScope(doc);
+  if (scope.tagName !== "DIALOG") return false;
+  const categories = scope.querySelector("[data-customization-categories]");
+  if (!categories) return false;
+  const buttons = [
+    ...categories.querySelectorAll("[data-customization-category]"),
+  ];
+  const available = buttons.filter(isVisibleControl);
+  if (available.length < 2) return false;
+  const selected = buttons.findIndex(
+    (button) =>
+      button.getAttribute("aria-pressed") === "true" ||
+      button.getAttribute("aria-selected") === "true",
+  );
+  const current =
+    selected < 0 ? Math.max(0, buttons.indexOf(doc.activeElement)) : selected;
+  for (let step = 1; step < buttons.length; step++) {
+    const next =
+      buttons[
+        (current + Math.sign(delta) * step + buttons.length) % buttons.length
+      ];
+    if (!available.includes(next)) continue;
+    next.click();
+    if (next.isConnected) focus(next);
+    return true;
+  }
+  return false;
 }
 
 export function changeRowPage(delta, doc = document) {

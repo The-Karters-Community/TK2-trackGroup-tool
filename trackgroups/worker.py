@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 from pathlib import Path
+import re
 import time
 
 from .runtime import write_json
@@ -71,6 +72,47 @@ def run(folder):
                 raise ValueError("Diagnostic will only re-subscribe an already subscribed item.")
             steam.subscribe(request["id"])
             result = {"subscribed": steam.item_status(request["id"])["subscribed"]}
+        elif action == 'subscribe-cosmetic':
+            item = request.get('id')
+            if not isinstance(item, str) or not re.fullmatch(r'[1-9][0-9]{0,19}', item) or int(item) >= 2**64:
+                raise ValueError('Choose a valid Workshop customization item.')
+            if steam.account != request.get('account'):
+                raise ValueError('The Steam account changed. Refresh before subscribing.')
+            if cancelled(): raise ValueError('Subscription cancelled before starting.')
+            details = steam.details([item], cancelled)
+            info = details.get(item, {})
+            if not info.get('available'):
+                raise ValueError('This Workshop item is unavailable.')
+            if content_kind(steam, item) == 'track':
+                raise ValueError('This Workshop item contains a track, not customization content.')
+            subscribed = []
+            progress({'phase':'subscribing', 'message':'Permanently subscribing to ' + info.get('title', 'Workshop customization'), 'completed':0, 'total':1})
+            # Explicit user choice, even if temporarily subscribed by the game.
+            # Never unsubscribe automatically on cancellation or failure.
+            steam.subscribe(item, cancelled)
+            subscribed.append(item)
+            status = installation_status(steam, item, track=False)
+            if not status['ready'] and not steam.ugc_call('DownloadItem', int(item), True):
+                raise ValueError('Steam could not start downloading this customization.')
+            deadline = time.monotonic() + 90
+            while True:
+                if cancelled(): raise ValueError('Subscription cancelled. The Workshop subscription remains.')
+                if steam.account != request['account']: raise ValueError('The Steam account changed during download.')
+                steam.dll.SteamAPI_RunCallbacks()
+                status = installation_status(steam, item, track=False)
+                progress({'phase':'downloading', 'message':'Downloading customization content', 'completed':int(bool(status['ready'])),
+                          'total':1, 'items':{item:{**status,'title':info.get('title','Workshop customization')}}, 'newSubscriptions':subscribed})
+                if status['ready']:
+                    if not status.get('subscribed'):
+                        raise ValueError('Steam did not confirm the permanent Workshop subscription.')
+                    if content_kind(steam, item) != 'cosmetic':
+                        raise ValueError('The downloaded item could not be verified as customization content. Its subscription remains.')
+                    break
+                if time.monotonic() >= deadline:
+                    raise ValueError('Customization download is still pending. Let Steam finish; its subscription remains.')
+                time.sleep(.25)
+            info['kind'] = 'cosmetic'
+            result = {'account':steam.account, 'items':{item:info}, 'status':{item:status}, 'subscribed':True, 'newSubscriptions':subscribed}
         elif action == "save-proof":
             data = steam.read_save(request["profile"])
             # Explicit diagnostic: rewrite identical bytes, then verify no content changed.
@@ -78,23 +120,22 @@ def run(folder):
             result = {"unchanged": steam.read_save(request["profile"]) == data}
         elif action in ("rename", "edit", "presets"):
             from .transaction import commit
-            from .runtime import PROFILE_DIR
+            from .runtime import PROFILE_DIR, game_running
             from .profile import SAVE_NAME
             if not SAVE_NAME.fullmatch(request['profile']): raise ValueError("Invalid profile selection.")
             if not steam.storage_call("IsCloudEnabledForAccount") or not steam.storage_call("IsCloudEnabledForApp"):
                 raise ValueError("Enable Steam Cloud before renaming, so both save copies stay synchronized.")
             if cancelled(): raise ValueError("Rename cancelled before writing the profile.")
-            progress({'phase':'saving', 'message':'Saving the new group name. Keep the game closed.'})
-            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=action == 'rename', edit=action == 'edit', preset=action == 'presets')
+            progress({'phase':'saving', 'message':'Verifying and saving your library changes.'})
+            result = commit(steam, PROFILE_DIR / request['profile'], request['group'], request['expectedHash'], request['account'], rename=action == 'rename', edit=action == 'edit', preset=action == 'presets', **({'game':request['game']} if game_running() else {}))
         elif action in ("install", "repair"):
             from .groups import validate
-            from .transaction import commit, digest, require_recovered
+            from .transaction import commit, digest, require_recovered, library_state
             from .runtime import PROFILE_DIR, game_running
             from .profile import SAVE_NAME, Profile
             group = validate(request["group"])
             name = request["profile"]
             if not SAVE_NAME.fullmatch(name): raise ValueError("Invalid profile selection.")
-            if game_running(): raise ValueError("Close the game before importing.")
             from .runtime import DATA
             require_recovered(DATA / "backups", PROFILE_DIR / name)
             if steam.account != request["account"]: raise ValueError("Steam account changed. Preview again.")
@@ -138,13 +179,21 @@ def run(folder):
                     raise ValueError("Downloads are still pending. The group was not written. Let Steam finish, then retry; subscriptions remain.")
                 time.sleep(.5)
             if cancelled(): raise ValueError("Import cancelled before writing the profile.")
-            progress({"phase": "saving", "message": "Verifying and saving the group. Please keep the game closed.", "completed": len(ids), "total": len(ids)})
+            progress({"phase": "saving", "message": "Verifying and saving the group.", "completed": len(ids), "total": len(ids)})
             if action == 'repair':
-                if game_running() or (PROFILE_DIR / name).read_bytes() != local or steam.read_save(name) != local:
-                    raise ValueError('Profile changed during repair. Refresh Steam. Subscriptions remain.')
+                if steam.account != request['account']:
+                    raise ValueError('Steam account changed during repair. Refresh Steam. Subscriptions remain.')
                 result = {'outcome':'repaired', 'backup':None}
             else:
-                result = commit(steam, PROFILE_DIR / name, group, request["expectedHash"], request["account"], request.get("allowUpdate", False))
+                expected = request['expectedHash']
+                if game_running():
+                    current = (PROFILE_DIR / name).read_bytes()
+                    if library_state(Profile(current)) != library_state(Profile(local)):
+                        raise ValueError('The game library changed during download. Refresh and review the group again. Subscriptions remain.')
+                    # A race can advance progress while Steam downloads. Only
+                    # rebase when both libraries still match the reviewed save.
+                    expected = digest(current)
+                result = commit(steam, PROFILE_DIR / name, group, expected, request["account"], request.get("allowUpdate", False), **({'game':request['game']} if game_running() else {}))
             result["newSubscriptions"] = subscribed
         else:
             raise ValueError("Unknown Steam worker action.")

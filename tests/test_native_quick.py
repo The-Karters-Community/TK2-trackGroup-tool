@@ -6,7 +6,7 @@ import tempfile
 import threading
 import unittest
 from unittest.mock import patch
-from trackgroups.native_quick import Cosmetic, Request, available
+from trackgroups.native_quick import Cosmetic, Request, available, exchange
 from trackgroups.profile import Profile
 from trackgroups.presets import view, apply
 from trackgroups.service import Service
@@ -19,7 +19,7 @@ class NativeQuickTests(unittest.TestCase):
         self.assertEqual(Cosmetic.encode(data).decode(), data)
         self.assertEqual(ctypes.sizeof(Cosmetic), 345)
         if os.name == "nt":
-            self.assertEqual(ctypes.sizeof(Request), 28379)
+            self.assertEqual(ctypes.sizeof(Request), 28391)
         invalid = copy.deepcopy(data)
         invalid["iVehicleMaterialID"] = True
         with self.assertRaises(ValueError):
@@ -28,6 +28,19 @@ class NativeQuickTests(unittest.TestCase):
     def test_unavailable_for_an_unverified_game(self):
         with tempfile.TemporaryDirectory() as folder:
             self.assertFalse(available(folder))
+
+    def test_retention_rejects_ambiguous_workshop_targets_before_entering_game(self):
+        with patch("trackgroups.native_quick.available", return_value=True):
+            for payload in (None, {}, {"workshopId": 42}, {"workshopId": "-1"},
+                            {"workshopId": "0"}, {"workshopId": "１２"},
+                            {"workshopId": str(2**63)}, {"workshopId": "42", "all": True}):
+                with self.subTest(payload=payload), self.assertRaisesRegex(ValueError, "exact Steam Workshop"):
+                    exchange("game", "profile", operation=7, payload=payload)
+
+    def test_cpu_change_requires_fresh_target_and_cosmetics(self):
+        with patch("trackgroups.native_quick.available", return_value=True):
+            with self.assertRaisesRegex(ValueError, "exact current identity"):
+                exchange("game", "profile", operation=8)
 
     def test_live_quick_service_uses_native_bridge_and_verifies_both_copies(self):
         with tempfile.TemporaryDirectory() as folder:

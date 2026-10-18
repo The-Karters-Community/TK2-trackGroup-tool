@@ -17,6 +17,7 @@ export default function LivePresetPreview({
   modelAvailable = false,
   appearanceLoading = false,
   revision = "",
+  imageRevision = "",
 }) {
   const [mode, setMode] = useState(loadModel ? "setup" : "saved");
   const effectiveMode = mode === "model" && !modelAvailable ? "setup" : mode;
@@ -67,8 +68,13 @@ export default function LivePresetPreview({
             loadModel={loadModel}
             refreshModels={refreshModels}
             preset={data}
-            view={view}
+            view={
+              effectiveMode === "setup" && view === "modded"
+                ? "effective"
+                : view
+            }
             revision={revision}
+            assetsLoading={appearanceLoading}
           />
         </Suspense>
       ) : source ? (
@@ -77,6 +83,7 @@ export default function LivePresetPreview({
           source={source}
           loadImage={loadImage}
           alt="Saved in-game setup preview"
+          revision={imageRevision}
         />
       ) : (
         <div className="saved-image-empty">
@@ -87,7 +94,7 @@ export default function LivePresetPreview({
       <p className="hint" role="status">
         {showModel
           ? effectiveMode === "setup"
-            ? "Interactive 3D setup"
+            ? "Interactive 3D setup · uses the game’s available parts"
             : "Selected part · drag to rotate"
           : changed
             ? "Last game-generated image. Your selection differs; use 3D to see it now."

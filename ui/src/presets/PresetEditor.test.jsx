@@ -12,7 +12,15 @@ import { readProfile } from "../web/profile.js";
 import { presetState } from "./model.js";
 
 vi.mock("./LivePresetPreview.jsx", () => ({
-  default: () => <div data-testid="preview">Preview</div>,
+  default: ({ modelId, modelAvailable }) => (
+    <div
+      data-testid="preview"
+      data-model-id={modelId}
+      data-available={String(modelAvailable)}
+    >
+      Preview
+    </div>
+  ),
 }));
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -25,6 +33,55 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+it("keeps Original selected-part previews available when no mod is selected", () => {
+  vi.stubGlobal("matchMedia", () => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  const options = props();
+  options.preset.data.iCharacterSkinMaterialID = 501;
+  options.preset.data.iCharacterSkinMaterialID_Modded = -1;
+  options.preset.data.bUsingModdedVersion = true;
+  options.appearance.items.characters = {
+    501: { name: "Bobby", label: "Official Bobby" },
+  };
+  options.appearance.models = { characters: [501] };
+  render(<PresetEditor {...options} />);
+  expect(screen.getByTestId("preview").getAttribute("data-model-id")).toBe(
+    "501",
+  );
+  expect(screen.getByTestId("preview").getAttribute("data-available")).toBe(
+    "true",
+  );
+  expect(
+    screen.getByText(/This part uses its Original appearance/),
+  ).toBeTruthy();
+});
+
+it("reports an installed unsupported mod instead of silently replacing its part preview", () => {
+  vi.stubGlobal("matchMedia", () => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  const options = props();
+  options.preset.data.iCharacterSkinMaterialID = 501;
+  options.preset.data.iCharacterSkinMaterialID_Modded = 42;
+  options.appearance.items.characters = {
+    501: { label: "Official Bobby" },
+    42: { label: "Installed mod" },
+  };
+  options.appearance.models = { characters: [501] };
+  render(<PresetEditor {...options} />);
+  expect(screen.getByTestId("preview").getAttribute("data-model-id")).toBe(
+    "42",
+  );
+  expect(screen.getByTestId("preview").getAttribute("data-available")).toBe(
+    "false",
+  );
 });
 function props() {
   const state = presetState(readProfile(fixture()));
