@@ -1,5 +1,9 @@
 # Changes
 
+## Unreleased — 0.1.2-dev
+
+Changes since 0.1.1.
+
 ## 0.1.1 — 2026-10-18
 
 Highlights since 0.1.0.
