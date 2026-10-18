@@ -19,7 +19,7 @@ export default function Home({
     <section className="garage-home garage-main-menu">
       <div className="home-art">
         <img
-          src={assetUrl("/BobbysGarageV4.png")}
+          src={assetUrl("/BobbyGarageArtwork.png")}
           alt="Bobby’s Garage, a workshop for your next race"
         />
       </div>
