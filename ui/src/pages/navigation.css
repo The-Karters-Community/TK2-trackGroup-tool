@@ -124,11 +124,22 @@
     gap: 50px;
   }
 }
-@media (max-width: 1000px) {
+@media (max-width: 1200px) {
   .garage-main-menu.garage-home {
-    grid-template-columns: minmax(0, 1fr) minmax(270px, 1fr);
-    padding: 28px 24px;
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 24px;
+    gap: 20px;
+    min-height: 0;
+  }
+  .garage-main-menu .home-art,
+  .garage-main-menu .home-menu {
+    width: 100%;
+    max-width: 640px;
+  }
+  .garage-main-menu .home-art img {
+    height: auto;
+    max-height: none;
   }
   .garage-main-menu .home-menu h1 {
     font-size: 28px;
@@ -176,10 +187,10 @@
   }
   .garage-main-menu .home-art {
     width: 100%;
-    max-width: 430px;
+    max-width: 640px;
   }
   .garage-main-menu .home-art img {
-    height: 190px;
+    height: auto;
     min-height: 0;
   }
   .garage-main-menu .home-menu h1 {

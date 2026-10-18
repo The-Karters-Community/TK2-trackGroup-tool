@@ -112,11 +112,11 @@ function props() {
     },
   };
 }
-it("opens preview on roomy screens and leaves it collapsed on a small screen", () => {
+it("opens preview at medium window sizes and leaves it collapsed on a small screen", () => {
   vi.stubGlobal(
     "matchMedia",
     vi.fn((query) => ({
-      matches: query.includes("min-width: 1200px"),
+      matches: query.includes("min-width: 900px"),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })),

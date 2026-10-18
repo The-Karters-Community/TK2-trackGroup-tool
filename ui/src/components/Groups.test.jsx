@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import Library from "../pages/Library.jsx";
 import GroupDetails from "./GroupDetails.jsx";
@@ -366,6 +367,9 @@ test("dragging reorders directly and discard restores the saved order", () => {
   const sortable = sortableInstances.at(-1);
   expect(sortable.options.animation).toBe(180);
   expect(sortable.options.handle).toBe(".drag-handle");
+  expect(sortable.options.forceFallback).toBe(true);
+  expect(sortable.options.scroll).toBe(true);
+  expect(sortable.options.bubbleScroll).toBe(true);
   act(() => {
     sortable.options.onStart();
     sortable.options.onEnd({ oldIndex: 1, newIndex: 0 });
@@ -380,6 +384,83 @@ test("dragging reorders directly and discard restores the saved order", () => {
   expect(
     screen.getAllByRole("listitem")[0].querySelector("strong").textContent,
   ).toBe("First");
+});
+
+test("acknowledges the submitted job, hides save controls and rebases the next edit", async () => {
+  const oldJob = { id: "old", state: "completed" };
+  const onEdit = vi.fn().mockResolvedValue({ jobId: "new" });
+  const initial = { ...group, expectedHash: "original" };
+  const props = {
+    group: initial,
+    local: true,
+    connected: true,
+    onEdit,
+    editJob: oldJob,
+  };
+  const { rerender, container } = render(<GroupDetails {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "Move Second up" }));
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" })),
+  );
+  expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
+    true,
+  );
+  // A delayed running-state poll must not acknowledge the previous completed job.
+  rerender(
+    <GroupDetails {...props} editJob={{ id: "refresh", state: "completed" }} />,
+  );
+  expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
+    true,
+  );
+  fireEvent.submit(container.querySelector("form"));
+  expect(onEdit).toHaveBeenCalledTimes(1);
+  const saved = {
+    ...initial,
+    expectedHash: "saved",
+    tracks: [...initial.tracks].reverse(),
+  };
+  rerender(
+    <GroupDetails
+      {...props}
+      group={saved}
+      editJob={{ id: "new", state: "completed" }}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull(),
+  );
+  expect(
+    screen.getAllByRole("listitem")[0].querySelector("strong").textContent,
+  ).toBe("Second");
+  fireEvent.click(screen.getByRole("button", { name: "Move First up" }));
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" })),
+  );
+  expect(onEdit.mock.calls[1][0]).toMatchObject({
+    expectedHash: "saved",
+    order: [1, 0],
+  });
+});
+
+test("failed group saves keep the draft and allow retry", async () => {
+  const onEdit = vi.fn().mockResolvedValue({ jobId: "save" });
+  const props = { group, local: true, connected: true, onEdit };
+  const { rerender } = render(<GroupDetails {...props} />);
+  fireEvent.change(screen.getByLabelText("Group name"), {
+    target: { value: "My draft" },
+  });
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" })),
+  );
+  rerender(
+    <GroupDetails {...props} editJob={{ id: "save", state: "failed" }} />,
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Save changes" }).disabled).toBe(
+      false,
+    ),
+  );
+  expect(screen.getByLabelText("Group name").value).toBe("My draft");
 });
 
 test("polling keeps an unsaved draft bound to its original save hash", () => {

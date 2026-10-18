@@ -25,6 +25,14 @@ export default function GroupEditor({
     if (!list.current) return;
     const sortable = new Sortable(list.current, {
       handle: ".track-grip",
+      forceFallback: true,
+      fallbackOnBody: false,
+      fallbackTolerance: 4,
+      scroll: true,
+      bubbleScroll: true,
+      forceAutoScrollFallback: true,
+      scrollSensitivity: 72,
+      scrollSpeed: 14,
       animation: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
         ? 0
         : 160,

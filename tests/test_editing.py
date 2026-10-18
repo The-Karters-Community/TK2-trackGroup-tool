@@ -2,6 +2,7 @@ import copy
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +15,17 @@ from test_profile import group, profile
 
 
 class EditingTests(unittest.TestCase):
+    def test_started_job_returns_its_identity_for_editor_acknowledgement(self):
+        service = Service.__new__(Service)
+        service.lock = threading.RLock()
+        service.job = None
+        service.cancel = threading.Event()
+        with patch('trackgroups.service.threading.Thread') as worker:
+            result = service.start_job('edit', {})
+        self.assertEqual(result['jobId'], service.job['id'])
+        self.assertEqual(service.job['state'], 'running')
+        worker.return_value.start.assert_called_once()
+
     def test_pasted_ids_preserve_order_and_accept_workshop_links(self):
         self.assertEqual(parse_items('3263970719, https://steamcommunity.com/sharedfiles/filedetails/?id=3279611598\n42'), ['3263970719', '3279611598', '42'])
         for text in ('', '1 1', '0', '01', '-1', '18446744073709551616', 'https://example.com/?id=1'):

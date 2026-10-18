@@ -8,6 +8,7 @@ import {
   Cross2Icon,
   HomeIcon,
   AvatarIcon,
+  HamburgerMenuIcon,
 } from "@radix-ui/react-icons";
 import { api, download, loadPreview } from "./api.js";
 import Library from "./pages/Library.jsx";
@@ -39,6 +40,18 @@ export default function App() {
   const [focusId, setFocusId] = useState(null);
   const [seenJob, setSeenJob] = useState("");
   const [presetDirty, setPresetDirty] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef();
+  useEffect(() => {
+    const close = (event) => {
+      if (event.key === "Escape" && menuOpen) {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [menuOpen]);
   const polling = useRef(false);
   const lastSnapshot = useRef("");
   const loadModel = useCallback(
@@ -221,15 +234,28 @@ export default function App() {
     ["settings", GearIcon, "Settings"],
   ];
   return (
-    <div className="app-shell">
-      <nav className="sidebar" aria-label="Main navigation">
+    <div className="app-shell garage-shell">
+      <nav
+        className={`sidebar${menuOpen ? " menu-open" : ""}`}
+        aria-label="Main navigation"
+      >
+        <button
+          ref={menuButton}
+          className="navigation-toggle"
+          aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={menuOpen}
+          aria-controls="garage-navigation"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          {menuOpen ? <Cross2Icon /> : <HamburgerMenuIcon />}
+        </button>
         <div className="brand">
           <img className="brand-logo" src="/logo.png" alt="The Karters 2" />
           <strong>
             Bobby’s<span>GARAGE</span>
           </strong>
         </div>
-        <div className="nav-items">
+        <div className="nav-items" id="garage-navigation">
           {nav.map(([id, Icon, label]) => (
             <button
               key={id}
@@ -253,6 +279,8 @@ export default function App() {
                 )
                   return;
                 setPage(id === "track-hub" ? trackPage : id);
+                setMenuOpen(false);
+                if (menuOpen) menuButton.current?.focus();
                 setPreview(null);
                 setEditor(null);
                 setConfirmed(false);

@@ -5,7 +5,7 @@ const FOCUSABLE =
 const GRID =
   "[data-navigation-grid], .appearance-grid, .preset-order, .group-gallery";
 const CONTROLLER_ACTION =
-  '[data-controller-activate="true"], [data-customization-category], .appearance-tile, .favorite-button, .preset-row-label, .local-players button, .nav-items button, .home-destinations button, .tabs button, [role="tab"], .appearance-steps button, .sticker-slots button, .appearance-toolbar button[aria-pressed], .preview-mode button, .preview-toggle, summary';
+  '[data-controller-activate="true"], [data-customization-category], .appearance-tile, .favorite-button, .preset-row-label, .local-players button, .navigation-toggle, .nav-items button, .home-destinations button, .tabs button, [role="tab"], .appearance-steps button, .sticker-slots button, .appearance-toolbar button[aria-pressed], .preview-mode button, .preview-toggle, summary';
 
 export function navigationScope(doc = document) {
   return [...doc.querySelectorAll("dialog[open]")].at(-1) || doc.body;

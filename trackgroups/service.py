@@ -215,7 +215,7 @@ class Service:
             self.cancel.clear()
             self.job = {"id": str(uuid.uuid4()), "action": action, "state": "running", "message": "Starting…", "phase": "starting"}
             threading.Thread(target=self.perform, args=(action, body), daemon=False).start()
-            return {"message": "Operation started."}
+            return {"message": "Operation started.", "jobId": self.job["id"]}
 
     def save_live_quick(self, body):
         """Edit one live Quick Setup, letting the game own serialization and Cloud."""

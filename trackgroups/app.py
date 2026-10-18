@@ -202,7 +202,7 @@ def main():
     import webview
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    window = webview.create_window("Bobby’s Garage", server.origin, width=1180, height=820, min_size=(760, 560))
+    window = webview.create_window("Bobby’s Garage", server.origin, width=1180, height=820, min_size=(480, 480))
     server.window = window
     def apply_update(folder):
         service.updates.apply(folder)

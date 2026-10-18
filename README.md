@@ -39,6 +39,13 @@ Tab reaches individual controls, including favorites. Open **Controls** in the
 sidebar for help. Controller support requires a browser/WebView with the standard
 Gamepad API; other apps must give focus back to Garage first.
 
+## Find a look in the lobby
+
+Browse up to eight racers in a four-column gallery, including during a race.
+Copy a setup to your Quick Setup or save it to your collection.
+
+![Eight-player lobby with cached full-setup previews](docs/images/garage-lobby.jpg)
+
 ## Keep your tracks together
 
 **Tracks** brings Discover groups, My groups and My tracks into one place.

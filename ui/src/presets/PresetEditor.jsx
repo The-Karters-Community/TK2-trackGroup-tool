@@ -63,7 +63,7 @@ export default function PresetEditor({
   const [sticker, setSticker] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(
     () =>
-      window.matchMedia?.("(min-width: 1200px) and (min-height: 700px)")
+      window.matchMedia?.("(min-width: 900px) and (min-height: 600px)")
         .matches || false,
   );
   const previewPreference = useRef(false);
@@ -82,7 +82,7 @@ export default function PresetEditor({
   }, [serializedDraft, base]);
   useEffect(() => {
     const media = window.matchMedia?.(
-      "(min-width: 1200px) and (min-height: 700px)",
+      "(min-width: 900px) and (min-height: 600px)",
     );
     const adapt = () => {
       if (!previewPreference.current) setPreviewOpen(Boolean(media?.matches));

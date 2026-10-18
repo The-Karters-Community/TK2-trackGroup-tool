@@ -5,6 +5,19 @@
 Highlights since the stable **0.1.0** release. This section remains a draft until
 a release is requested; development builds do not advance the release version.
 
+### Group editing and responsive layout
+
+- Acknowledge the actual group-save job, clear saved drafts, and use the refreshed
+  baseline for the next edit. Failed saves retain the draft; pending saves cannot
+  be submitted twice.
+- Enable drag auto-scroll through nested lists and the window edge.
+- Cap the lobby gallery at four columns and add a current lobby README screenshot.
+- Open customization previews at medium/default window sizes. Add compact
+  navigation below 900px and allow Windows resizing down to 480px.
+- Keep Home artwork prominent with a single-column layout below 1200px,
+  natural image proportions, and a shared width for artwork and menu.
+- Update CTR99 SR.com to the supplied 18-track racing order (catalog revision 2).
+
 ### Preview and documentation polish
 
 - Hide vehicle sticker authoring surfaces in Selected part, matching Full setup

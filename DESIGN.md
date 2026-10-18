@@ -17,7 +17,7 @@ Favorites opens those looks directly. Single-choice refinements are skipped.
 The selection rail is numbered, guidance explains the next step, and Save stays
 separate from selection. Successful saves keep the editor open.
 
-Open 3D by default at 1200px width and 700px height or larger; smaller windows
+Open 3D by default at 900px width and 600px height or larger; smaller windows
 start collapsed. Respect a manual preview toggle during that editor session.
 Saved image means a real PNG from the game; never substitute an unsaved local
 render or advertise it as current. A closed game cannot regenerate a game image.
@@ -32,3 +32,13 @@ saved local Quick Setup slots; never imply authority over remote human racers.
 Only game-verified editable CPUs expose customization. Saving one setup preserves
 other card identities and marks the matching setup Saved. Notices follow the
 active native dialog so its top layer cannot hide results.
+
+
+At 900px wide and below, desktop navigation becomes a compact menu button with
+an expandable link panel. Escape and destination selection close it. Keep every
+link reachable by keyboard/controller. Desktop windows can shrink to 480px.
+Lobby cards grow after four columns; additional players wrap to another row.
+
+Home keeps its artwork beside the menu on wide screens and stacks at 1200px.
+In the stacked layout, artwork and menu share a 640px maximum width; artwork
+keeps its natural aspect ratio instead of shrinking into a fixed-height box.

@@ -97,7 +97,11 @@
 }
 .lobby-player-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  /* Grow cards after four columns, rather than adding a fifth column. */
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(280px, calc((100% - 36px) / 4))), 1fr)
+  );
   gap: 12px;
   min-width: 0;
 }

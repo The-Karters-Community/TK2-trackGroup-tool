@@ -46,7 +46,15 @@ export default function EditGroup({
   const dragActive = useRef(false);
   const latestOrder = useRef(order);
   latestOrder.current = order;
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(null);
+  const submitting = useRef(false);
+  const signature = (value) =>
+    JSON.stringify([
+      value.name.trim(),
+      value.tracks.map((t) =>
+        t.kind === "official" ? [t.kind, t.configId] : [t.kind, t.modId],
+      ),
+    ]);
   const dirty = name !== baseline.name || order.some((n, i) => n !== i);
   function reset(value) {
     setBaseline(value);
@@ -58,9 +66,19 @@ export default function EditGroup({
   }, [dirty, onDirty]);
   useEffect(() => {
     if (!dirty && !dragActive.current && baseline !== group) reset(group);
-    if (submitted && !busy) {
-      if (editJob?.state === "completed") reset(group);
-      setSubmitted(false);
+    if (submitted?.accepted) {
+      const ownJob =
+        editJob &&
+        (submitted.jobId
+          ? editJob.id === submitted.jobId
+          : editJob.id !== submitted.previousJobId);
+      if (
+        (ownJob && editJob.state === "completed") ||
+        (!submitted.jobId && signature(group) === submitted.target)
+      ) {
+        reset(group);
+        setSubmitted(null);
+      } else if (ownJob && editJob.state === "failed") setSubmitted(null);
     }
   }, [group, busy, dirty, submitted, editJob, baseline.expectedHash]);
   useEffect(() => {
@@ -76,6 +94,14 @@ export default function EditGroup({
       ghostClass: "sort-placeholder",
       chosenClass: "sort-chosen",
       dragClass: "sort-drag",
+      forceFallback: true,
+      fallbackOnBody: false,
+      fallbackTolerance: 4,
+      scroll: true,
+      bubbleScroll: true,
+      forceAutoScrollFallback: true,
+      scrollSensitivity: 72,
+      scrollSpeed: 14,
       onStart: () => {
         dragActive.current = true;
       },
@@ -90,8 +116,11 @@ export default function EditGroup({
     return () => instance.destroy();
   }, []);
   useEffect(() => {
-    sortable.current?.option("disabled", busy || !connected);
-  }, [busy, connected]);
+    sortable.current?.option(
+      "disabled",
+      busy || Boolean(submitted) || !connected,
+    );
+  }, [busy, connected, submitted]);
   function move(from, to) {
     setOrder((previous) => reorder(previous, from, to));
   }
@@ -100,16 +129,32 @@ export default function EditGroup({
       className="inline-editor"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!dirty || busy || !connected) return;
-        if (
-          await onSave({
+        if (!dirty || busy || submitting.current || submitted || !connected)
+          return;
+        submitting.current = true;
+        const pending = {
+          target: signature({
+            name,
+            tracks: order.map((index) => baseline.tracks[index]),
+          }),
+          previousJobId: editJob?.id,
+        };
+        setSubmitted(pending);
+        try {
+          const result = await onSave({
             id: group.id,
             name,
             order,
             expectedHash: baseline.expectedHash,
-          })
-        )
-          setSubmitted(true);
+          });
+          setSubmitted(
+            result ? { ...pending, accepted: true, jobId: result.jobId } : null,
+          );
+        } catch {
+          setSubmitted(null);
+        } finally {
+          submitting.current = false;
+        }
       }}
     >
       <label>
@@ -120,7 +165,7 @@ export default function EditGroup({
           required
           maxLength={200}
           value={name}
-          disabled={busy || !connected}
+          disabled={busy || Boolean(submitted) || !connected}
           onChange={(e) => setName(e.target.value)}
         />
       </label>
@@ -139,13 +184,17 @@ export default function EditGroup({
           inert={!dirty}
         >
           <span className="hint">Unsaved changes</span>
-          <button type="button" disabled={busy} onClick={() => reset(group)}>
+          <button
+            type="button"
+            disabled={busy || Boolean(submitted)}
+            onClick={() => reset(group)}
+          >
             <ResetIcon /> Discard
           </button>
           <button
             type="submit"
             className="primary"
-            disabled={busy || !connected || !name.trim()}
+            disabled={busy || Boolean(submitted) || !connected || !name.trim()}
           >
             <CheckIcon /> Save changes
           </button>
@@ -165,7 +214,7 @@ export default function EditGroup({
                 type="button"
                 className="icon-button drag-handle"
                 aria-label={`Drag ${title} to reorder`}
-                disabled={busy || !connected}
+                disabled={busy || Boolean(submitted) || !connected}
               >
                 <DragHandleDots2Icon />
               </button>
@@ -197,7 +246,9 @@ export default function EditGroup({
                 <button
                   type="button"
                   className="icon-button"
-                  disabled={busy || !connected || position === 0}
+                  disabled={
+                    busy || Boolean(submitted) || !connected || position === 0
+                  }
                   aria-label={`Move ${title} up`}
                   onClick={() => move(position, position - 1)}
                 >
@@ -206,7 +257,12 @@ export default function EditGroup({
                 <button
                   type="button"
                   className="icon-button"
-                  disabled={busy || !connected || position === order.length - 1}
+                  disabled={
+                    busy ||
+                    Boolean(submitted) ||
+                    !connected ||
+                    position === order.length - 1
+                  }
                   aria-label={`Move ${title} down`}
                   onClick={() => move(position, position + 1)}
                 >

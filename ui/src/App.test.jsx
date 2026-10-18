@@ -23,6 +23,38 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
+test("navigation menu closes on Escape and after choosing a destination", async () => {
+  api.mockResolvedValue({
+    version: "0.1.1-dev",
+    groups: [],
+    localGroups: [],
+    trackStatus: {},
+  });
+  render(<App />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Open navigation" }),
+  );
+  expect(
+    screen
+      .getByRole("button", { name: "Close navigation" })
+      .getAttribute("aria-expanded"),
+  ).toBe("true");
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Open navigation" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+  fireEvent.click(screen.getByRole("button", { name: "Tracks", exact: true }));
+  expect(
+    screen
+      .getByRole("button", { name: "Open navigation" })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
+  expect(
+    screen.getByRole("heading", { name: "Tracks", exact: true }),
+  ).toBeTruthy();
+});
+
 test("import review stays visible through completion and opens the saved local group", async () => {
   const group = {
     format: "tk2-track-group",

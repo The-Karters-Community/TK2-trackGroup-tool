@@ -490,3 +490,32 @@
   updated when the user entered a lobby; the native read itself was successful.
   One short-lived DLL cleanup raced Windows unloading; it was subsequently
   released and removed without closing the game. Final relocated cleanup passed.
+
+
+## 2026-10-18 - Group save acknowledgement and responsive navigation
+
+- Group editors track the accepted job ID, retain pending/failed drafts, block
+  duplicate submissions and adopt the fresh saved baseline after completion.
+  Synchronous browser saves acknowledge the matching saved group contents.
+  Add regression tests for stale prior jobs, delayed polling, failed retries,
+  hidden completed-save controls and the next edit's fresh expected hash.
+- Enable Sortable fallback auto-scroll at nested/window edges with a 72px zone.
+  Retain the drag preview inside its list so scoped track styles stay intact.
+- Cap lobby grids at four columns. Add the current eight-player lobby to README.
+  At 2560px the real grid has four columns. At 1180x820 Quick Setup opens 3D;
+  at 480px navigation collapses, opens/closes by button/selection/Escape, and
+  Home has no horizontal overflow. Add the menu to controller focus targets.
+- Lower desktop minimum size from 760x560 to 480x480. Preview default changes
+  to 900px wide / 600px tall; preserve manual toggles and narrow stacked layout.
+  Scope compact navigation to the desktop shell so browser navigation remains.
+- CTR99 SR.com: use the supplied file's exact 18 Workshop item IDs in order,
+  retain reviewed titles/internal identities, increment revision to 2, and
+  regenerate the canonical-LF catalog index and checksum. Input file unchanged.
+
+- Follow-up: stack Home at 1200px, preserve artwork aspect ratio, and share a
+  640px content width. Verified 480/746/900/1180/1920px without overflow.
+- Validation: 169 frontend and 155 Python tests pass. Real drag 18 -> 12
+  auto-scrolls; discard restores order. Two real group saves hide controls,
+  use the fresh baseline, then restore original name/order. Presets preserved.
+- Relocated portable: official/Workshop models, Edge host, native lobby/Quick
+  Setup reads, Steam hash, manifest/SHA-256 and cleanup pass; game stays open.
