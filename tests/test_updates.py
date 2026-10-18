@@ -50,7 +50,8 @@ class UpdateTests(unittest.TestCase):
                 'assets':[{'name':n, 'browser_download_url':f'https://github.com/{REPOSITORY}/releases/download/{tag}/{n}'} for n in (name, name+'.sha256')]}
 
     def test_release_selection_requires_supported_assets_and_stable_newer_version(self):
-        self.assertEqual(release_info(self.release())['version'], '0.1.1')
+        self.assertEqual(release_info(self.release(), '0.1.0')['version'], '0.1.1')
+        self.assertEqual(release_info(self.release(), '0.1.1-dev')['version'], '0.1.1')
         self.assertIsNone(release_info(self.release(), '0.1.1'))
         self.assertEqual(release_info(self.release('v0.1.0'), '0.1.0-dev')['version'], '0.1.0')
         r = self.release(); r['prerelease'] = True; self.assertIsNone(release_info(r))
