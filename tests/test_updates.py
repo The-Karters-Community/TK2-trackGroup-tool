@@ -56,9 +56,9 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(release_info(self.release('v0.1.0'), '0.1.0-dev')['version'], '0.1.0')
         r = self.release(); r['prerelease'] = True; self.assertIsNone(release_info(r))
         r = self.release(); r['assets'].pop()
-        with self.assertRaises(ValueError): release_info(r)
+        with self.assertRaises(ValueError): release_info(r, '0.1.0')
         r = self.release(); r['assets'][0]['browser_download_url'] = 'https://example.com/app.zip'
-        with self.assertRaises(ValueError): release_info(r)
+        with self.assertRaises(ValueError): release_info(r, '0.1.0')
 
     def archive(self, folder, *, extra=None, checksum=None, version='0.1.1'):
         path = Path(folder) / 'release.zip'
