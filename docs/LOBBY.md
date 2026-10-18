@@ -242,3 +242,32 @@ After race scene unload Unity can retain a destroyed Ant_MainGame static object.
 The bridge now checks UnityEngine.Object.op_Implicit before reading retained scene
 components. A fresh current eight-player lobby read passed without profile writes
 or navigation after this correction. See VERIFICATION.md for browser evidence.
+
+
+## 2026-10-18 picture-loading refinement
+
+Lobby PNGs persist in the local appearance cache's `setup-pictures` directory.
+The cache is limited to 8 MiB and 96 pictures; each picture is at most 512 KiB
+and 1024 pixels per dimension. The key includes normalized cosmetics, the asset
+revision and the picture-format revision. Changed setups or installed content
+cannot reuse a stale picture. No account, networking identity or save file is
+stored with a picture. Read/write endpoints use the existing session checks.
+
+On a miss, at most two setups prepare concurrently. A preparation holds its
+slot until rendering completes, so an eight-player roster cannot accumulate
+eight decoded scenes. One serial WebGL renderer remains responsible for all
+pictures, releasing its GPU context when idle. A cached hit needs no model
+requests or WebGL context.
+
+A real-content headless Edge test rendered the first eight saved setups in
+21,961 ms in total, then loaded all eight through a fresh preview queue from the
+persistent cache in 95 ms with zero model requests. All eight succeeded. This
+measures a PNG-cache miss followed by a hit; it is not a claim that never-seen
+assets decode instantly, nor an online-lobby authority test.
+
+
+The current real local eight-player lobby was also exercised through the complete
+React page: all eight pictures loaded (27,581 ms for that first set), then a full
+page reload reopened the populated lobby in 2,181 ms with zero model requests.
+That page measurement includes the roster request and UI startup, unlike the
+95 ms image-cache-only measurement. The current game and saves were not edited.

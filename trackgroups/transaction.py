@@ -138,7 +138,7 @@ def commit(steam, path, group, expected_hash, account, allow_update=False, *, re
     live = running()
     if live:
         from .native_quick import available
-        if not game or not available(game): raise ValueError("Close The Karters 2 or enable the supported native bridge before changing its libraries.")
+        if not game or not available(game): raise ValueError("Live saving is unavailable. Close The Karters 2 to save these changes.")
         _live_cloud(steam, account)
     require_recovered(backups or DATA / "backups", path)
     if steam.account != account:

@@ -271,7 +271,7 @@ class Service:
                 outcome='Original Quick Setup restored.' if restored else 'Save persistence is uncertain. Reopen Quick Setup and retain this safety copy.'
                 raise ValueError(f'{outcome} Safety copy: {backup}')
             with self.lock:self.load_local()
-            return {'message':'Quick Setup saved by the running game. Local and Steam copies verified.'+(' '+result['warning'] if result.get('warning') else ''), 'menuRefreshed':result.get('menuRefreshed',False), 'backup':str(backup)}
+            return {'message':result.get('warning') or 'Quick Setup saved.', 'menuRefreshed':result.get('menuRefreshed',False), 'backup':str(backup)}
         finally:
             with self.lock:self.quick_saving=False
 
@@ -375,7 +375,7 @@ class Service:
         from .native_quick import available, request
         if not self.profile: return {'status':'unavailable','message':'Choose a game profile in Settings.','players':[]}
         if not game_running(): return {'status':'offline','message':'Open the game and join a race lobby to browse player setups.','players':[]}
-        if not available(self.game): return {'status':'unavailable','message':'Lobby browsing needs a supported game build and the native bridge.','players':[]}
+        if not available(self.game): return {'status':'unavailable','message':'Lobby browsing is unavailable. Check the game folder in Settings.','players':[]}
         with self.lock:
             if getattr(self,'quick_saving',False): return {'status':'busy','message':'Finishing the current save…','players':[]}
             cached=getattr(self,'_lobby_cache',None)
@@ -454,7 +454,9 @@ class Service:
                     result=self.save_live_quick({'profile':self.profile,'change':change,'baseline':{'id':slot['id'],'data':slot['data']}})
                     if getattr(self,'_lobby_cache',None):self._lobby_cache['time']=0
                 noun={'characters':'Character','vehicles':'Vehicle','wheels':'Wheels'}.get(part,'Preset')
-                return {**result,'mode':'quick','player':player,'message':f'{noun} copied to Player {player+1} Quick Setup. No preset was added to your collection. '+result.get('message','')}
+                notice=result.get('message','')
+                if notice=='Quick Setup saved.':notice=''
+                return {**result,'mode':'quick','player':player,'message':f'{noun} copied to local slot {player+1} Quick Setup.'+(' '+notice if notice else '')}
             path=PROFILE_DIR/self.profile;before=path.read_bytes();previous=view(Profile(before))
             existing=next((p for p in previous['presets'] if p['data']==target),None)
             if existing:
@@ -495,7 +497,7 @@ class Service:
                 outcome='The unverified copy was removed.' if restored else 'Refresh All presets before retrying.'
                 raise ValueError(f'The copy could not be verified. {str(failure)+" " if failure else ""}{outcome} Safety copy: {backup}')
             with self.lock:self.load_local();self._lobby_mark_saved(target,identity)
-            return {'message':'Player setup saved to All presets. Local and Steam copies verified.','presetId':identity,'backup':str(backup),'alreadySaved':True,'mode':'save','key':body['key']}
+            return {'message':'Setup saved to All presets.','presetId':identity,'backup':str(backup),'alreadySaved':True,'mode':'save','key':body['key']}
         finally:
             with self.lock:self.quick_saving=False
 
@@ -718,7 +720,7 @@ class Service:
                 apply(Profile(local), body['change'])
                 result = Worker(self.game).request('presets', {'group':body['change'], 'expectedHash':digest(local), 'account':self.account, 'profile':self.profile}, self.progress, self.cancel.is_set)
                 with self.lock: self.load_local()
-                result['message'] = 'Presets saved to the local and Steam copies.'
+                result['message'] = 'Presets saved.'
             elif action == 'edit':
                 self.supported_game()
                 if not self.account or self.sync_error: raise ValueError('Refresh Steam and resolve the profile status first.')
@@ -748,7 +750,7 @@ class Service:
                 with self.lock: self.load_local()
                 for track in preview["group"].get("tracks", []):
                     if track["kind"] == "workshop": self.track_status[track["workshopId"]] = {"subscribed": True, "ready": True}
-                result["message"] = "Group " + result["outcome"] + ". Saved to the local and Steam copies."
+                result["message"] = "Group " + result["outcome"] + "."
                 result['groupId'] = preview['group']['id']
             with self.lock: self.job.update(state="completed", result=result, message=result["message"])
             if update_folder: self.on_update(update_folder)

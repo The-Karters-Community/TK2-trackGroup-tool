@@ -71,7 +71,11 @@ export default defineConfig(({ command, mode }) => {
       strictPort: true,
       proxy: session ? { "/api": session.origin } : {},
     },
-    test: { environment: "jsdom", include: ["src/**/*.test.{js,jsx}"] },
+    test: {
+      environment: "jsdom",
+      include: ["src/**/*.test.{js,jsx}"],
+      maxWorkers: 4,
+    },
     build: {
       outDir: web ? "web-dist" : "dist",
       emptyOutDir: true,

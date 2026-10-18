@@ -1,4 +1,4 @@
-import { it, expect } from "vitest";
+import { it, expect, vi } from "vitest";
 import * as THREE from "three";
 import {
   createModel,
@@ -22,6 +22,51 @@ function node(id, position = [0, 0, 0], children = []) {
 function model(root, rig = {}) {
   return { root, rig: { animations: [], hidden: [], ...rig } };
 }
+
+it("hides authoring sticker surfaces in isolated karts while applying configured setup decals", () => {
+  const surface = () => ({
+    positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+    normals: [],
+    uv: [],
+    indices: [0, 1, 2],
+    groups: [[0, 3, 0]],
+    materials: [],
+  });
+  const body = node("paint"),
+    slot = node("sticker");
+  body.mesh = surface();
+  slot.mesh = surface();
+  const vehicle = model(node("kart", [0, 0, 0], [body, slot, node("seat")]), {
+    characterSocket: "seat",
+    hideWheels: true,
+    stickerSlots: ["sticker"],
+  });
+  const resources = [];
+  const isolated = createModel(THREE, vehicle, resources);
+  expect(isolated.nodes.get("paint").children[0].visible).toBe(true);
+  expect(isolated.nodes.get("sticker").children[0].visible).toBe(false);
+  const texture = vi
+    .spyOn(THREE.TextureLoader.prototype, "load")
+    .mockReturnValue(new THREE.Texture());
+  try {
+    const setup = createSetup(
+      THREE,
+      {
+        parts: { characters: model(node("racer")), vehicles: vehicle },
+        stickers: [{ texture: "configured", settings: -1 }],
+      },
+      resources,
+    );
+    const surfaces = setup.models[1].nodes.get("sticker").children;
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces[0].visible).toBe(false);
+    expect(surfaces[1].visible).toBe(true);
+    expect(surfaces[1].material.map).toBeTruthy();
+  } finally {
+    texture.mockRestore();
+    resources.forEach((r) => r.dispose());
+  }
+});
 
 it("normalizes centimetre-sized wheel geometry like the game's wheel loader", () => {
   const root = new THREE.Group(),

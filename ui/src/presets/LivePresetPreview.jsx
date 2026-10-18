@@ -87,24 +87,20 @@ export default function LivePresetPreview({
         />
       ) : (
         <div className="saved-image-empty">
-          No saved image yet. The game creates this image when it renders your
-          setup.
+          No saved image yet. Open this setup in the game to create one.
         </div>
       )}
       <p className="hint" role="status">
         {showModel
           ? effectiveMode === "setup"
-            ? "Interactive 3D setup · uses the game’s available parts"
-            : "Selected part · drag to rotate"
+            ? "Interactive 3D setup"
+            : "Selected part"
           : changed
-            ? "Last game-generated image. Your selection differs; use 3D to see it now."
-            : "Saved game image · refreshes when the game updates PresetIcons"}
+            ? "Last game-generated image. Preview unsaved changes in 3D."
+            : "Saved game image"}
       </p>
       {!showModel && (
-        <p className="hint">
-          The game must be running to generate a new game image. Your local 3D
-          preview works with the game closed.
-        </p>
+        <p className="hint">Open the game to update this image.</p>
       )}
     </div>
   );

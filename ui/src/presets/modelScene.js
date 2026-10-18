@@ -137,6 +137,14 @@ export function createModel(THREE, data, resources, pose = "seated") {
     const node = nodes.get(id);
     if (node) node.visible = false;
   }
+  // Sticker renderers are authoring surfaces, not ordinary vehicle paint.
+  // Both isolated vehicles and complete setups start with them hidden; only
+  // applyStickers creates the configured layers from their geometry.
+  for (const id of data.rig?.stickerSlots || []) {
+    nodes.get(id)?.traverse((child) => {
+      if (child.isMesh) child.visible = false;
+    });
+  }
   const mixer = new THREE.AnimationMixer(root);
   const restSize = visibleBounds(THREE, root)
     .getSize(new THREE.Vector3())

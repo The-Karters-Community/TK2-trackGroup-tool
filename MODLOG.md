@@ -456,3 +456,37 @@
   Quick Setup/main-menu lobby reads, Steam hash agreement, fresh models/clips,
   image formats, Edge/.NET/TLS, ZIP manifest and checksum passed. Existing user
   Garage session prevented a separate startup run; it was left untouched.
+
+
+## 2026-10-18 - Selected vehicle decals, lobby picture cache and README
+
+- Inspect supplied 20261018-0907 recording. Standalone vehicle builds exposed raw
+  sticker authoring surfaces that Full setup hid before applying real decals.
+  Hide those surfaces in the shared model builder; actual tk2tc standard kart
+  selected/full renders checked, with paint shader and setup stickers retained.
+- Bound lobby preparation to two held scenes while keeping a single GPU renderer.
+  Persist normalized cosmetic/asset-revision keyed PNGs in an 8 MiB / 96-entry
+  local LRU, independent of random loopback ports and app relaunches. Validate
+  PNG type/dimensions/size; retain session authentication and cache-only writes.
+- Eight real saved setups: first render batch 21,961 ms; a new preview queue read
+  all eight cached images in 95 ms with zero model requests. No profiles changed.
+- Fix Saving/separator mojibake, add UTF-8 regression coverage, shorten technical
+  user-facing copy, and rewrite README around three current clean screenshots and
+  keyboard/controller controls. Source setup moved into CONTRIBUTING. Obsolete
+  unreferenced pictures removed to offset new documentation image size.
+- Final checks: 154 Python and 166 frontend tests pass, plus native contract
+  harness, catalog, formatting, desktop/web builds and static-web isolation.
+  Cap Vitest at four workers after a five-second integration-test timeout under
+  simultaneous game/browser load; no test timeout or assertion was weakened.
+- Portable build remains approximately 22.05 MiB with no added runtime dependency.
+  README/contributor links, new screenshots, manifest hashes and encoded UI
+  strings checked in the package. Existing user Garage was left untouched.
+- Actual current local lobby UI: eight pictures loaded; first batch 27,581 ms,
+  full page reload to eight cached pictures 2,181 ms with zero model requests.
+  New assets still require an initial render; do not advertise instant cold loads.
+- Relocated frozen package: fresh official/Workshop models and clips, vehicle,
+  wheels, PNG/JPEG/WebP, Edge/.NET/TLS, native Quick Setup/current-lobby reads and
+  matching Steam/local save passed. Original main-menu-only test assumption was
+  updated when the user entered a lobby; the native read itself was successful.
+  One short-lived DLL cleanup raced Windows unloading; it was subsequently
+  released and removed without closing the game. Final relocated cleanup passed.

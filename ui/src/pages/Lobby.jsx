@@ -84,10 +84,14 @@ export default function Lobby({
     : [{ player: 0 }];
   useEffect(() => {
     if (!loadModel) return;
-    const pool = createSetupSnapshots(loadModel);
+    const pool = createSetupSnapshots(loadModel, {
+      read: async (body, signal) =>
+        (await request("setup-picture", body, signal)).image,
+      write: (body, image) => request("setup-picture", { ...body, image }),
+    });
     setSnapshots(pool);
     return () => pool.dispose();
-  }, [loadModel]);
+  }, [loadModel, request]);
   const editedSignature = editedPlayer
     ? JSON.stringify([editedPlayer.key, editedPlayer.data, editedPlayer.serial])
     : "";
@@ -648,18 +652,13 @@ export default function Lobby({
           <div className="lobby-empty">
             <PersonIcon aria-hidden="true" />
             <h2>Your next favorite could be in this lobby</h2>
-            <p>
-              Join a race lobby in the game. Player setups stay available here
-              during the race, without a plugin.
-            </p>
+            <p>Join a lobby to browse player setups, even during a race.</p>
           </div>
         )}
       {!!room.players.length && (
         <p className="hint lobby-help">
-          Copy preset changes only your saved local Quick Setup slot, never
-          another online player. Save preset adds a new entry to All presets.
-          Other racers are unchanged. Matching cosmetic content must be
-          installed.
+          Copy preset applies it to your selected local Quick Setup slot. Save
+          preset adds it to your collection.
         </p>
       )}
     </section>

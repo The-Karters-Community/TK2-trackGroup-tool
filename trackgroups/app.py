@@ -110,6 +110,9 @@ def make_server(service):
                     self.send_header("X-Content-Type-Options", "nosniff")
                     self.end_headers(); self.wfile.write(raw)
                     return
+                if action == "setup-picture":
+                    from .setup_pictures import picture
+                    return self.reply(200, picture(service.appearance, body))
                 if action in ("refresh", "catalog", "preview", "create", "rename", "edit", "repair", "update", "check-update", "import", "presets"):
                     result = service.start_job(action, body)
                 elif action == "cancel":

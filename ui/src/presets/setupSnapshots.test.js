@@ -43,3 +43,52 @@ it("does not decode cards removed before their turn", async () => {
   await expect(task).rejects.toHaveProperty("name", "AbortError");
   expect(render).not.toHaveBeenCalled();
 });
+
+it("overlaps two asset preparations but keeps one render and bounded prepared models", async () => {
+  let prepared = 0,
+    peak = 0,
+    rendering = 0,
+    renderPeak = 0;
+  const queue = createSnapshotQueue(
+    async (request, model) => {
+      rendering++;
+      renderPeak = Math.max(renderPeak, rendering);
+      expect(model.id).toBe(request.id);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      rendering--;
+      prepared--;
+      return `png:${request.id}`;
+    },
+    {
+      prepare: async ({ id }) => {
+        prepared++;
+        peak = Math.max(peak, prepared);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return { id };
+      },
+    },
+  );
+  await Promise.all(Array.from({ length: 8 }, (_, id) => queue.get({ id })));
+  expect(peak).toBe(2);
+  expect(renderPeak).toBe(1);
+  expect(prepared).toBe(0);
+  queue.dispose();
+});
+
+it("releases a failed preparation so later cards still render", async () => {
+  const queue = createSnapshotQueue(async (_request, image) => image, {
+    prepare: async ({ id }) => {
+      if (id === 1) throw new Error("Missing model");
+      return "png";
+    },
+  });
+  const results = await Promise.allSettled(
+    [1, 2, 3].map((id) => queue.get({ id })),
+  );
+  expect(results.map((r) => r.status)).toEqual([
+    "rejected",
+    "fulfilled",
+    "fulfilled",
+  ]);
+  queue.dispose();
+});

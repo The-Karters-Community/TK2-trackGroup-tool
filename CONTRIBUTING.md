@@ -1,6 +1,26 @@
 # Contributing
 
-Follow the root README for setup. This repository is independent of TK2-Mod-SDK. Keep UI, save handling, and Steam code separate; do not add a general plugin framework or ship game files.
+Use Python 3.14 x64, Node.js 24 and npm for source development. This repository is independent of TK2-Mod-SDK. Keep UI, save handling, and Steam code separate; do not add a general plugin framework or ship game files.
+
+## Source setup
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+npm ci
+npm run build
+.venv\Scripts\python.exe launch.py
+```
+
+For UI development, start `python launch.py --no-window`, then `npm run dev`.
+Vite reads the local session and proxies the API at `http://127.0.0.1:5173`.
+Python changes require a backend restart. UI changes reload automatically.
+Native integration contributors need Visual Studio C++ x64 Build Tools;
+`python tools/build_native_bridge.py` compiles the authored bridge.
+
+Run `python -m unittest discover -s tests`, `python tools/check_catalog.py`,
+`npm test`, `npm run format:check`, and `npm run build` before committing.
+On Windows, also run `python tools/check_native_contracts.py`.
 
 ## Submit a group
 
@@ -17,7 +37,7 @@ CI validates allowed fields, ordered references, IDs, dependency types, uniquene
 
 Automated tests cover codec preservation, imports, rollback, dependency rejection, authenticated API, and UI behavior. Real-account testing must additionally exercise Steam metadata, subscription/download callbacks, save agreement, and an import after restarting the game. Record limitations; mocks are not live integration proof.
 
-Only build 0.1.4.18 supports writes. Obtain fresh evidence and preservation tests before enabling another build. Keep saves and backups outside Git.
+Runtime metadata determines compatibility; do not add patch-number or binary-hash allowlists. Keep typed contract checks and preservation tests. Keep saves and backups outside Git.
 
 ## Builds and releases
 

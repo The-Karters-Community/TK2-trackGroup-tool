@@ -64,16 +64,14 @@ export default function Settings({ state, busy, run }) {
       <div className="settings-section">
         <h2>Live Quick Setup & lobby</h2>
         <p>
-          Garage renders 3D locally. Quick Setup can also save through the
-          running game, and Lobby lets you copy another player’s setup. No
-          BepInEx plugin is required.
+          Preview and customize your racer, save Quick Setup while playing, or
+          copy a setup from the lobby.
         </p>
         <p className="hint">
           {state.nativeQuickSaveAvailable
-            ? "Native integration is available for this game build."
-            : "Native integration is unavailable for this installation or game build. Offline editing still works."}{" "}
-          Presets and track groups can save while the supported game runs. The
-          current race is unchanged.
+            ? "Ready to save while the game is running."
+            : "Live saving is unavailable. You can still edit with the game closed."}{" "}
+          Changes apply to your next setup selection.
         </p>
       </div>
       <div className="settings-section">

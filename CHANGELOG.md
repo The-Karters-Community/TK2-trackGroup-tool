@@ -5,6 +5,19 @@
 Highlights since the stable **0.1.0** release. This section remains a draft until
 a release is requested; development builds do not advance the release version.
 
+### Preview and documentation polish
+
+- Hide vehicle sticker authoring surfaces in Selected part, matching Full setup
+  visibility without changing the paint shader or configured setup decals.
+- Prepare up to two lobby setups ahead while retaining a single renderer.
+  Cache completed pictures locally (8 MiB / 96 images), keyed by cosmetics and
+  installed asset revision, for reuse across navigation and app launches.
+- Fix garbled Saving and separator text, add an encoding regression check, and
+  shorten status/settings/lobby copy.
+- Replace the long README with current app screenshots, concise getting-started
+  instructions and keyboard/controller navigation. Move source setup into
+  CONTRIBUTING and remove obsolete unreferenced screenshots.
+
 ### Live saving and lobby refinement
 
 - Remove game-version and binary-hash allowlists. Resolve field types/offsets,

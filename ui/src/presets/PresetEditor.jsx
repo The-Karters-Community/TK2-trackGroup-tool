@@ -494,13 +494,13 @@ export default function PresetEditor({
             <div className="preset-actions">
               <span className="hint" role="status">
                 {busy ? (
-                  "Savingâ€¦"
+                  "Saving…"
                 ) : dirty ? (
                   <>
                     <span>Unsaved changes</span>
                     <small className="save-part-count">
                       {" "}
-                      Â· {changedParts || 1}{" "}
+                      · {changedParts || 1}{" "}
                       {changedParts === 1 ? "part" : "parts"}
                     </small>
                   </>
