@@ -6,7 +6,7 @@ import tempfile
 import threading
 import unittest
 from unittest.mock import patch
-from trackgroups.native_quick import Cosmetic, Request, available, exchange
+from trackgroups.native_quick import Cosmetic, Request, available, exchange, _select_game_thread
 from trackgroups.profile import Profile
 from trackgroups.presets import view, apply
 from trackgroups.service import Service
@@ -14,6 +14,50 @@ from test_presets import fixture
 
 
 class NativeQuickTests(unittest.TestCase):
+    def test_game_thread_ignores_auxiliary_windows_on_other_threads(self):
+        executable = Path('installed-game/TheKarters2.exe').resolve()
+        windows = [
+            {'pid': 10, 'thread': 11, 'class': 'UnityWndClass', 'path': executable},
+            {'pid': 10, 'thread': 12, 'class': 'IME', 'path': executable},
+            {'pid': 10, 'thread': 13, 'class': 'SteamOverlay', 'path': executable},
+            {'pid': 10, 'thread': 14, 'class': 'ConsoleWindowClass', 'path': executable},
+        ]
+        self.assertEqual(_select_game_thread(windows, executable), (10, 11))
+        self.assertEqual(_select_game_thread(list(reversed(windows)), executable), (10, 11))
+
+    def test_game_thread_keeps_minimized_unfocused_player_and_secondary_windows(self):
+        executable = Path('installed-game/TheKarters2.exe').resolve()
+        windows = [
+            {'pid': 10, 'thread': 11, 'class': 'UnityWndClass', 'path': executable,
+             'minimized': True, 'visible': False, 'foreground': False},
+            {'pid': 10, 'thread': 11, 'class': 'UnityWndClass', 'path': executable},
+        ]
+        self.assertEqual(_select_game_thread(windows, executable), (10, 11))
+
+    def test_game_thread_never_targets_a_different_installation(self):
+        executable = Path('installed-game/TheKarters2.exe').resolve()
+        other = Path('other-installation/TheKarters2.exe').resolve()
+        window = {'pid': 20, 'thread': 21, 'class': 'UnityWndClass', 'path': other}
+        with self.assertRaisesRegex(ValueError, 'Check the game folder in Settings'):
+            _select_game_thread([window], executable)
+        with self.assertRaisesRegex(ValueError, 'same administrator setting'):
+            _select_game_thread([], executable)
+
+    def test_game_thread_rejects_multiple_players_instead_of_picking_first(self):
+        executable = Path('installed-game/TheKarters2.exe').resolve()
+        for pid in (10, 20):
+            windows = [
+                {'pid': 10, 'thread': 11, 'class': 'UnityWndClass', 'path': executable},
+                {'pid': pid, 'thread': 21, 'class': 'UnityWndClass', 'path': executable},
+            ]
+            with self.assertRaisesRegex(ValueError, 'More than one Unity game window'):
+                _select_game_thread(windows, executable)
+
+    def test_game_thread_does_not_hook_auxiliary_thread_when_player_is_not_ready(self):
+        executable = Path('installed-game/TheKarters2.exe').resolve()
+        with self.assertRaisesRegex(ValueError, 'Unity game window is not ready'):
+            _select_game_thread([{'pid': 10, 'thread': 12, 'class': 'IME', 'path': executable}], executable)
+
     def test_cosmetic_protocol_roundtrip_preserves_signed_ids_and_stickers(self):
         data = view(Profile(fixture()))["presets"][0]["data"]
         self.assertEqual(Cosmetic.encode(data).decode(), data)

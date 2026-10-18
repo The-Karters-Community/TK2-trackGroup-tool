@@ -63,6 +63,7 @@ if __name__ == '__main__':
         shutil.rmtree(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(ROOT / 'artifacts/build/TK2 Track Groups'), output)
+    shutil.copy2(ROOT / 'assets/TK2 Track Groups.exe.config', output / 'TK2 Track Groups.exe.config')
     for required in ('UnityPy/resources/lzma.tpk', 'archspec/json/cpu/microarchitectures.json',
                      'fmod_toolkit/libfmod/Windows/x64/fmod.dll'):
         if not (output / required).is_file(): raise SystemExit('Missing decoder dependency: ' + required)
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     if forbidden: raise SystemExit('Build contains game files: ' + str(forbidden))
     files = {p.relative_to(output).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in output.rglob('*') if p.is_file()}
     (output / 'portable-manifest.json').write_text(json.dumps({'app':'TK2 Track Groups', 'version':VERSION, 'files':files}, indent=2), encoding='utf-8')
+    run(str(runtime), 'tools/check_download_startup.py', str(output))
     archive = str(output) + '.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
         for path in sorted(output.rglob('*')):

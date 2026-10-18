@@ -41,6 +41,12 @@ Runtime metadata determines compatibility; do not add patch-number or binary-has
 
 ## Builds and releases
 
-`python tools/build_portable.py` builds without publishing. `trackgroups/__init__.py` owns the version; keep `package.json` consistent. Current development is `0.1.2-dev`, following stable `0.1.1`. Do not bump for routine edits or publish automatically. Release the entire portable folder as ZIP with a SHA-256. Test from a relocated path without source dependencies, close it, and verify its folder can be removed.
+`python tools/build_portable.py` builds without publishing. `trackgroups/__init__.py` owns the version; keep `package.json` consistent. Current stable release is `0.1.2`. Do not bump for routine edits or publish automatically. Release the entire portable folder as ZIP with a SHA-256. Test from a relocated path without source dependencies, close it, and verify its folder can be removed.
+
+The builder runs `python tools/check_download_startup.py <portable-folder>` against
+a disposable copy with Internet-marked DLLs. Keep `TK2 Track Groups.exe.config`
+beside the executable so .NET can load the downloaded dependencies. The live
+`tools/smoke_portable.ps1 -PortableFolder <folder>` check also marks its copied DLLs
+before verifying native startup and shutdown.
 
 For the browser edition, use `npm run dev:web` without launching Python. Build with `npm run build:web` and check with `python tools/check_web_build.py`. Pages deploys verified source from `main` independently of desktop releases. Keep save data in browser memory; do not add profile uploads or Steam account credentials. See [browser development and evidence](docs/WEB.md).

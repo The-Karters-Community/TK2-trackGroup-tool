@@ -519,3 +519,31 @@
   use the fresh baseline, then restore original name/order. Presets preserved.
 - Relocated portable: official/Workshop models, Edge host, native lobby/Quick
   Setup reads, Steam hash, manifest/SHA-256 and cleanup pass; game stays open.
+
+## 2026-10-18 - Live-save window-thread discovery
+
+- Investigate a 0.1.1 Quick Setup save failure reported from character select / a
+  lobby. The exact message originates before the native request: the old window
+  enumerator demands one thread across every window belonging to the selected
+  game executable. Auxiliary windows on different threads create false ambiguity.
+  Wrong selected folders and process permissions can produce the same message;
+  the remote user's cause has not yet been confirmed.
+- Select only UnityWndClass player windows after exact executable-path matching.
+  Retain ambiguity rejection and accept minimized/unfocused windows. Improve
+  errors for missing player windows, installation mismatch and multiple targets.
+- Five regression tests cover auxiliary threads, minimized/unfocused records,
+  duplicates, installation isolation and ambiguous player windows.
+- Actual running game: Quick Setup, collections and eight-player offline lobby
+  reads succeeded on Unity thread 7280. A backed-up live appearance-mode change
+  saved and matched Steam, then was restored through the game. All three original
+  profile records and local/Steam agreement were preserved. No native DLL changes
+  or permanent game installation changes were needed. Remote-machine, online
+  character-select and exclusive-fullscreen Alt-Tab behavior remain unverified.
+
+## 2026-10-19 - Bobby’s Garage 0.1.2 release
+
+- The user reports that both affected testers confirmed the downloaded startup
+  and live Quick Setup game-detection fixes resolved their respective failures.
+- Release 0.1.2 includes the app-scoped .NET configuration, Internet-marked DLL
+  packaging gate, Unity-window thread selection, diagnostic errors and five
+  window-selection regression tests. Keep the complete ZIP and checksum together.

@@ -176,3 +176,27 @@ Race roster reads and renderer-independent preset allocation passed in the real
 offline race. CPU editing uses game-owned permission checks and is blocked during
 races; the offline lobby change/restore passed. See LOBBY.md for full evidence
 and remaining online authority and download-cleanup lifecycle limits.
+
+## Window-thread discovery correction (2026-10-18)
+
+The 0.1.1 transport counts all distinct process/window-thread pairs for the exact
+installed executable. A helper window on a second thread therefore rejects a
+valid game instance before installing a hook or changing any cosmetics. The
+reported generic "Open the selected ... installation" message can also mean a
+different selected game folder or an inaccessible process; the report alone
+does not distinguish them.
+
+The corrected transport selects `UnityWndClass` windows belonging to the exact
+executable path. Duplicate windows on the same thread are accepted; ambiguous
+Unity player threads are rejected. Auxiliary threads, focus, visibility and
+minimized state do not determine the target. Separate messages cover a missing
+installation/window and multiple Unity targets.
+
+Regression cases cover auxiliary threads, minimized/unfocused window records,
+duplicate same-thread player windows, different installations and ambiguous
+players. Real read-only Quick Setup, collection and eight-player offline lobby
+requests reached Unity thread 7280. A live Quick Setup appearance-mode change in
+that lobby saved and matched Steam; the inverse restored the original setup,
+all three original profile records and local/Steam agreement. The tester's
+specific machine, exclusive-fullscreen Alt-Tab and online character-select
+transitions remain unverified.

@@ -88,6 +88,68 @@ def available(game):
     return not runtime_problem(game)
 
 
+def _select_game_thread(windows, executable):
+    """Only Unity's player windows identify its main thread, including minimized ones."""
+    matching = [w for w in windows if w['path'] == executable]
+    threads = {(w['pid'], w['thread']) for w in matching if w['class'] == 'UnityWndClass'}
+    if len(threads) == 1:
+        return next(iter(threads))
+    if len(threads) > 1:
+        raise ValueError('More than one Unity game window matches the selected installation. Close the extra game instance and retry.')
+    if matching:
+        raise ValueError('The selected game is running, but its Unity game window is not ready. Wait for the game menu and retry.')
+    raise ValueError(
+        f'Cannot find the Unity game window for {executable}. '
+        'Check the game folder in Settings against Steam > Manage > Browse local files. '
+        'Run Garage and the game as the same Windows user and with the same administrator setting.'
+    )
+
+
+def _game_thread(executable):
+    """Resolve the exact installed player without using foreground/visibility state."""
+    executable = Path(executable).resolve()
+    k = C.WinDLL('kernel32', use_last_error=True)
+    u = C.WinDLL('user32', use_last_error=True)
+    k.OpenProcess.argtypes = [W.DWORD, W.BOOL, W.DWORD]
+    k.OpenProcess.restype = W.HANDLE
+    k.CloseHandle.argtypes = [W.HANDLE]
+    k.QueryFullProcessImageNameW.argtypes = [W.HANDLE, W.DWORD, W.LPWSTR, C.POINTER(W.DWORD)]
+    u.GetWindowThreadProcessId.argtypes = [W.HWND, C.POINTER(W.DWORD)]
+    u.GetWindowThreadProcessId.restype = W.DWORD
+    u.GetClassNameW.argtypes = [W.HWND, W.LPWSTR, C.c_int]
+    callback = C.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)
+    u.EnumWindows.argtypes = [callback, W.LPARAM]
+    u.EnumWindows.restype = W.BOOL
+    windows = []
+    paths = {}
+
+    @callback
+    def collect(hwnd, _):
+        pid = W.DWORD()
+        thread = u.GetWindowThreadProcessId(hwnd, C.byref(pid))
+        if pid.value not in paths:
+            paths[pid.value] = None
+            handle = k.OpenProcess(0x1000, False, pid.value)
+            if handle:
+                try:
+                    path = C.create_unicode_buffer(32768)
+                    size = W.DWORD(len(path))
+                    if k.QueryFullProcessImageNameW(handle, 0, path, C.byref(size)):
+                        paths[pid.value] = Path(path.value).resolve()
+                finally:
+                    k.CloseHandle(handle)
+        if paths[pid.value] == executable:
+            name = C.create_unicode_buffer(256)
+            if u.GetClassNameW(hwnd, name, len(name)):
+                windows.append({'pid': pid.value, 'thread': thread, 'class': name.value,
+                                'path': paths[pid.value]})
+        return True
+
+    if not u.EnumWindows(collect, 0):
+        raise C.WinError(C.get_last_error())
+    return _select_game_thread(windows, executable)
+
+
 def exchange(
     game,
     profile,
@@ -133,45 +195,8 @@ def exchange(
     k = C.WinDLL("kernel32", use_last_error=True)
     u = C.WinDLL("user32", use_last_error=True)
     a = C.WinDLL("advapi32", use_last_error=True)
-    k.OpenProcess.argtypes = [W.DWORD, W.BOOL, W.DWORD]
-    k.OpenProcess.restype = W.HANDLE
     k.CloseHandle.argtypes = [W.HANDLE]
-    k.QueryFullProcessImageNameW.argtypes = [
-        W.HANDLE,
-        W.DWORD,
-        W.LPWSTR,
-        C.POINTER(W.DWORD),
-    ]
-    u.GetWindowThreadProcessId.argtypes = [W.HWND, C.POINTER(W.DWORD)]
-    u.GetWindowThreadProcessId.restype = W.DWORD
-    callback = C.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)
-    windows = set()
-    expected = (Path(game) / "TheKarters2.exe").resolve()
-
-    @callback
-    def collect(hwnd, _):
-        pid = W.DWORD()
-        thread = u.GetWindowThreadProcessId(hwnd, C.byref(pid))
-        handle = k.OpenProcess(0x1000, False, pid.value)
-        if handle:
-            try:
-                path = C.create_unicode_buffer(32768)
-                size = W.DWORD(len(path))
-                if (
-                    k.QueryFullProcessImageNameW(handle, 0, path, C.byref(size))
-                    and Path(path.value).resolve() == expected
-                ):
-                    windows.add((pid.value, thread))
-            finally:
-                k.CloseHandle(handle)
-        return True
-
-    u.EnumWindows(collect, 0)
-    if len(windows) != 1:
-        raise ValueError(
-            "Open the selected The Karters 2 installation, with both apps running as the same Windows user."
-        )
-    pid, thread = next(iter(windows))
+    pid, thread = _game_thread(Path(game) / 'TheKarters2.exe')
     nonce = secrets.randbits(63)
 
     class SA(C.Structure):

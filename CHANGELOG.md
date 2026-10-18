@@ -1,8 +1,16 @@
 # Changes
 
-## Unreleased — 0.1.2-dev
+## 0.1.2 — 2026-10-19
 
 Changes since 0.1.1.
+
+- Select the exact installation's Unity player thread for live saves and lobby
+  reads. Ignore auxiliary windows on other threads without requiring the game
+  to be focused or restored; explain mismatched folders and ambiguous instances.
+
+- Fix portable startup when Windows marks the downloaded .NET dependencies as
+  Internet files (`Failed to resolve Python.Runtime.Loader.Initialize`). Include
+  an application-scoped .NET configuration and test marked DLLs during packaging.
 
 ## 0.1.1 — 2026-10-18
 

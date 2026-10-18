@@ -1,2 +1,2 @@
-VERSION = "0.1.2-dev"
+VERSION = "0.1.2"
 GAME_APP_ID = 2269950

@@ -5,7 +5,7 @@ presets and organize tracks for your next race.
 
 [Download for Windows](https://github.com/The-Karters-Community/TK2-trackGroup-tool/releases/latest) · [Open browser edition](https://the-karters-community.github.io/TK2-trackGroup-tool/) · [What’s new](CHANGELOG.md)
 
-> **Version 0.1.1** brings presets, Quick Setup, and Lobby to the Windows app.
+> **Version 0.1.2** fixes downloaded-app startup and live Quick Setup game detection.
 
 ![Bobby’s Garage home menu](docs/images/garage-home.jpg)
 
@@ -61,6 +61,10 @@ then drag them into racing order. Share your own groups as portable files.
 Windows x64 and Microsoft Edge WebView2 are required. Portable users don’t need
 Python or Node.js. Saving checks your local and Steam copies and keeps recovery
 backups; Steam Cloud must be enabled for desktop save operations.
+
+If version 0.1.1 fails with `Failed to resolve Python.Runtime.Loader.Initialize`,
+download version 0.1.2 or newer and extract it into a new folder. The release
+includes the .NET configuration needed for Internet-marked dependencies.
 
 The desktop reads installed game and Workshop content. Subscribe to the cosmetics
 you want to use in Steam. Matching pictures are cached locally, and new Workshop

@@ -4,6 +4,10 @@ $tgRepo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $tgLocal = [IO.Path]::GetFullPath((Join-Path $tgRepo 'local'))
 $tgTest = Join-Path $tgLocal ('portable-smoke-' + [guid]::NewGuid().ToString())
 Copy-Item -LiteralPath $PortableFolder -Destination $tgTest -Recurse
+# Match Explorer's extraction of an Internet-downloaded release ZIP.
+Get-ChildItem -LiteralPath $tgTest -Recurse -Filter *.dll | ForEach-Object {
+    Set-Content -LiteralPath $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
+}
 $tgOldPath = $env:PATH
 $tgApp = $null
 try {
